@@ -17,7 +17,7 @@ export async function loadStoreConfig(storeId?: string): Promise<StoreConfig> {
   const data = getStore();
   if (data.getStoreConfig) {
     const row = await data.getStoreConfig(id);
-    if (row) return row.config;
+    if (row) return { ...row.config, domains: row.config.domains };
   }
   return configFromRow(id, null);
 }

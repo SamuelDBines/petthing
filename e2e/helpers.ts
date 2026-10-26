@@ -21,8 +21,11 @@ export const adminPassword = process.env.ADMIN_PASSWORD || "portrait-dev";
 
 export async function completePortraitWizard(page: Page, email: string, store?: string) {
   const suffix = store ? `?store=${store}` : "";
+  const catalogReady = page.waitForResponse(
+    (response) => response.url().includes("/api/catalog") && response.ok(),
+  );
   await page.goto(`/create${suffix}`);
-  await page.waitForResponse((response) => response.url().includes("/api/catalog") && response.ok());
+  await catalogReady;
   await page.getByRole("button", { name: "Continue" }).first().click();
   const sample = path.join(process.cwd(), "public/examples/pet-before.jpg");
   await page.getByTestId("photo-upload").setInputFiles(sample);

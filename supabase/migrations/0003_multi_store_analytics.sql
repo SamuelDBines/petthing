@@ -19,8 +19,21 @@ alter table daily_spend drop constraint if exists daily_spend_pkey;
 alter table daily_spend add primary key (store_id, day);
 
 alter table app_settings add column if not exists store_id text not null default 'pawtraitry';
+
+update app_settings set store_id = 'pawtraitry' where store_id is null or store_id = '';
+
 alter table app_settings drop constraint if exists app_settings_pkey;
-alter table app_settings add primary key (store_id);
+
+alter table app_settings drop column if exists id;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conrelid = 'app_settings'::regclass and contype = 'p'
+  ) then
+    alter table app_settings add primary key (store_id);
+  end if;
+end $$;
 
 insert into stores (id, slug, domains, config)
 values ('pawtraitry', 'pawtraitry', array['pawtraitry.co.uk','www.pawtraitry.co.uk','pawtraitry.localhost','localhost'], '{}'::jsonb),

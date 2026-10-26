@@ -2,13 +2,17 @@ import { usdToGbp } from "@/lib/runtime";
 
 const THRESHOLD = 0.45;
 
+function mockModerationEnabled() {
+  return process.env.MOCK_MODERATION === "true" || process.env.ALLOW_MOCK_MODERATION === "true";
+}
+
 export async function moderateImage(bytes: Buffer, contentType: string) {
   const key = process.env.FAL_KEY;
   if (!key) {
-    if (process.env.NODE_ENV === "production") {
-      return { allowed: false, reason: "Image moderation is not configured", costGbp: 0, skipped: false };
+    if (mockModerationEnabled() || process.env.NODE_ENV !== "production") {
+      return { allowed: true, reason: "moderation skipped (mock)", costGbp: 0, skipped: true };
     }
-    return { allowed: true, reason: "skipped in local demo", costGbp: 0, skipped: true };
+    return { allowed: false, reason: "Image moderation is not configured", costGbp: 0, skipped: false };
   }
 
   const dataUrl = `data:${contentType};base64,${bytes.toString("base64")}`;

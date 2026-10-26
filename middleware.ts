@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { cachedStoreDomainRows } from "@/lib/tenant/domainCache";
 import { resolveStoreIdFromHost } from "@/lib/tenant/resolve";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost";
   const storeQuery = request.nextUrl.searchParams.get("store");
   const cookieStore = request.cookies.get("ps_store")?.value;
-  let storeId = resolveStoreIdFromHost(host, storeQuery);
+  const dbRows = await cachedStoreDomainRows();
+  let storeId = resolveStoreIdFromHost(host, storeQuery, dbRows);
   if (!storeQuery && cookieStore && process.env.NODE_ENV !== "production") {
     const fromCookie = resolveStoreIdFromHost(host, cookieStore);
     if (fromCookie) storeId = fromCookie;

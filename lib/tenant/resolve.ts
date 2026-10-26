@@ -1,25 +1,14 @@
-import { BUILTIN_STORES, DEFAULT_STORE_ID, builtinStore } from "@/lib/tenant/defaults";
+import { BUILTIN_STORES, builtinStore } from "@/lib/tenant/defaults";
+import { resolveStoreIdFromHostList } from "@/lib/tenant/domains";
 import type { StoreConfig } from "@/lib/tenant/types";
+import { domainsForStore } from "@/lib/tenant/domains";
 
-function normalizeHost(host: string) {
-  const trimmed = host.trim().toLowerCase();
-  const withoutPort = trimmed.split(":")[0];
-  return withoutPort;
-}
-
-export function resolveStoreIdFromHost(host: string, storeQuery?: string | null): string {
-  if (process.env.NODE_ENV !== "production" && storeQuery) {
-    const fromQuery = builtinStore(storeQuery.trim());
-    if (fromQuery) return fromQuery.id;
-  }
-  const hostname = normalizeHost(host);
-  for (const store of BUILTIN_STORES) {
-    if (store.domains.some((domain) => normalizeHost(domain) === hostname || domain === host.toLowerCase())) {
-      return store.id;
-    }
-  }
-  if (hostname === "localhost" || hostname === "127.0.0.1") return DEFAULT_STORE_ID;
-  return DEFAULT_STORE_ID;
+export function resolveStoreIdFromHost(
+  host: string,
+  storeQuery?: string | null,
+  dbRows?: { id: string; domains: string[] }[],
+): string {
+  return resolveStoreIdFromHostList(host, storeQuery, dbRows);
 }
 
 export function mergeStoreConfig(base: StoreConfig, patch?: Partial<StoreConfig> | null): StoreConfig {
@@ -37,10 +26,11 @@ export function mergeStoreConfig(base: StoreConfig, patch?: Partial<StoreConfig>
   };
 }
 
-export function configFromRow(id: string, config: Partial<StoreConfig> | null): StoreConfig {
+export function configFromRow(id: string, config: Partial<StoreConfig> | null, dbDomains: string[] = []): StoreConfig {
   const builtin = builtinStore(id);
   if (!builtin) throw new Error(`Unknown store ${id}`);
-  return mergeStoreConfig(builtin, config ?? undefined);
+  const merged = mergeStoreConfig(builtin, config ?? undefined);
+  return { ...merged, domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]) };
 }
 
 export function listBuiltinStores(): StoreConfig[] {

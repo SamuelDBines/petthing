@@ -3,6 +3,7 @@ import * as schema from "@/db/schema";
 import type { Settings } from "@/lib/domain";
 import type { StoreConfig } from "@/lib/tenant/types";
 import type { StoreRow } from "@/lib/tenant/types";
+import { bustStoreDomainCache } from "@/lib/tenant/domainCache";
 import { configFromRow } from "@/lib/tenant/resolve";
 import { BUILTIN_STORES, DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { getSql } from "@/lib/db/client";
@@ -56,7 +57,7 @@ export async function listStoreRows(): Promise<StoreRow[]> {
     id: row.id,
     slug: row.slug,
     domains: row.domains ?? [],
-    config: configFromRow(row.id, row.config as Partial<StoreConfig>),
+    config: configFromRow(row.id, row.config as Partial<StoreConfig>, row.domains ?? []),
     createdAt: row.createdAt.toISOString(),
   }));
 }
@@ -68,7 +69,7 @@ export async function getStoreRow(id: string): Promise<StoreRow | null> {
     id: row.id,
     slug: row.slug,
     domains: row.domains ?? [],
-    config: configFromRow(row.id, row.config as Partial<StoreConfig>),
+    config: configFromRow(row.id, row.config as Partial<StoreConfig>, row.domains ?? []),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -92,6 +93,7 @@ export async function upsertStoreRow(input: {
       target: stores.id,
       set: { slug: input.slug, domains: input.domains, config: input.config ?? {} },
     });
+  bustStoreDomainCache();
   await tdb()
     .insert(appSettings)
     .values({

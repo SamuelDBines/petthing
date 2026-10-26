@@ -9,6 +9,9 @@ import { VisitorTracker } from "@/components/visitor-tracker";
 import { loadStoreConfig, themeCssVars } from "@/lib/tenant/context";
 import "./globals.css";
 
+/** Store theme is chosen per request hostname — must not be statically prerendered. */
+export const instant = false;
+
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 

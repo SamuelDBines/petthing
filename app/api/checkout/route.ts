@@ -13,15 +13,9 @@ import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
-import { appUrl, clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
-
-function requestOrigin(request: Request) {
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (!host) return appUrl();
-  const proto = request.headers.get("x-forwarded-proto") || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  return `${proto}://${host}`;
-}
+import { clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
+import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
@@ -92,12 +86,13 @@ function line(name: string, amount: number, yearly = false): Stripe.Checkout.Ses
 }
 
 export async function POST(request: Request) {
-  const origin = requestOrigin(request);
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const store = getStore();
   const storeId = await requestStoreId();
-  const brand = (await loadStoreConfig(storeId)).brand;
+  const storeConfig = await loadStoreConfig(storeId);
+  const brand = storeConfig.brand;
+  const origin = publicOriginForStore(request, brand, storeId, storeConfig.domains);
   const limits = rateLimits();
   const limit = await store.hitRateLimit(
     `checkout:${storeId}:${hashIp(clientIp(request))}`,
