@@ -1,14 +1,24 @@
+import { compareAtPence, recommendedPence } from "@/config/catalogue/pricing-seed";
+import { PAWTRAITRY_SKU_BY_HAND_PAINTED_TIER } from "@/config/catalogue/pawtraitry-skus";
 import type { Tier } from "@/config/pricing";
 
 /** Painted-style AI presets (Pawtraitry canvas range). */
 export const PAINTED_STYLE_IDS = ["oil-painting", "watercolour", "charcoal-sketch"] as const;
 export type PaintedStyleId = (typeof PAINTED_STYLE_IDS)[number];
 
+function handPaintedPrice(id: keyof typeof PAWTRAITRY_SKU_BY_HAND_PAINTED_TIER) {
+  const sku = PAWTRAITRY_SKU_BY_HAND_PAINTED_TIER[id];
+  return {
+    pricePence: recommendedPence("Pawtraitry", sku),
+    compareAtPricePence: compareAtPence("Pawtraitry", sku),
+  };
+}
+
 export const HAND_PAINTED_TIERS: Tier[] = [
   {
     id: "hand_painted_12x16",
     name: "Hand-painted 12×16″",
-    pricePence: 22900,
+    ...handPaintedPrice("hand_painted_12x16"),
     styleCount: 1,
     imageCount: 1,
     quality: "hd",
@@ -20,7 +30,7 @@ export const HAND_PAINTED_TIERS: Tier[] = [
   {
     id: "hand_painted_16x20",
     name: "Hand-painted 16×20″",
-    pricePence: 27900,
+    ...handPaintedPrice("hand_painted_16x20"),
     styleCount: 1,
     imageCount: 1,
     quality: "hd",

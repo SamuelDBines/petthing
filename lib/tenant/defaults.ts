@@ -124,7 +124,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
       priorityPence: 0,
       extraStylesPence: 0,
       christmasPreorderPence: 0,
-      freeUkShipping: true,
+      freeUkShipping: false,
     },
     settings: {
       themeMode: "manual",

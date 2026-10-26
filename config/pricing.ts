@@ -1,10 +1,14 @@
 export type TierId = "mini" | "classic" | "deluxe" | "hand_painted_12x16" | "hand_painted_16x20";
 export type Quality = "standard" | "hd";
 
+import { compareAtPence, recommendedPence } from "@/config/catalogue/pricing-seed";
+import { PAWTRAITRY_SKU_BY_TIER_ID } from "@/config/catalogue/pawtraitry-skus";
+
 export type Tier = {
   id: TierId;
   name: string;
   pricePence: number;
+  compareAtPricePence?: number | null;
   styleCount: number | "all";
   imageCount: number;
   quality: Quality;
@@ -14,11 +18,19 @@ export type Tier = {
   points: string[];
 };
 
+function tierPrice(id: keyof typeof PAWTRAITRY_SKU_BY_TIER_ID) {
+  const sku = PAWTRAITRY_SKU_BY_TIER_ID[id];
+  return {
+    pricePence: recommendedPence("Pawtraitry", sku),
+    compareAtPricePence: compareAtPence("Pawtraitry", sku),
+  };
+}
+
 export const TIERS: Tier[] = [
   {
     id: "mini",
     name: "Mini",
-    pricePence: 599,
+    ...tierPrice("mini"),
     styleCount: 1,
     imageCount: 2,
     quality: "standard",
@@ -30,19 +42,19 @@ export const TIERS: Tier[] = [
   {
     id: "classic",
     name: "Classic",
-    pricePence: 1099,
-    styleCount: 2,
+    ...tierPrice("classic"),
+    styleCount: 3,
     imageCount: 6,
     quality: "hd",
     includesCard: false,
     popular: true,
     blurb: "The set most people send to the family chat.",
-    points: ["2 styles", "6 images", "HD"],
+    points: ["3 styles", "6 images", "HD"],
   },
   {
     id: "deluxe",
     name: "Deluxe",
-    pricePence: 1599,
+    ...tierPrice("deluxe"),
     styleCount: "all",
     imageCount: 12,
     quality: "hd",

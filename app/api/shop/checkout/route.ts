@@ -1,6 +1,8 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
 import { getCatalogueProduct, listCatalogueProducts } from "@/lib/catalogue/products";
+import { shopOrderLinesForProduct } from "@/lib/catalogue/order-lines";
 import type { ShopOrder, ShopOrderLine } from "@/lib/catalogue/types";
 import { formatGbp } from "@/config/pricing";
 import { jsonError, parseBody } from "@/lib/http";
@@ -24,6 +26,7 @@ async function openSession(args: {
   lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
   metadata: Record<string, string>;
   idempotencyKey: string;
+  shippingPence: number;
 }) {
   const stripe = getStripe();
   const success = `${args.origin}/shop/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -45,8 +48,11 @@ async function openSession(args: {
         {
           shipping_rate_data: {
             type: "fixed_amount",
-            fixed_amount: { amount: 0, currency: "gbp" },
-            display_name: "Free UK delivery",
+            fixed_amount: { amount: args.shippingPence, currency: "gbp" },
+            display_name:
+              args.shippingPence === 0
+                ? "Free UK delivery"
+                : `UK delivery (${formatGbp(args.shippingPence)})`,
           },
         },
       ],
@@ -78,17 +84,12 @@ export async function POST(request: Request) {
     const product = getCatalogueProduct(storeId, line.productId);
     if (!product || !product.active) return jsonError(`Unknown product: ${line.productId}`);
     if (product.stock < line.quantity) return jsonError(`${product.name} is out of stock.`);
-    lines.push({
-      productId: product.id,
-      name: product.name,
-      supplierSku: product.supplierSku,
-      supplier: product.supplier,
-      quantity: line.quantity,
-      unitPricePence: product.pricePence,
-      costPence: product.costPence,
-    });
+    lines.push(...shopOrderLinesForProduct(product, line.quantity));
     subtotal += product.pricePence * line.quantity;
   }
+
+  const shippingPence = fixmongerShippingPence(subtotal);
+  const orderTotalPence = subtotal + shippingPence;
 
   const shopOrder: ShopOrder = {
     id: randomUUID(),
@@ -97,8 +98,8 @@ export async function POST(request: Request) {
     status: "pending_payment",
     lines,
     shipping: null,
-    amountPence: subtotal,
-    shippingPence: 0,
+    amountPence: orderTotalPence,
+    shippingPence,
     stripeCheckoutSessionId: null,
     trackingNumber: null,
     supplierBatchId: null,
@@ -107,14 +108,17 @@ export async function POST(request: Request) {
   };
   await store.createShopOrder(shopOrder);
 
-  const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = lines.map((line) => ({
-    quantity: line.quantity,
-    price_data: {
-      currency: "gbp",
-      unit_amount: line.unitPricePence,
-      product_data: { name: line.name },
-    },
-  }));
+  const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = parsed.data.lines.map((line) => {
+    const product = getCatalogueProduct(storeId, line.productId)!;
+    return {
+      quantity: line.quantity,
+      price_data: {
+        currency: "gbp",
+        unit_amount: product.pricePence,
+        product_data: { name: product.name },
+      },
+    };
+  });
 
   const origin = publicOriginForStore(request, config.brand, storeId, config.domains);
   const opened = await openSession({
@@ -123,6 +127,7 @@ export async function POST(request: Request) {
     lineItems: stripeItems,
     metadata: { kind: "shop", shopOrderId: shopOrder.id, storeId },
     idempotencyKey: `shop-${shopOrder.id}`,
+    shippingPence,
   });
   if (opened instanceof Response) return opened;
   if (opened.demo) {
@@ -131,7 +136,7 @@ export async function POST(request: Request) {
       id: sessionId,
       payment_status: "paid",
       metadata: { kind: "shop", shopOrderId: shopOrder.id, storeId },
-      amount_total: subtotal,
+      amount_total: orderTotalPence,
       collected_information: {
         shipping_details: {
           name: "Demo Customer",
@@ -139,8 +144,19 @@ export async function POST(request: Request) {
         },
       },
     } as unknown as Stripe.Checkout.Session);
-    return Response.json({ url: `${origin}/shop/success?session_id=${sessionId}`, total: formatGbp(subtotal) });
+    return Response.json({
+      url: `${origin}/shop/success?session_id=${sessionId}`,
+      total: formatGbp(orderTotalPence),
+      subtotal: formatGbp(subtotal),
+      shipping: formatGbp(shippingPence),
+    });
   }
   await store.updateShopOrder(shopOrder.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
-  return Response.json({ url: opened.url, total: formatGbp(subtotal) });
+  return Response.json({
+    url: opened.url,
+    total: formatGbp(orderTotalPence),
+    subtotal: formatGbp(subtotal),
+    shipping: formatGbp(shippingPence),
+    freeDeliveryOver: formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence),
+  });
 }

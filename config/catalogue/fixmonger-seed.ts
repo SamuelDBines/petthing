@@ -1,70 +1,150 @@
+import { FIXMONGER_BUNDLE_COMPONENTS } from "@/config/catalogue/fixmonger-bundles";
+import {
+  adminUnitCostPence,
+  compareAtPence,
+  isDroppedSku,
+  pricingRowsForStore,
+  recommendedPence,
+} from "@/config/catalogue/pricing-seed";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 
-/** Go Dropship UK starter SKUs (wholesale / retail GBP). */
-export const FIXMONGER_SEED_PRODUCTS: CatalogueProduct[] = [
-  {
-    id: "hom-76459",
-    storeId: "fixmonger",
-    slug: "magnetic-thermal-door-curtain",
-    name: "Magnetic thermal door curtain",
+const PLACEHOLDER = {
+  winter: "/stores/fixmonger/placeholder-frost-cover.svg",
+  door: "/stores/fixmonger/placeholder-door-curtain.svg",
+  brush: "/stores/fixmonger/placeholder-snow-brush.svg",
+  car: "/stores/fixmonger/placeholder-frost-cover.svg",
+  home: "/stores/fixmonger/placeholder-door-curtain.svg",
+  bundle: "/stores/fixmonger/placeholder-snow-brush.svg",
+} as const;
+
+const COPY: Record<string, { category: string; description: string; image: string }> = {
+  "HOM-76459": {
     category: "winter",
     description:
       "Keeps the draught out without wrestling with a door strip every time the dog wants in. Magnets snap shut behind you.",
-    supplier: "go_dropship",
-    supplierSku: "HOM-76459",
-    costPence: 1199,
-    pricePence: 2999,
-    stock: 50,
-    images: ["/stores/fixmonger/placeholder-door-curtain.svg"],
-    variants: [],
-    active: true,
+    image: PLACEHOLDER.door,
   },
-  {
-    id: "car-46787",
-    storeId: "fixmonger",
-    slug: "windscreen-frost-cover",
-    name: "Windscreen frost cover",
+  "HOM-76454": {
+    category: "winter",
+    description: "Same magnetic thermal curtain in an 80×200cm size for narrower doorways.",
+    image: PLACEHOLDER.door,
+  },
+  "CAR-46787": {
     category: "winter",
     description: "Stop scraping at 6am. Elastic hooks, fits most hatchbacks and estates.",
-    supplier: "go_dropship",
-    supplierSku: "CAR-46787",
-    costPence: 399,
-    pricePence: 1299,
-    stock: 80,
-    images: ["/stores/fixmonger/placeholder-frost-cover.svg"],
-    variants: [],
-    active: true,
+    image: PLACEHOLDER.winter,
   },
-  {
-    id: "hom-74935",
-    storeId: "fixmonger",
-    slug: "5-in-1-snow-brush-kit",
-    name: "5-in-1 snow brush kit",
+  "HOM-62916": {
+    category: "winter",
+    description: "Larger windscreen cover for SUVs and 4×4s — 157×126cm with mirror flaps.",
+    image: PLACEHOLDER.winter,
+  },
+  "HOM-74935": {
     category: "winter",
     description: "Brush, scraper, squeegee, and extendable handle — the boot of every British winter.",
-    supplier: "go_dropship",
-    supplierSku: "HOM-74935",
-    costPence: 1041,
-    pricePence: 2499,
-    stock: 40,
-    images: ["/stores/fixmonger/placeholder-snow-brush.svg"],
-    variants: [],
-    active: true,
+    image: PLACEHOLDER.brush,
   },
-  {
-    id: "hb-76661",
-    storeId: "fixmonger",
-    slug: "folding-clothes-airer",
-    name: "Folding clothes airer",
+  "AB6701": {
     category: "winter",
-    description: "When the radiators are full and the tumble dryer costs a fortune. Folds flat under the stairs.",
+    description: "Two-piece extendable snow brush and ice scraper set for quick clears.",
+    image: PLACEHOLDER.brush,
+  },
+  "HOM-56098": {
+    category: "garden",
+    description: "2×10m frost fleece roll to tuck tender plants in before the first hard frost.",
+    image: PLACEHOLDER.home,
+  },
+  "HOM-55115": {
+    category: "garden",
+    description: "Reusable plant jacket — zip it round pots and small shrubs on cold nights.",
+    image: PLACEHOLDER.home,
+  },
+  "GEM-76744": {
+    category: "storage",
+    description: "Heavy-duty bag for a disassembled tree — zip, handles, and no more loft chaos.",
+    image: PLACEHOLDER.home,
+  },
+  "CAR-63366": {
+    category: "car",
+    description: "Pockets for tablets, bottles, and the stuff that usually slides under the seat.",
+    image: PLACEHOLDER.car,
+  },
+  "CAR-76112": {
+    category: "car",
+    description: "Memory-foam headrest pillow for long motorway stints.",
+    image: PLACEHOLDER.car,
+  },
+  "CAR-75067": {
+    category: "car",
+    description: "Visible steering-wheel lock — cheap peace of mind on the drive.",
+    image: PLACEHOLDER.car,
+  },
+  "HOM-53076": {
+    category: "home",
+    description: "Stick-on insect mesh so you can air the house without the midges.",
+    image: PLACEHOLDER.home,
+  },
+  "HB-75865": {
+    category: "car",
+    description: "Pair of pop-on rear sun shades — stops the kids complaining on sunny school runs.",
+    image: PLACEHOLDER.car,
+  },
+  "FX-KIT-CAR": {
+    category: "bundles",
+    description: "Winter car kit: windscreen frost cover plus 2-piece snow brush and ice scraper.",
+    image: PLACEHOLDER.bundle,
+  },
+  "FX-KIT-DOOR": {
+    category: "bundles",
+    description: "Draught-proof door kit: 90×210 magnetic thermal curtain plus a windscreen frost cover.",
+    image: PLACEHOLDER.bundle,
+  },
+  "FX-KIT-GARDEN": {
+    category: "bundles",
+    description: "Garden frost kit: 2×10m fleece roll plus two plant frost jackets.",
+    image: PLACEHOLDER.bundle,
+  },
+};
+
+function slugFromSku(sku: string) {
+  return sku.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function buildProduct(row: ReturnType<typeof pricingRowsForStore>[number]): CatalogueProduct | null {
+  if (isDroppedSku(row)) return null;
+  const meta = COPY[row.sku] ?? {
+    category: "home",
+    description: row.name,
+    image: PLACEHOLDER.home,
+  };
+  const bundleComponents = FIXMONGER_BUNDLE_COMPONENTS[row.sku];
+  const isBundle = Boolean(bundleComponents?.length);
+  const costPence = isBundle
+    ? bundleComponents!.reduce((sum, line) => sum + line.costPence * line.quantity, 0)
+    : adminUnitCostPence("Fixmonger", row.sku);
+
+  return {
+    id: slugFromSku(row.sku),
+    storeId: "fixmonger",
+    slug: slugFromSku(row.sku),
+    name: isBundle ? row.name.split(":")[0]?.trim() || row.name : row.name,
+    category: meta.category,
+    description: meta.description,
     supplier: "go_dropship",
-    supplierSku: "HB-76661",
-    costPence: 1228,
-    pricePence: 3299,
-    stock: 35,
-    images: ["/stores/fixmonger/placeholder-airer.svg"],
+    supplierSku: row.sku,
+    costPence,
+    pricePence: recommendedPence("Fixmonger", row.sku),
+    compareAtPricePence: compareAtPence("Fixmonger", row.sku),
+    kind: isBundle ? "bundle" : "standard",
+    bundleComponents: isBundle ? bundleComponents : undefined,
+    stock: 50,
+    images: [meta.image],
     variants: [],
     active: true,
-  },
-];
+  };
+}
+
+/** Fixmonger catalogue from config/catalogue/pricing.seed.json (re-price there). */
+export const FIXMONGER_SEED_PRODUCTS: CatalogueProduct[] = pricingRowsForStore("Fixmonger")
+  .map(buildProduct)
+  .filter((product): product is CatalogueProduct => product !== null);

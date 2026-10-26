@@ -34,6 +34,7 @@ export async function completePortraitWizard(page: Page, email: string, store?: 
   await styleButtons.first().waitFor({ state: "visible", timeout: 30_000 });
   await styleButtons.nth(0).click({ noWaitAfter: true });
   await styleButtons.nth(1).click({ noWaitAfter: true });
+  await styleButtons.nth(2).click({ noWaitAfter: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByTestId("checkout-email").fill(email);
   await page.getByRole("checkbox", { name: /permission/i }).check();

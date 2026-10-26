@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatGbp } from "@/config/pricing";
-import type { CatalogueProduct } from "@/lib/catalogue/types";
+import { FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 import { addToCart, readCart } from "@/lib/cart/storage";
 
-export function FixmongerHome({ products: initialProducts }: { products: CatalogueProduct[] }) {
-  const [products] = useState<CatalogueProduct[]>(initialProducts);
+export function FixmongerHome({ products: initialProducts }: { products: StorefrontCatalogueProduct[] }) {
+  const [products] = useState<StorefrontCatalogueProduct[]>(initialProducts);
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export function FixmongerHome({ products: initialProducts }: { products: Catalog
           <h1 className="font-display text-4xl text-[var(--ink)]">Cheap fixes for proper British weather.</h1>
           <p className="mt-2 max-w-xl text-[var(--moss)]">
             Frost covers, draught curtains, and the other sensible bits your shed should have had years ago. Free UK
-            delivery.
+            delivery on orders over {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.
           </p>
         </div>
         <Link
@@ -43,7 +44,14 @@ export function FixmongerHome({ products: initialProducts }: { products: Catalog
               <Link href={`/shop/${product.slug}`}>{product.name}</Link>
             </h2>
             <p className="mt-1 text-sm text-[var(--moss)] line-clamp-2">{product.description}</p>
-            <p className="mt-3 font-semibold text-[var(--ink)]">{formatGbp(product.pricePence)}</p>
+            <p className="mt-3 font-semibold text-[var(--ink)]">
+              {formatGbp(product.pricePence)}
+              {product.compareAtPricePence ? (
+                <span className="ml-2 text-sm font-normal text-[var(--moss)] line-through">
+                  {formatGbp(product.compareAtPricePence)}
+                </span>
+              ) : null}
+            </p>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"

@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatGbp } from "@/config/pricing";
-import type { CatalogueProduct } from "@/lib/catalogue/types";
+import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 import type { ShopCartLine } from "@/lib/catalogue/types";
 import { readCart, writeCart } from "@/lib/cart/storage";
 
-export function FixmongerCartPage({ products }: { products: CatalogueProduct[] }) {
+export function FixmongerCartPage({ products }: { products: StorefrontCatalogueProduct[] }) {
   const [lines, setLines] = useState<ShopCartLine[]>([]);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,9 +24,10 @@ export function FixmongerCartPage({ products }: { products: CatalogueProduct[] }
       if (!product) return null;
       return { line, product, total: product.pricePence * line.quantity };
     })
-    .filter(Boolean) as { line: ShopCartLine; product: CatalogueProduct; total: number }[];
+    .filter(Boolean) as { line: ShopCartLine; product: StorefrontCatalogueProduct; total: number }[];
 
   const subtotal = rows.reduce((sum, row) => sum + row.total, 0);
+  const shippingPence = fixmongerShippingPence(subtotal);
 
   async function checkout() {
     setBusy(true);
@@ -65,7 +67,18 @@ export function FixmongerCartPage({ products }: { products: CatalogueProduct[] }
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-right font-semibold">Subtotal {formatGbp(subtotal)} · Free UK delivery</p>
+          <p className="mt-4 text-right text-sm text-[var(--moss)]">
+            Subtotal {formatGbp(subtotal)}
+            <br />
+            Delivery {shippingPence === 0 ? "free" : formatGbp(shippingPence)}
+            {shippingPence > 0 ? (
+              <>
+                <br />
+                <span>Free delivery over {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}</span>
+              </>
+            ) : null}
+          </p>
+          <p className="mt-1 text-right font-semibold">Total {formatGbp(subtotal + shippingPence)}</p>
           <label className="mt-6 block text-sm">
             Email for receipt
             <input

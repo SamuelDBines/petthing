@@ -1,12 +1,7 @@
+import { PAWTRAITRY_SKU_BY_PRINT_ID, pawtraitryPrintPricePence, type PawtraitryPrintId } from "@/config/catalogue/pawtraitry-skus";
 import { CANVAS_PRINTS, canvasPrintIds } from "@/config/canvasPrints";
 
-export type PrintProductId =
-  | "puzzle_252"
-  | "canvas_slim_12x16"
-  | "canvas_stretched_12x16"
-  | "canvas_stretched_16x20"
-  | "canvas_framed_slim_16x20"
-  | "canvas_framed_16x20";
+export type PrintProductId = PawtraitryPrintId;
 
 export type PrintSheet = "board" | "lid" | "canvas";
 
@@ -14,7 +9,7 @@ export type PrintProduct = {
   id: PrintProductId;
   name: string;
   detail: string;
-  /** Customer price. Confirm it covers the Prodigi quote plus UK postage before going live. */
+  /** Customer price (UK delivery included in price for Pawtraitry prints). */
   pricePence: number;
   skuEnv: string;
   defaultSku: string;
@@ -42,8 +37,8 @@ const PUZZLE_PRINTS: PrintProduct[] = [
   {
     id: "puzzle_252",
     name: "252-piece puzzle",
-    detail: "Your portrait, kept whole, on a 375×285mm puzzle and on the tin lid. Made in the UK and posted to you.",
-    pricePence: 3499,
+    detail: "Your portrait, kept whole, on a 375×285mm puzzle and on the tin lid. UK delivery included in the price.",
+    pricePence: pawtraitryPrintPricePence("puzzle_252"),
     skuEnv: "PRODIGI_SKU_PUZZLE",
     defaultSku: "JIGSAW-PUZZLE-252",
     copies: 1,
