@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { jsonError, parseBody } from "@/lib/http";
+import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
 import { requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
@@ -12,7 +13,8 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response;
   const store = getStore();
   const storeId = await requestStoreId();
-  const limit = await store.hitRateLimit(`event:${storeId}:${hashIp(clientIp(request))}`, 30, 60 * 60 * 1000);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(`event:${storeId}:${hashIp(clientIp(request))}`, limits.eventsPerHour, 60 * 60 * 1000);
   if (!limit.ok) return Response.json({ ok: true });
   await store.addEvent({
     id: randomUUID(),

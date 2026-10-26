@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { collectVisitorAnalytics, listRollups, recomputeRollup } from "@/lib/db/analytics-methods";
+import { pgTimestamptz } from "@/lib/db/sqlTime";
 import {
   ensureBuiltinStores,
   getStoreRow,
@@ -549,17 +550,18 @@ export const postgresStore = {
   async hitRateLimit(key: string, limit: number, windowMs: number) {
     const client = getSql();
     return client.begin(async (tx) => {
-      const rows = await tx<{ count: number; reset_at: Date }[]>`
+      const rows = await tx<{ count: number; reset_at: Date | string }[]>`
         select count, reset_at from rate_buckets where bucket_key = ${key} for update
       `;
       const now = Date.now();
       const row = rows[0];
-      if (!row || row.reset_at.getTime() <= now) {
-        const resetAt = new Date(now + windowMs);
+      const resetAtMs = row ? new Date(row.reset_at).getTime() : 0;
+      if (!row || resetAtMs <= now) {
+        const resetAt = pgTimestamptz(now + windowMs);
         await tx`
           insert into rate_buckets (bucket_key, count, reset_at)
-          values (${key}, 1, ${resetAt})
-          on conflict (bucket_key) do update set count = 1, reset_at = ${resetAt}
+          values (${key}, 1, ${resetAt}::timestamptz)
+          on conflict (bucket_key) do update set count = 1, reset_at = ${resetAt}::timestamptz
         `;
         return { ok: true as const, remaining: limit - 1 };
       }

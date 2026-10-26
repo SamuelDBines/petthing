@@ -8,10 +8,10 @@ import { BUILTIN_STORES, DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { configFromRow } from "@/lib/tenant/resolve";
 import type { StoreRow } from "@/lib/tenant/types";
 import { jobIsClaimable, LOCK_MS } from "@/lib/queue";
+import { localDataPath } from "@/lib/localPaths";
 import { londonDay } from "@/lib/runtime";
 
-const root = path.join(process.cwd(), ".data");
-const file = path.join(root, "db.json");
+const file = localDataPath("db.json");
 
 const defaultSettings = (): Settings => ({
   themeMode: "auto",
@@ -82,7 +82,7 @@ async function read(): Promise<Database> {
 }
 
 async function write(db: Database) {
-  await mkdir(root, { recursive: true });
+  await mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tmp, JSON.stringify(db, null, 2));
   await rename(tmp, file);

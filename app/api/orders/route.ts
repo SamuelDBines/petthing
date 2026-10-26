@@ -4,6 +4,7 @@ import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
 import { cleanUtm, jsonError, parseBody } from "@/lib/http";
 import { orderInputSchema, photoConsentGiven } from "@/lib/orderInput";
+import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
 import { requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
   const store = getStore();
   const storeId = await requestStoreId();
   const ipHash = hashIp(clientIp(request));
-  const limit = await store.hitRateLimit(`order:${storeId}:${ipHash}`, 12, 60 * 60 * 1000);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(`order:${storeId}:${ipHash}`, limits.ordersPerHour, 60 * 60 * 1000);
   if (!limit.ok) return jsonError("Too many orders from this connection. Try again in an hour.", 429);
 
   const { settings, theme, config } = await getCatalog(storeId);

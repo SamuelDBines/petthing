@@ -51,7 +51,7 @@ make dev
    docker compose --profile stripe up stripe-listener
    ```
 
-   Copy the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET` in `.env.local`, then restart `npm run dev`.
+   Watch the container logs for `whsec_…` and put it in `STRIPE_WEBHOOK_SECRET` in `.env.local`, then restart `npm run dev`.
 
 4. Test card: `4242 4242 4242 4242`, any future expiry, any CVC, UK postcode.
 
@@ -63,7 +63,7 @@ Leave `FAL_KEY`, `PRODIGI_API_KEY`, and `RESEND_API_KEY` empty:
 
 - Portraits use coloured **placeholder** images (`lib/placeholderImage.ts`).
 - Prodigi puzzle orders get a fake id `mock_prodigi_*` (logged to the terminal).
-- Emails are written under `.data/outbox/` and logged as `[email] …`.
+- Emails are written under `~/.pawtraitry-local/outbox/` (or `LOCAL_DATA_DIR`) and logged as `[email] …`.
 
 With sandbox keys set, the same code paths call the real fal, Prodigi sandbox, and Resend APIs.
 

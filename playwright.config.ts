@@ -14,9 +14,40 @@ function loadEnvLocal() {
 }
 
 const local = loadEnvLocal();
-const stripeReady =
-  Boolean(process.env.E2E_STRIPE) &&
-  (local.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || "").startsWith("sk_test_");
+const stripeE2e = Boolean(process.env.E2E_STRIPE);
+const stripeKey = stripeE2e ? local.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || "" : "";
+const stripeReady = stripeE2e && stripeKey.startsWith("sk_test_");
+
+const webServerEnv: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== undefined) as [string, string][]),
+  ...local,
+  NODE_ENV: "development",
+  ADMIN_PASSWORD: local.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || "portrait-dev",
+  ADMIN_SESSION_SECRET: local.ADMIN_SESSION_SECRET || "e2e-admin-session",
+  CRON_SECRET: local.CRON_SECRET || "e2e-cron",
+  FILE_SIGNING_SECRET: local.FILE_SIGNING_SECRET || "e2e-files",
+  IP_HASH_SALT: local.IP_HASH_SALT || "e2e-ip",
+  ALLOW_DEMO_CHECKOUT: "true",
+  MANUAL_REVIEW: local.MANUAL_REVIEW || "true",
+  DATABASE_URL: "",
+  DATABASE_URL_DIRECT: "",
+  E2E_STRIPE_READY: stripeReady ? "1" : "0",
+  RATE_LIMIT_ORDERS_PER_HOUR: "500",
+  RATE_LIMIT_CHECKOUT_PER_HOUR: "500",
+  RATE_LIMIT_EVENTS_PER_HOUR: "500",
+  RATE_LIMIT_UPLOADS_PER_HOUR: "500",
+  RATE_LIMIT_ANALYTICS_PER_MINUTE: "5000",
+};
+
+// Mock E2E must not pick up a Stripe key from .env.local (demo checkout would be disabled).
+if (!stripeReady) {
+  webServerEnv.STRIPE_SECRET_KEY = "";
+  webServerEnv.STRIPE_WEBHOOK_SECRET = "";
+} else {
+  webServerEnv.STRIPE_SECRET_KEY = stripeKey;
+  webServerEnv.STRIPE_WEBHOOK_SECRET = local.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || "";
+  webServerEnv.ALLOW_DEMO_CHECKOUT = "false";
+}
 
 export default defineConfig({
   testDir: "e2e",
@@ -37,20 +68,6 @@ export default defineConfig({
     url: "http://localhost:3000/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: {
-      ...process.env,
-      ...local,
-      NODE_ENV: "development",
-      ADMIN_PASSWORD: local.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || "portrait-dev",
-      ADMIN_SESSION_SECRET: local.ADMIN_SESSION_SECRET || "e2e-admin-session",
-      CRON_SECRET: local.CRON_SECRET || "e2e-cron",
-      FILE_SIGNING_SECRET: local.FILE_SIGNING_SECRET || "e2e-files",
-      IP_HASH_SALT: local.IP_HASH_SALT || "e2e-ip",
-      ALLOW_DEMO_CHECKOUT: "true",
-      MANUAL_REVIEW: local.MANUAL_REVIEW || "true",
-      DATABASE_URL: "",
-      DATABASE_URL_DIRECT: "",
-      E2E_STRIPE_READY: stripeReady ? "1" : "0",
-    },
+    env: webServerEnv,
   },
 });

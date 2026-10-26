@@ -1,11 +1,12 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { AI_GENERATED_LABEL, APP_NAME, DIGITAL_SUPPLY_CONSENT_LABEL, siteUrl } from "@/config/brand";
+import { localDataPath } from "@/lib/localPaths";
 
 type Message = { to: string; subject: string; html: string };
 
 export async function sendEmail(message: Message) {
-  const dir = path.join(process.cwd(), ".data", "outbox");
+  const dir = localDataPath("outbox");
   await mkdir(dir, { recursive: true });
   const filename = `${Date.now()}-${message.to.replace(/[^a-z0-9@._-]/gi, "_")}.html`;
   await writeFile(path.join(dir, filename), `<!-- ${message.subject} -->\n${message.html}`);

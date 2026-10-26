@@ -12,6 +12,7 @@ import {
 import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
 import { jsonError, parseBody } from "@/lib/http";
+import { rateLimits } from "@/lib/rateLimits";
 import { appUrl, clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
 
 function requestOrigin(request: Request) {
@@ -97,7 +98,12 @@ export async function POST(request: Request) {
   const store = getStore();
   const storeId = await requestStoreId();
   const brand = (await loadStoreConfig(storeId)).brand;
-  const limit = await store.hitRateLimit(`checkout:${storeId}:${hashIp(clientIp(request))}`, 10, 60 * 60 * 1000);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(
+    `checkout:${storeId}:${hashIp(clientIp(request))}`,
+    limits.checkoutPerHour,
+    60 * 60 * 1000,
+  );
   if (!limit.ok) return jsonError("Too many checkout attempts. Try again in an hour.", 429);
   const body = parsed.data;
 

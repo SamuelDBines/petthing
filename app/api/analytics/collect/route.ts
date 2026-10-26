@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { jsonError, parseBody } from "@/lib/http";
+import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
 import { requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
@@ -41,7 +42,8 @@ export async function POST(request: Request) {
   const store = getStore();
   if (!store.collectAnalytics) return Response.json({ ok: true });
   const storeId = await requestStoreId();
-  const limit = await store.hitRateLimit(`analytics:${hashIp(clientIp(request))}`, 120, 60 * 1000);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(`analytics:${hashIp(clientIp(request))}`, limits.analyticsPerMinute, 60 * 1000);
   if (!limit.ok) return Response.json({ ok: true });
   const result = await store.collectAnalytics(storeId, parsed.data, countryFromRequest(request));
   return Response.json({ ok: true, ...result });

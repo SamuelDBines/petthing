@@ -1,6 +1,22 @@
 import type { Page } from "@playwright/test";
 import path from "path";
 
+export async function fillStripeCheckoutAndPay(page: Page, cardNumber: string) {
+  await page.locator('input[name="cardNumber"]').fill(cardNumber);
+  await page.locator('input[name="cardExpiry"]').fill("12/34");
+  await page.locator('input[name="cardCvc"]').fill("123");
+  await page.locator('input[name="billingName"]').fill("Sam Test");
+  const country = page.locator('select[name="billingCountryCode"], select[name="billingCountry"]').first();
+  if (await country.count()) await country.selectOption("GB");
+  const postcode = page.locator('input[name="billingPostalCode"], input[name="postalCode"]').first();
+  if (await postcode.count()) await postcode.fill("SW1A 1AA");
+  const linkSave = page.getByRole("checkbox", { name: /save my info|link/i });
+  if (await linkSave.isVisible().catch(() => false)) {
+    await linkSave.uncheck().catch(() => undefined);
+  }
+  await page.getByRole("button", { name: /Pay/i }).click();
+}
+
 export const adminPassword = process.env.ADMIN_PASSWORD || "portrait-dev";
 
 export async function completePortraitWizard(page: Page, email: string, store?: string) {

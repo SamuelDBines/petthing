@@ -70,8 +70,9 @@ def admin_ui(
 ):
     items = list_queue(db)
     return templates.TemplateResponse(
+        request,
         "admin.html",
-        {"request": request, "items": items},
+        {"items": items},
     )
 
 
