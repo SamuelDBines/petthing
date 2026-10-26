@@ -7,6 +7,13 @@ export type CatalogueBundleComponent = {
   label: string;
 };
 
+export type CatalogueProductImage = {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+};
+
 export type CatalogueProduct = {
   id: string;
   storeId: string;
@@ -14,17 +21,23 @@ export type CatalogueProduct = {
   name: string;
   category: string;
   description: string;
+  benefitLine?: string;
+  longDescription?: string;
+  specs?: string[];
+  deliveryEstimate?: string;
   supplier: CatalogueSupplier;
   supplierSku: string;
   costPence: number;
   pricePence: number;
   compareAtPricePence?: number | null;
   clpSafetyText?: string;
+  gpsrSafetyText?: string;
   cutoffKind?: "prodigi_bauble" | "printful_stocking" | "go_dropship";
   kind?: "standard" | "bundle";
   bundleComponents?: CatalogueBundleComponent[];
   stock: number;
   images: string[];
+  imageMeta?: CatalogueProductImage[];
   variants: { id: string; name: string; pricePence?: number; stock?: number }[];
   active: boolean;
 };

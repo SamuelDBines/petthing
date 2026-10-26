@@ -26,6 +26,8 @@ export type StoreBrand = {
   stripeStatementDescriptor: string;
   referralPrefix: string;
   logoPath: string;
+  ogImagePath?: string;
+  faviconPath?: string;
   colors: StoreThemeColors;
 };
 

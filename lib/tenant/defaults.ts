@@ -17,23 +17,23 @@ const pawtraitryColors: StoreThemeColors = {
 };
 
 const jinglefoldColors: StoreThemeColors = {
-  ink: "#2c1810",
-  cream: "#fff8f0",
-  pumpkin: "#b83232",
+  ink: "#fff8f0",
+  cream: "#3b1414",
+  pumpkin: "#9b1c1c",
   gold: "#c9a227",
-  moss: "#5c4d3c",
-  bark: "#f5ebe0",
-  line: "#e0cfc0",
+  moss: "#1f4d3a",
+  bark: "#fffdf8",
+  line: "#e8d5c4",
 };
 
 const fixmongerColors: StoreThemeColors = {
-  ink: "#1a1a1a",
-  cream: "#fff9f0",
-  pumpkin: "#c45c26",
-  gold: "#f0b429",
-  moss: "#4a6741",
-  bark: "#faf6ef",
-  line: "#d4c4a8",
+  ink: "#f7f4ee",
+  cream: "#1a2e1f",
+  pumpkin: "#e85d04",
+  gold: "#c9a227",
+  moss: "#3d5a40",
+  bark: "#ffffff",
+  line: "#d4cfc4",
 };
 
 function disclosure(tradingName: string) {
@@ -165,6 +165,8 @@ export const BUILTIN_STORES: StoreConfig[] = [
       stripeStatementDescriptor: "FIXMONGER",
       referralPrefix: "FIX",
       logoPath: "/stores/fixmonger-logo.svg",
+      ogImagePath: "/stores/fixmonger/og.jpg",
+      faviconPath: "/stores/fixmonger-favicon.svg",
       colors: fixmongerColors,
     },
     themes: FIXMONGER_THEME,
@@ -206,6 +208,8 @@ export const BUILTIN_STORES: StoreConfig[] = [
       stripeStatementDescriptor: "JINGLEFOLD",
       referralPrefix: "JIN",
       logoPath: "/stores/jinglefold-logo.svg",
+      ogImagePath: "/stores/jinglefold/og.jpg",
+      faviconPath: "/stores/jinglefold-favicon.svg",
       colors: jinglefoldColors,
     },
     themes: JINGLEFOLD_THEME,

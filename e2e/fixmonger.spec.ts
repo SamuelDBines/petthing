@@ -41,7 +41,7 @@ test.describe("Fixmonger catalogue @mock", () => {
     await expect(page.getByRole("button", { name: "Add to cart" }).first()).toBeVisible();
     await page.screenshot({ path: path.join(screenshotDir, "fixmonger-home.png"), fullPage: true });
     await page.getByRole("button", { name: "Add to cart" }).first().click();
-    await page.getByTestId("fixmonger-cart-link").click();
+    await page.getByTestId("shop-cart-button").click();
     await page.screenshot({ path: path.join(screenshotDir, "fixmonger-cart.png"), fullPage: true });
   });
 });

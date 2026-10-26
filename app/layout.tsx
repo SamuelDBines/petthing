@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Fraunces, Outfit } from "next/font/google";
 import { CookieBanner } from "@/components/cookie-banner";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { ShopSiteFooter, ShopSiteHeader } from "@/components/shop/store-chrome";
 import { UtmCapture } from "@/components/utm-capture";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { headers } from "next/headers";
@@ -32,12 +33,14 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: config.brand.appName, template: `%s · ${config.brand.appName}` },
     description: config.brand.tagline,
     robots: noindex ? { index: false, follow: false } : undefined,
+    icons: config.brand.faviconPath ? { icon: config.brand.faviconPath } : undefined,
     openGraph: {
       type: "website",
       locale: "en_GB",
       siteName: config.brand.appName,
       title: config.brand.appName,
       description: config.brand.tagline,
+      images: config.brand.ogImagePath ? [{ url: config.brand.ogImagePath, width: 1200, height: 630, alt: config.brand.appName }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
@@ -59,9 +62,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     >
       <body className="min-h-full flex flex-col">
         <UtmCapture />
-        <SiteHeader brand={config.brand} />
+        {config.storeType === "portrait" ? (
+          <SiteHeader brand={config.brand} />
+        ) : (
+          <ShopSiteHeader brand={config.brand} storeId={config.id} storeType={config.storeType} />
+        )}
         <div className="flex-1">{children}</div>
-        <SiteFooter brand={config.brand} />
+        {config.storeType === "portrait" ? (
+          <SiteFooter brand={config.brand} />
+        ) : (
+          <ShopSiteFooter brand={config.brand} />
+        )}
         <Suspense fallback={null}>
           <VisitorTracker />
         </Suspense>

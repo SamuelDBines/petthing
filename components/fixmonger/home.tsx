@@ -1,75 +1,96 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { formatGbp } from "@/config/pricing";
 import { FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import {
+  EmailCapture,
+  ReviewsPlaceholder,
+  ShopFaq,
+  TrustRow,
+} from "@/components/shop/marketing-sections";
+import { ProductCard } from "@/components/shop/product-card";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
-import { addToCart, readCart } from "@/lib/cart/storage";
 
-export function FixmongerHome({ products: initialProducts }: { products: StorefrontCatalogueProduct[] }) {
-  const [products] = useState<StorefrontCatalogueProduct[]>(initialProducts);
-  const [cartCount, setCartCount] = useState(0);
+const FAQ: [string, string][] = [
+  ["Where do you ship from?", "Ready-made items ship from our UK dropship partner — typically 3–5 working days."],
+  ["When is delivery free?", `Free UK delivery on orders over ${formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.`],
+  ["Can I return something?", "Unused items in original packaging — see Returns & refunds for details."],
+  ["Are bundle savings real?", "Compare-at prices are the sum of parts — no invented was prices."],
+];
 
-  useEffect(() => {
-    setCartCount(readCart().reduce((sum, line) => sum + line.quantity, 0));
-  }, []);
+const SECTIONS: { id: string; title: string; blurb: string; categories: string[] }[] = [
+  { id: "door", title: "Door & draughts", blurb: "Magnetic thermal curtains that close behind you.", categories: ["door"] },
+  { id: "car", title: "Car", blurb: "Frost covers, brushes, and the sensible boot kit.", categories: ["car"] },
+  { id: "garden", title: "Garden", blurb: "Fleece and jackets before the first hard frost.", categories: ["garden"] },
+  { id: "kits", title: "Kits with real savings", blurb: "Bundles priced honestly against buying separately.", categories: ["bundles"] },
+];
+
+export function FixmongerHome({ products }: { products: StorefrontCatalogueProduct[] }) {
+  const bundles = useMemo(() => products.filter((p) => p.kind === "bundle"), [products]);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-4">
+    <main data-testid="fixmonger-home">
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-2 md:items-center md:py-16">
         <div>
-          <p className="text-sm uppercase tracking-widest text-[var(--gold)]">Fixmonger</p>
-          <h1 className="font-display text-4xl text-[var(--ink)]">Cheap fixes for proper British weather.</h1>
-          <p className="mt-2 max-w-xl text-[var(--moss)]">
-            Frost covers, draught curtains, and the other sensible bits your shed should have had years ago. Free UK
-            delivery on orders over {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.
+          <p className="text-sm font-semibold uppercase tracking-widest text-pumpkin">Fixmonger</p>
+          <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Cheap fixes for proper British weather.</h1>
+          <p className="mt-4 max-w-xl text-lg text-moss">
+            Frost covers, draught curtains, and shed essentials — no electric, no nonsense. Free UK delivery over{" "}
+            {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.
           </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="#door" className="min-h-12 rounded-full bg-pumpkin px-6 text-sm font-semibold text-white inline-flex items-center">
+              Shop door fixes
+            </Link>
+            <Link href="#kits" className="min-h-12 rounded-full border border-line px-6 text-sm font-medium text-cream inline-flex items-center">
+              View kits
+            </Link>
+          </div>
         </div>
-        <Link
-          href="/shop/cart"
-          className="rounded-full border border-[var(--line)] bg-[var(--bark)] px-5 py-2 text-sm font-medium"
-          data-testid="fixmonger-cart-link"
-        >
-          Cart ({cartCount})
-        </Link>
-      </header>
-      <section className="grid gap-6 sm:grid-cols-2" data-testid="fixmonger-product-grid">
-        {products.map((product) => (
-          <article key={product.id} className="rounded-2xl border border-[var(--line)] bg-[var(--cream)] p-4 shadow-sm">
-            <div className="mb-3 flex h-40 items-center justify-center rounded-xl bg-[var(--bark)]">
-              <img src={product.images[0]} alt="" className="h-24 w-24 opacity-80" />
-            </div>
-            <h2 className="font-display text-xl text-[var(--ink)]">
-              <Link href={`/shop/${product.slug}`}>{product.name}</Link>
-            </h2>
-            <p className="mt-1 text-sm text-[var(--moss)] line-clamp-2">{product.description}</p>
-            <p className="mt-3 font-semibold text-[var(--ink)]">
-              {formatGbp(product.pricePence)}
-              {product.compareAtPricePence ? (
-                <span className="ml-2 text-sm font-normal text-[var(--moss)] line-through">
-                  {formatGbp(product.compareAtPricePence)}
-                </span>
-              ) : null}
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                className="rounded-full bg-[var(--pumpkin)] px-4 py-2 text-sm font-medium text-white"
-                onClick={() => {
-                  addToCart(product.id, 1);
-                  setCartCount(readCart().reduce((sum, line) => sum + line.quantity, 0));
-                }}
-              >
-                Add to cart
-              </button>
-              <Link href={`/shop/${product.slug}`} className="rounded-full border px-4 py-2 text-sm">
-                Details
-              </Link>
-            </div>
-          </article>
-        ))}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-line shadow-lg">
+          <Image
+            src="/stores/fixmonger/hero.jpg"
+            alt="Fixmonger winter essentials laid out on a workbench"
+            width={1200}
+            height={900}
+            className="h-full w-full object-cover"
+            priority
+            sizes="(max-width:768px) 100vw, 50vw"
+          />
+        </div>
       </section>
+
+      <TrustRow />
+
+      {SECTIONS.map((section) => {
+        const items = products.filter((p) => section.categories.includes(p.category));
+        if (!items.length) return null;
+        return (
+          <section key={section.id} id={section.id} className="mx-auto max-w-6xl px-4 py-14">
+            <h2 className="display text-3xl text-cream">{section.title}</h2>
+            <p className="mt-2 text-moss">{section.blurb}</p>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="fixmonger-product-grid">
+              {items.map((product) => <ProductCard key={product.id} product={product} />)}
+            </div>
+          </section>
+        );
+      })}
+
+      {bundles.length ? null : null}
+
+      <section className="mx-auto max-w-6xl px-4 py-8">
+        <h2 className="display text-2xl text-cream">Around the house</h2>
+        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {products.filter((p) => p.category === "home").map((product) => <ProductCard key={product.id} product={product} />)}
+        </div>
+      </section>
+
+      <ReviewsPlaceholder />
+      <ShopFaq items={FAQ} />
+      <EmailCapture storeName="Fixmonger" />
     </main>
   );
 }
