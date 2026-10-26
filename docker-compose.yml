@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pawtraitry
+      POSTGRES_PASSWORD: pawtraitry
+      POSTGRES_DB: pawtraitry
+    ports:
+      - "5432:5432"
+    volumes:
+      - pawtraitry_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pawtraitry -d pawtraitry"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  content-worker:
+    build:
+      context: ./content-worker
+    ports:
+      - "8080:8080"
+    environment:
+      CONTENT_WORKER_SECRET: ${CONTENT_WORKER_SECRET:-dev-change-me}
+      CONTENT_WORKER_DRY_RUN: "true"
+      CONTENT_SCHEDULER_ENABLED: "false"
+      DATABASE_URL: postgresql://pawtraitry:pawtraitry@postgres:5432/pawtraitry
+      CONTENT_DATABASE_URL: postgresql://pawtraitry:pawtraitry@postgres:5432/pawtraitry
+      CONTENT_REPO_ROOT: /workspace
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    volumes:
+      - .:/workspace:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  stripe-listener:
+    image: stripe/stripe-cli:latest
+    profiles: ["stripe"]
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    command:
+      - listen
+      - --forward-to
+      - host.docker.internal:3000/api/webhooks/stripe
+      - --print-secret
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pawtraitry_pg:

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Fraunces, Outfit } from "next/font/google";
-import { APP_NAME } from "@/config/brand";
+import { APP_NAME, siteUrl, TAGLINE } from "@/config/brand";
 import { CookieBanner } from "@/components/cookie-banner";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { UtmCapture } from "@/components/utm-capture";
@@ -10,13 +11,26 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
-  description: "Seasonal portraits and cards made from your own photos. Family-friendly, private, and ready before the holiday.",
+  description: TAGLINE,
+  openGraph: {
+    type: "website",
+    locale: "en_GB",
+    siteName: APP_NAME,
+    title: APP_NAME,
+    description: TAGLINE,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_NAME,
+    description: TAGLINE,
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="en-GB" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <UtmCapture />
         <SiteHeader />

@@ -44,6 +44,7 @@ async function read(): Promise<Database> {
         offer: order.offer ?? "one_off",
         stripeSubscriptionId: order.stripeSubscriptionId ?? null,
         subscriptionStatus: order.subscriptionStatus ?? null,
+        digitalSupplyConsentAt: order.digitalSupplyConsentAt ?? order.consentAt ?? "",
       })),
       jobs: (parsed.jobs ?? []).map((job) => ({
         ...job,

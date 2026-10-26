@@ -29,9 +29,8 @@ function statements(sqlText: string) {
 
 async function main() {
   loadEnv();
-  const direct = process.env.DATABASE_URL_DIRECT;
-  if (!direct) throw new Error("Set DATABASE_URL_DIRECT to the non-pooled connection before migrating.");
-  if (!process.env.DATABASE_CA_CERT) throw new Error("Set DATABASE_CA_CERT before migrating.");
+  const direct = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL;
+  if (!direct) throw new Error("Set DATABASE_URL_DIRECT (or DATABASE_URL) before migrating.");
 
   const sql = openDatabase(direct, 1);
   try {

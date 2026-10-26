@@ -1,5 +1,5 @@
 {
-  "name": "portrait-spell",
+  "name": "pawtraitry",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,12 @@
     "test": "tsx --test tests/**/*.ts",
     "migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "migrate:content": "tsx scripts/migrate-content-worker.ts",
+    "db:setup": "npm run migrate && npm run migrate:content && npm run seed",
+    "test:e2e": "playwright test --grep-invert @stripe",
+    "test:e2e:stripe": "E2E_STRIPE=1 playwright test --grep @stripe",
+    "test:e2e:all": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -31,6 +36,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/pngjs": "^6.0.5",

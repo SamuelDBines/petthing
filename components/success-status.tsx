@@ -42,7 +42,7 @@ export function SuccessStatus() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-12">
+    <main className="mx-auto max-w-xl px-4 py-12" data-testid="checkout-success">
       <h1 className="text-4xl">{status?.kind === "christmas" ? "Christmas is booked" : "Payment received"}</h1>
       <p className="mt-3 text-cream/75">
         {status?.kind === "christmas"

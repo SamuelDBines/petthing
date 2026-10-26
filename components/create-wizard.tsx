@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CONSENT_LABEL } from "@/config/brand";
+import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import { formatGbp, SEASON_PASS, TIERS, type TierId } from "@/config/pricing";
 import { SUBJECTS, THEMES, type StyleDefinition, type SubjectType } from "@/config/themes";
 import { track } from "@/components/cookie-banner";
@@ -37,7 +37,8 @@ export function CreateWizard() {
   const [paused, setPaused] = useState(false);
   const [cardNames, setCardNames] = useState("");
   const [email, setEmail] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [digitalSupplyConsent, setDigitalSupplyConsent] = useState(false);
   const [priority, setPriority] = useState(false);
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
@@ -117,7 +118,8 @@ export function CreateWizard() {
           styleIds: tier.styleCount === "all" ? themeStyles.map((style) => style.id) : styles,
           cardNames,
           email,
-          consent,
+          photoConsent,
+          digitalSupplyConsent,
           priority: seasonPass ? false : priority,
           offer: seasonPass ? "season_pass" : "one_off",
           referralCode: referral || undefined,
@@ -151,7 +153,7 @@ export function CreateWizard() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-8">
+    <main className="mx-auto max-w-xl px-4 py-8" data-testid="create-wizard">
       <p className="text-sm text-gold">Step {step} of 4</p>
       <h1 className="mt-2 text-4xl">{seasonPass ? "Start the season pass" : "Make the portraits"}</h1>
       {seasonPass ? <p className="mt-3 text-cream/75">A family or group, once a year. This season is included. Pick {SEASON_PASS.tierId === "classic" ? "two" : "the"} styles for it.</p> : null}
@@ -190,7 +192,7 @@ export function CreateWizard() {
             }}
           >
             Drop photos here, or take one with the camera
-            <input className="sr-only" type="file" accept="image/*,.heic,.heif" multiple onChange={(event) => onFiles(event.target.files)} />
+            <input className="sr-only" type="file" accept="image/*,.heic,.heif" multiple onChange={(event) => onFiles(event.target.files)} data-testid="photo-upload" />
           </label>
           <ul className="mt-4 space-y-2 text-sm">
             {files.map((file, index) => (
@@ -245,10 +247,10 @@ export function CreateWizard() {
             <input className="field mt-1" value={cardNames} onChange={(event) => setCardNames(event.target.value)} placeholder="Love from the Smiths" maxLength={80} />
           </label>
           <label className="block text-sm">Email
-            <input className="field mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+            <input className="field mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} data-testid="checkout-email" />
           </label>
           <label className="block text-sm">Referral code
-            <input className="field mt-1" value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="SPELL-••••••" />
+            <input className="field mt-1" value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="PAW-••••••" />
           </label>
           {seasonPass ? null : (
             <label className="flex gap-3 text-sm leading-6">
@@ -257,12 +259,16 @@ export function CreateWizard() {
             </label>
           )}
           <label className="flex gap-3 text-sm leading-6">
-            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-            {CONSENT_LABEL}
+            <input type="checkbox" checked={photoConsent} onChange={(event) => setPhotoConsent(event.target.checked)} />
+            {PHOTO_CONSENT_LABEL}
+          </label>
+          <label className="flex gap-3 text-sm leading-6">
+            <input type="checkbox" checked={digitalSupplyConsent} onChange={(event) => setDigitalSupplyConsent(event.target.checked)} />
+            {DIGITAL_SUPPLY_CONSENT_LABEL}
           </label>
           <div className="flex gap-2">
             <button className="rounded-full border border-line px-5 py-3" onClick={() => setStep(3)}>Back</button>
-            <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink disabled:opacity-50" disabled={busy || paused || !consent || !email} onClick={pay}>
+            <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink disabled:opacity-50" disabled={busy || paused || !photoConsent || !digitalSupplyConsent || !email} onClick={pay} data-testid="pay-button">
               {busy ? "Sending…" : seasonPass ? `Start the pass · ${formatGbp(SEASON_PASS.pricePence)}/year` : "Pay securely"}
             </button>
           </div>

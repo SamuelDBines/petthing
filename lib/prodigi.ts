@@ -1,5 +1,10 @@
+import { randomUUID } from "crypto";
 import { printSku, type PrintProduct } from "@/config/prints";
 import type { Shipping } from "@/lib/domain";
+
+export function prodigiMocked() {
+  return !process.env.PRODIGI_API_KEY?.trim();
+}
 
 function baseUrl() {
   if (process.env.PRODIGI_ENV === "live") return "https://api.prodigi.com/v4.0";
@@ -33,6 +38,11 @@ export async function submitPrintOrder(args: {
   assets: { printArea: string; url: string }[];
   merchantReference: string;
 }) {
+  if (prodigiMocked()) {
+    const id = `mock_prodigi_${randomUUID().slice(0, 8)}`;
+    console.log(`[prodigi mock] ${args.merchantReference} → ${id} (${args.product.id})`);
+    return { prodigiOrderId: id };
+  }
   for (const asset of args.assets) assertPrinterCanFetch(asset.url);
   const sku = printSku(args.product);
   const productResponse = await prodigi(`/products/${encodeURIComponent(sku)}`);

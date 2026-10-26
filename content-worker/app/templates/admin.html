@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Content queue</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; background: #12101a; color: #f2efe8; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border-bottom: 1px solid #333; padding: 0.5rem; text-align: left; vertical-align: top; }
+      button { margin-right: 0.25rem; }
+      .muted { color: #aaa; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Social content queue</h1>
+    <p class="muted">Approve items before anything posts. Use API with Bearer token from the admin UI fetch or curl.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Kind</th>
+          <th>Status</th>
+          <th>Media</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.title }}</td>
+          <td>{{ item.kind }}</td>
+          <td>{{ item.status }}</td>
+          <td class="muted">{{ item.media_path or "—" }}</td>
+          <td>{{ item.created_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

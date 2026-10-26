@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { REFERRAL_PREFIX } from "@/config/brand";
 
 export function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -69,7 +70,7 @@ export function referralCode() {
   const bytes = randomBytes(6);
   let body = "";
   for (const byte of bytes) body += alphabet[byte % alphabet.length];
-  return `SPELL-${body}`;
+  return `${REFERRAL_PREFIX}-${body}`;
 }
 
 export function integrationIdentifier(flow: string) {
@@ -77,7 +78,7 @@ export function integrationIdentifier(flow: string) {
   const bytes = randomBytes(8);
   let suffix = "";
   for (const byte of bytes) suffix += alphabet[byte % alphabet.length];
-  return `portrait_spell_${flow}_${suffix}`;
+  return `pawtraitry_${flow}_${suffix}`;
 }
 
 export function signValue(value: string, secretName: string, fallback: string) {
