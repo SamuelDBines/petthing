@@ -21,11 +21,11 @@ function seedFrom(id: string) {
   return hash % 1_000_000;
 }
 
-async function halt(reason: string) {
+async function halt(reason: string, storeId: string) {
   const store = getStore();
-  const settings = await store.getSettings();
+  const settings = await store.getSettings(storeId);
   const today = londonDay();
-  await store.updateSettings({ queueHalted: true, haltReason: reason, haltNotifiedOn: today });
+  await store.updateSettings({ queueHalted: true, haltReason: reason, haltNotifiedOn: today }, storeId);
   if (settings.haltNotifiedOn !== today) {
     await alertAdmin("Generation queue halted", `<p>${reason}</p><p>Open admin and switch the queue back on after you have checked it.</p>`);
   }
@@ -191,13 +191,13 @@ async function processJob(jobId: string) {
     }
     if (polled.state === "failed") throw new Error(polled.error);
     let cost = polled.costGbp;
-    if (polled.costGbp) await store.addSpend(polled.costGbp);
+    if (polled.costGbp) await store.addSpend(polled.costGbp, order.storeId);
     for (const image of polled.images) {
       if (image.nsfw) throw new Error("The generator safety checker blocked this output");
       const moderation = await moderateImage(image.bytes, image.contentType);
       if (moderation.costGbp) {
         cost += moderation.costGbp;
-        await store.addSpend(moderation.costGbp);
+        await store.addSpend(moderation.costGbp, order.storeId);
       }
       if (!moderation.allowed) throw new Error(moderation.reason);
       const extension = image.contentType.includes("png") ? "png" : "jpg";
@@ -221,9 +221,9 @@ async function processJob(jobId: string) {
       generationCostGbp: Math.round(((fresh?.generationCostGbp ?? 0) + cost) * 10000) / 10000,
     });
     await store.updateJob(job.id, { status: "done", costGbp: cost, lastError: null, lockedUntil: null, nextRunAt: null });
-    const spent = await store.todaySpend();
+    const spent = await store.todaySpend(order.storeId);
     if (spent >= maxDailySpendGbp()) {
-      await halt(`Daily generation spend reached £${spent.toFixed(2)} (limit £${maxDailySpendGbp().toFixed(2)}).`);
+      await halt(`Daily generation spend reached £${spent.toFixed(2)} (limit £${maxDailySpendGbp().toFixed(2)}).`, order.storeId);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed";
@@ -246,7 +246,7 @@ export async function runQueue(limit = process.env.VERCEL ? 3 : 12) {
   const settings = await store.getSettings();
   if (settings.queueHalted) return { processed: 0, halted: true, reason: settings.haltReason };
   if ((await store.todaySpend()) >= maxDailySpendGbp()) {
-    await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`);
+    await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`, "pawtraitry");
     return { processed: 0, halted: true, reason: "spend cap" };
   }
   const claimed = await store.claimJobs(limit);

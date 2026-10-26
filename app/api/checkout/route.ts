@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { APP_NAME } from "@/config/brand";
 import { getPrint, PRINTS } from "@/config/prints";
 import {
   CHRISTMAS_PREORDER_PENCE,
@@ -21,6 +20,7 @@ function requestOrigin(request: Request) {
   const proto = request.headers.get("x-forwarded-proto") || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
   return `${proto}://${host}`;
 }
+import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
@@ -95,7 +95,9 @@ export async function POST(request: Request) {
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const store = getStore();
-  const limit = await store.hitRateLimit(`checkout:${hashIp(clientIp(request))}`, 10, 60 * 60 * 1000);
+  const storeId = await requestStoreId();
+  const brand = (await loadStoreConfig(storeId)).brand;
+  const limit = await store.hitRateLimit(`checkout:${storeId}:${hashIp(clientIp(request))}`, 10, 60 * 60 * 1000);
   if (!limit.ok) return jsonError("Too many checkout attempts. Try again in an hour.", 429);
   const body = parsed.data;
 
@@ -108,15 +110,15 @@ export async function POST(request: Request) {
     const tier = getTier(order.tierId);
     const portraitPence = order.amountPence - (order.priority ? PRIORITY_PENCE : 0);
     const items = pass
-      ? [line(`${APP_NAME} season pass`, portraitPence, true)]
-      : [line(`${APP_NAME} · ${tier.name}`, portraitPence)];
+      ? [line(`${brand.appName} season pass`, portraitPence, true)]
+      : [line(`${brand.appName} · ${tier.name}`, portraitPence)];
     if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
     const opened = await openSession({
       origin,
       kind: pass ? "season" : "portrait",
       email: order.email,
       lineItems: items,
-      metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id },
+      metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id, storeId: order.storeId },
       mode: pass ? "subscription" : "payment",
       successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
       cancelPath: "/create?cancelled=1",
@@ -127,11 +129,23 @@ export async function POST(request: Request) {
     if (opened.demo) {
       const sessionId = `demo_${order.id}`;
       await markPortraitPaid(order.id, { sessionId, paymentIntentId: null, amountPence: order.amountPence });
-      await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+      await store.addEvent({
+        id: randomUUID(),
+        storeId: order.storeId,
+        type: "checkout",
+        orderId: order.id,
+        createdAt: new Date().toISOString(),
+      });
       return Response.json({ url: `${origin}/checkout/success?session_id=${sessionId}` });
     }
     await store.updateOrder(order.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
-    await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+    await store.addEvent({
+      id: randomUUID(),
+      storeId: order.storeId,
+      type: "checkout",
+      orderId: order.id,
+      createdAt: new Date().toISOString(),
+    });
     return Response.json({ url: opened.url });
   }
 
@@ -152,8 +166,8 @@ export async function POST(request: Request) {
       origin,
       kind: "extra",
       email: order.email,
-      lineItems: [line(`${APP_NAME} · 3 more styles`, EXTRA_STYLES_PENCE)],
-      metadata: { kind: "extra_styles", orderId: order.id, styleIds: chosen.join(",") },
+      lineItems: [line(`${brand.appName} · 3 more styles`, EXTRA_STYLES_PENCE)],
+      metadata: { kind: "extra_styles", orderId: order.id, styleIds: chosen.join(","), storeId: order.storeId },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `extra-${order.id}-${chosen.slice().sort().join("-")}`,
@@ -193,8 +207,8 @@ export async function POST(request: Request) {
       origin,
       kind: "print",
       email: order.email,
-      lineItems: [line(`${APP_NAME} · ${product.name}`, product.pricePence)],
-      metadata: { kind: "print", orderId: order.id, printId: print.id },
+      lineItems: [line(`${brand.appName} · ${product.name}`, product.pricePence)],
+      metadata: { kind: "print", orderId: order.id, printId: print.id, storeId: order.storeId },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `print-${print.id}`,
@@ -210,6 +224,7 @@ export async function POST(request: Request) {
   const linked = body.token ? await store.getOrderByToken(body.token) : null;
   const preorder: Preorder = {
     id: randomUUID(),
+    storeId,
     orderId: linked?.id ?? null,
     email,
     themeId: "christmas",
@@ -224,8 +239,8 @@ export async function POST(request: Request) {
     origin,
     kind: "christmas",
     email,
-    lineItems: [line(`${APP_NAME} · Christmas pre-order`, CHRISTMAS_PREORDER_PENCE)],
-    metadata: { kind: "christmas", preorderId: preorder.id },
+    lineItems: [line(`${brand.appName} · Christmas pre-order`, CHRISTMAS_PREORDER_PENCE)],
+    metadata: { kind: "christmas", preorderId: preorder.id, storeId },
     successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
     cancelPath: "/",
     idempotencyKey: `christmas-${preorder.id}`,

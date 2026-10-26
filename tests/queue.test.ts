@@ -6,6 +6,7 @@ import { jobIsClaimable, LOCK_MS, retryDelayMs } from "../lib/queue";
 function order(): Order {
   return {
     id: "00000000-0000-4000-8000-000000000010",
+    storeId: "pawtraitry",
     createdAt: "2026-10-18T12:00:00.000Z",
     email: "a@example.com",
     themeId: "halloween",

@@ -3,15 +3,18 @@ import path from "path";
 
 export const adminPassword = process.env.ADMIN_PASSWORD || "portrait-dev";
 
-export async function completePortraitWizard(page: Page, email: string) {
-  await page.goto("/create");
+export async function completePortraitWizard(page: Page, email: string, store?: string) {
+  const suffix = store ? `?store=${store}` : "";
+  await page.goto(`/create${suffix}`);
+  await page.waitForResponse((response) => response.url().includes("/api/catalog") && response.ok());
   await page.getByRole("button", { name: "Continue" }).first().click();
   const sample = path.join(process.cwd(), "public/examples/pet-before.jpg");
   await page.getByTestId("photo-upload").setInputFiles(sample);
   await page.getByRole("button", { name: "Continue" }).click();
-  const styleButtons = page.locator('button[type="button"]').filter({ hasText: /portrait|dusk|storybook|vampire|witch|skeleton/i });
-  await styleButtons.nth(0).click();
-  await styleButtons.nth(1).click();
+  const styleButtons = page.locator("button.rounded-2xl.border.p-3");
+  await styleButtons.first().waitFor({ state: "visible", timeout: 30_000 });
+  await styleButtons.nth(0).click({ noWaitAfter: true });
+  await styleButtons.nth(1).click({ noWaitAfter: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByTestId("checkout-email").fill(email);
   await page.getByRole("checkbox", { name: /permission/i }).check();

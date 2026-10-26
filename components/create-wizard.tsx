@@ -136,6 +136,8 @@ export function CreateWizard() {
         const uploaded = await fetch("/api/uploads", { method: "POST", body });
         const uploadData = await uploaded.json();
         if (!uploaded.ok) throw new Error(uploadData.error || "Upload failed");
+        const { trackFunnelEvent } = await import("@/components/visitor-tracker");
+        trackFunnelEvent("photo_upload");
       }
       track("InitiateCheckout", order.amountPence / 100);
       const checkout = await fetch("/api/checkout", {
@@ -145,6 +147,8 @@ export function CreateWizard() {
       });
       const session = await checkout.json();
       if (!checkout.ok) throw new Error(session.error || "Checkout failed");
+      const { trackFunnelEvent: trackCheckout } = await import("@/components/visitor-tracker");
+      trackCheckout("checkout_started");
       window.location.href = session.url;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong");

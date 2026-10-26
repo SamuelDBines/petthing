@@ -1,3 +1,4 @@
+import type { RollupRow, VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
 import type { PrintProductId } from "@/config/prints";
 import type { TierId } from "@/config/pricing";
 import type { SubjectType } from "@/config/themes";
@@ -13,6 +14,7 @@ export type OrderStatus =
 
 export type Order = {
   id: string;
+  storeId: string;
   createdAt: string;
   email: string;
   themeId: string;
@@ -83,6 +85,7 @@ export type Job = {
 
 export type AnalyticsEvent = {
   id: string;
+  storeId: string;
   type: "create_start" | "checkout" | "paid";
   orderId: string | null;
   createdAt: string;
@@ -113,6 +116,7 @@ export type PrintOrder = {
 
 export type Preorder = {
   id: string;
+  storeId: string;
   orderId: string | null;
   email: string;
   themeId: string;
@@ -134,6 +138,12 @@ export type Settings = {
 
 export type Bucket = "uploads" | "results";
 
+export type StoreSettingsRow = {
+  storeId: string;
+  settings: Settings;
+  configPatch: Record<string, unknown>;
+};
+
 export type Database = {
   orders: Order[];
   assets: Asset[];
@@ -142,6 +152,11 @@ export type Database = {
   prints: PrintOrder[];
   preorders: Preorder[];
   settings: Settings;
+  settingsByStore: Record<string, Settings>;
+  storeConfigPatches: Record<string, Record<string, unknown>>;
   rateLimits: { key: string; count: number; resetAt: string }[];
-  spend: { day: string; gbp: number }[];
+  spend: { storeId: string; day: string; gbp: number }[];
+  visitorSessions: VisitorSessionRow[];
+  visitorEvents: VisitorEventRow[];
+  analyticsRollups: RollupRow[];
 };

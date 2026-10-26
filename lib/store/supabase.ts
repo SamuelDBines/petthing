@@ -16,6 +16,7 @@ function assertOk(error: { message: string } | null) {
 function orderFrom(row: Record<string, unknown>): Order {
   return {
     id: String(row.id),
+    storeId: String(row.store_id ?? "pawtraitry"),
     createdAt: String(row.created_at),
     email: String(row.email),
     themeId: String(row.theme_id),
@@ -238,6 +239,7 @@ function printFrom(row: Record<string, unknown>): PrintOrder {
 function preorderFrom(row: Record<string, unknown>): Preorder {
   return {
     id: String(row.id),
+    storeId: String(row.store_id ?? "pawtraitry"),
     orderId: (row.order_id as string | null) ?? null,
     email: String(row.email),
     themeId: String(row.theme_id),

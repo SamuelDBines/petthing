@@ -65,12 +65,12 @@ export function safeEqual(a: string, b: string) {
   return timingSafeEqual(left, right);
 }
 
-export function referralCode() {
+export function referralCode(prefix = REFERRAL_PREFIX) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(6);
   let body = "";
   for (const byte of bytes) body += alphabet[byte % alphabet.length];
-  return `${REFERRAL_PREFIX}-${body}`;
+  return `${prefix}-${body}`;
 }
 
 export function integrationIdentifier(flow: string) {

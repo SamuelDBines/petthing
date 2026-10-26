@@ -27,7 +27,18 @@ type Sales = {
   contentWorkerToken: string;
 };
 
-type Tab = "orders" | "sales" | "content";
+type Tab = "orders" | "sales" | "content" | "analytics";
+
+type StoreOption = { id: string; slug: string; config: { brand: { appName: string } } };
+
+type AnalyticsDashboard = {
+  summary: { uniqueVisitors: number; sessions: number; bounceRate: number; newVisitors: number; returningVisitors: number };
+  funnel: { step: string; count: number; conversionFromPrevious: number | null }[];
+  bounceReasons: { reason: string; count: number; detail: string }[];
+  topLandingPages: { path: string; sessions: number; bounceRate: number }[];
+  topSources: { source: string; sessions: number; bounceRate: number }[];
+  daily: { day: string; uniqueVisitors: number; sessions: number; bounceRate: number }[];
+};
 
 export function AdminDashboard() {
   const [password, setPassword] = useState("");
@@ -40,12 +51,16 @@ export function AdminDashboard() {
   const [settings, setSettings] = useState({ themeMode: "auto", activeThemeId: "halloween", salesPaused: false, queueHalted: false });
   const [error, setError] = useState("");
   const [styleId, setStyleId] = useState<Record<string, string>>({});
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [adminStore, setAdminStore] = useState<string>("all");
+  const [analytics, setAnalytics] = useState<AnalyticsDashboard | null>(null);
 
   async function load() {
-    const [orderResponse, statsResponse, salesResponse] = await Promise.all([
+    const [orderResponse, statsResponse, salesResponse, storesResponse] = await Promise.all([
       fetch("/api/admin/orders"),
       fetch("/api/admin/stats"),
       fetch("/api/admin/sales"),
+      fetch("/api/admin/stores"),
     ]);
     if (orderResponse.status === 401) {
       setAuthed(false);
@@ -59,12 +74,36 @@ export function AdminDashboard() {
     setSettings(orderBody.settings);
     setStats(statsBody);
     setSales(salesBody);
+    const storesBody = await storesResponse.json();
+    setStores(storesBody.stores ?? []);
+    setAdminStore(storesBody.selected ?? "all");
     setAuthed(true);
+  }
+
+  async function loadAnalytics() {
+    const response = await fetch("/api/admin/analytics");
+    if (!response.ok) return;
+    setAnalytics(await response.json());
+  }
+
+  async function switchStore(storeId: string) {
+    await fetch("/api/admin/stores", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storeId }),
+    });
+    setAdminStore(storeId);
+    await load();
+    if (tab === "analytics") await loadAnalytics();
   }
 
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (tab === "analytics" && authed) void loadAnalytics();
+  }, [tab, authed, adminStore]);
 
   async function login(event: React.FormEvent) {
     event.preventDefault();
@@ -123,9 +162,19 @@ export function AdminDashboard() {
     <main className="mx-auto max-w-6xl px-4 py-8" data-testid="admin-dashboard">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-4xl">Admin</h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm" data-testid="admin-store-switcher">
+            Store
+            <select className="field ml-2" value={adminStore} onChange={(event) => void switchStore(event.target.value)}>
+              <option value="all">All stores</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>{store.config.brand.appName}</option>
+              ))}
+            </select>
+          </label>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "orders" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("orders")}>Orders</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "sales" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("sales")} data-testid="admin-sales-tab">Sales</button>
+          <button type="button" className={`rounded-full px-4 py-2 ${tab === "analytics" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("analytics")} data-testid="admin-analytics-tab">Analytics</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "content" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("content")} data-testid="admin-content-tab">Content queue</button>
           <button className="rounded-full border border-line px-4 py-2" onClick={() => fetch("/api/admin/run-queue", { method: "POST" }).then(load)}>Run queue</button>
         </div>
@@ -155,6 +204,41 @@ export function AdminDashboard() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.salesPaused} onChange={(event) => saveSettings({ ...settings, salesPaused: event.target.checked })} /> Sold out / paused</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.queueHalted} onChange={(event) => saveSettings({ ...settings, queueHalted: event.target.checked })} /> Halt generation queue</label>
       </section>
+
+      {tab === "analytics" && analytics ? (
+        <section className="mt-6 space-y-6" data-testid="admin-analytics-panel">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Unique visitors</p><p className="text-2xl">{analytics.summary.uniqueVisitors}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Sessions</p><p className="text-2xl">{analytics.summary.sessions}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Bounce rate</p><p className="text-2xl">{Math.round(analytics.summary.bounceRate * 100)}%</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">New</p><p className="text-2xl">{analytics.summary.newVisitors}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Returning</p><p className="text-2xl">{analytics.summary.returningVisitors}</p></article>
+          </div>
+          <div>
+            <h2 className="text-2xl">Funnel</h2>
+            <table className="mt-2 w-full text-left text-sm">
+              <thead className="text-cream/60"><tr><th>Step</th><th>Count</th><th>Step conversion</th></tr></thead>
+              <tbody>
+                {analytics.funnel.map((row) => (
+                  <tr key={row.step} className="border-t border-line">
+                    <td className="py-2">{row.step}</td>
+                    <td>{row.count}</td>
+                    <td>{row.conversionFromPrevious == null ? "—" : `${Math.round(row.conversionFromPrevious * 100)}%`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h2 className="text-2xl">Why people leave</h2>
+            <ul className="mt-2 space-y-2 text-sm">
+              {analytics.bounceReasons.map((row) => (
+                <li key={row.reason} className="rounded-2xl border border-line p-3">{row.reason} · {row.count} <span className="text-cream/60">({row.detail})</span></li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
 
       {tab === "sales" && sales ? (
         <section className="mt-6" data-testid="admin-sales-panel">

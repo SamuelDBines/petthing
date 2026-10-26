@@ -1,6 +1,12 @@
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 import type { AnalyticsEvent, Asset, Database, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import type { VisitorCollectPayload } from "@/lib/analytics/types";
+import { mergeRollups, rollupDay } from "@/lib/analytics/rollup";
+import { BUILTIN_STORES, DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
+import { configFromRow } from "@/lib/tenant/resolve";
+import type { StoreRow } from "@/lib/tenant/types";
 import { jobIsClaimable, LOCK_MS } from "@/lib/queue";
 import { londonDay } from "@/lib/runtime";
 
@@ -17,6 +23,8 @@ const defaultSettings = (): Settings => ({
 });
 
 function emptyDb(): Database {
+  const settingsByStore: Record<string, Settings> = {};
+  for (const store of BUILTIN_STORES) settingsByStore[store.id] = { ...store.settings };
   return {
     orders: [],
     assets: [],
@@ -24,9 +32,14 @@ function emptyDb(): Database {
     events: [],
     prints: [],
     preorders: [],
-    settings: defaultSettings(),
+    settings: settingsByStore[DEFAULT_STORE_ID],
+    settingsByStore,
+    storeConfigPatches: {},
     rateLimits: [],
     spend: [],
+    visitorSessions: [],
+    visitorEvents: [],
+    analyticsRollups: [],
   };
 }
 
@@ -36,16 +49,26 @@ async function read(): Promise<Database> {
   try {
     const raw = await readFile(file, "utf8");
     const parsed = JSON.parse(raw) as Database;
+    const base = emptyDb();
     return {
-      ...emptyDb(),
+      ...base,
       ...parsed,
       orders: (parsed.orders ?? []).map((order) => ({
         ...order,
+        storeId: order.storeId ?? DEFAULT_STORE_ID,
         offer: order.offer ?? "one_off",
         stripeSubscriptionId: order.stripeSubscriptionId ?? null,
         subscriptionStatus: order.subscriptionStatus ?? null,
         digitalSupplyConsentAt: order.digitalSupplyConsentAt ?? order.consentAt ?? "",
       })),
+      events: (parsed.events ?? []).map((event) => ({ ...event, storeId: event.storeId ?? DEFAULT_STORE_ID })),
+      preorders: (parsed.preorders ?? []).map((row) => ({ ...row, storeId: row.storeId ?? DEFAULT_STORE_ID })),
+      settingsByStore: { ...base.settingsByStore, ...(parsed.settingsByStore ?? {}) },
+      storeConfigPatches: parsed.storeConfigPatches ?? {},
+      visitorSessions: parsed.visitorSessions ?? [],
+      visitorEvents: parsed.visitorEvents ?? [],
+      analyticsRollups: parsed.analyticsRollups ?? [],
+      spend: (parsed.spend ?? []).map((row) => ({ storeId: row.storeId ?? DEFAULT_STORE_ID, day: row.day, gbp: row.gbp })),
       jobs: (parsed.jobs ?? []).map((job) => ({
         ...job,
         lockedUntil: job.lockedUntil ?? null,
@@ -60,7 +83,7 @@ async function read(): Promise<Database> {
 
 async function write(db: Database) {
   await mkdir(root, { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tmp, JSON.stringify(db, null, 2));
   await rename(tmp, file);
 }
@@ -79,16 +102,153 @@ function withDb<T>(fn: (db: Database) => T | Promise<T>): Promise<T> {
   return run;
 }
 
+function storeSettings(db: Database, storeId: string) {
+  return db.settingsByStore[storeId] ?? BUILTIN_STORES.find((s) => s.id === storeId)?.settings ?? defaultSettings();
+}
+
+function recomputeJsonRollup(db: Database, storeId: string, day: string) {
+  const sessions = db.visitorSessions.filter((s) => s.storeId === storeId && londonDay(new Date(s.startedAt)) === day);
+  const events = db.visitorEvents.filter((e) => e.storeId === storeId && londonDay(new Date(e.createdAt)) === day);
+  const metrics = rollupDay(sessions, events);
+  const idx = db.analyticsRollups.findIndex((r) => r.storeId === storeId && r.day === day);
+  if (idx >= 0) db.analyticsRollups[idx] = { storeId, day, metrics };
+  else db.analyticsRollups.push({ storeId, day, metrics });
+}
+
 export const jsonStore = {
-  getSettings: () => withDb((db) => structuredClone(db.settings)),
-  updateSettings: (patch: Partial<Settings>) =>
+  getSettings: (storeId = DEFAULT_STORE_ID) => withDb((db) => structuredClone(storeSettings(db, storeId))),
+  updateSettings: (patch: Partial<Settings>, storeId = DEFAULT_STORE_ID) =>
     withDb((db) => {
-      db.settings = { ...db.settings, ...patch };
-      return structuredClone(db.settings);
+      db.settingsByStore[storeId] = { ...storeSettings(db, storeId), ...patch };
+      if (storeId === DEFAULT_STORE_ID) db.settings = db.settingsByStore[storeId];
+      return structuredClone(db.settingsByStore[storeId]);
+    }),
+  listStores: () =>
+    withDb(() =>
+      BUILTIN_STORES.map(
+        (builtin): StoreRow => ({
+          id: builtin.id,
+          slug: builtin.slug,
+          domains: builtin.domains,
+          config: configFromRow(builtin.id, null),
+          createdAt: new Date().toISOString(),
+        }),
+      ),
+    ),
+  getStoreConfig: (id: string) =>
+    withDb(async (db) => ({
+      id,
+      slug: id,
+      domains: BUILTIN_STORES.find((s) => s.id === id)?.domains ?? [],
+      config: configFromRow(id, (db.storeConfigPatches[id] as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null),
+      createdAt: new Date().toISOString(),
+    })),
+  upsertStore: (input: { id: string; slug: string; domains: string[]; config?: Record<string, unknown> }) =>
+    withDb((db) => {
+      db.storeConfigPatches[input.id] = input.config ?? {};
+      return {
+        id: input.id,
+        slug: input.slug,
+        domains: input.domains,
+        config: configFromRow(input.id, (input.config as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null),
+        createdAt: new Date().toISOString(),
+      };
+    }),
+  collectAnalytics: (storeId: string, payload: VisitorCollectPayload, _countryCode?: string | null) =>
+    withDb((db) => {
+      const now = new Date().toISOString();
+      const day = londonDay(new Date(now));
+      const visitorId =
+        payload.consent === "analytics" && payload.visitorId
+          ? payload.visitorId
+          : `agg:${storeId}:${day}:${payload.path}`;
+      let sessionId = payload.sessionId;
+      let session = sessionId ? db.visitorSessions.find((s) => s.id === sessionId) : undefined;
+      if (!session) {
+        sessionId = randomUUID();
+        const isNew = !db.visitorSessions.some((s) => s.storeId === storeId && s.visitorId === visitorId);
+        session = {
+          id: sessionId,
+          storeId,
+          visitorId,
+          consentLevel: payload.consent,
+          isNewVisitor: isNew,
+          referrer: payload.referrer ?? null,
+          utmSource: payload.utm?.utm_source ?? null,
+          utmMedium: payload.utm?.utm_medium ?? null,
+          utmCampaign: payload.utm?.utm_campaign ?? null,
+          landingPath: payload.path,
+          exitPath: payload.path,
+          deviceType: payload.deviceType ?? null,
+          countryCode: null,
+          startedAt: now,
+          endedAt: null,
+          pageviewCount: 1,
+          bounced: true,
+          durationMs: payload.durationMs ?? 0,
+          maxScrollDepth: payload.scrollDepth ?? 0,
+          rageClicks: payload.rageClick ? 1 : 0,
+          jsErrors: payload.jsError ? 1 : 0,
+          slowLoads: payload.slowLoadMs && payload.slowLoadMs > 4000 ? 1 : 0,
+        };
+        db.visitorSessions.push(session);
+        db.visitorEvents.push({
+          id: randomUUID(),
+          storeId,
+          sessionId,
+          visitorId,
+          eventType: "landing",
+          path: payload.path,
+          metadata: {},
+          createdAt: now,
+        });
+      } else {
+        session.exitPath = payload.path;
+        session.pageviewCount += 1;
+        session.durationMs = Math.max(session.durationMs, payload.durationMs ?? 0);
+        session.maxScrollDepth = Math.max(session.maxScrollDepth, payload.scrollDepth ?? 0);
+        if (payload.rageClick) session.rageClicks += 1;
+        if (payload.jsError) session.jsErrors += 1;
+        if (payload.slowLoadMs && payload.slowLoadMs > 4000) session.slowLoads += 1;
+        session.bounced = session.durationMs < 10000 && session.maxScrollDepth < 25;
+        if (payload.leave) session.endedAt = now;
+      }
+      if (payload.event) {
+        db.visitorEvents.push({
+          id: randomUUID(),
+          storeId,
+          sessionId: sessionId!,
+          visitorId,
+          eventType: payload.event.type,
+          path: payload.path,
+          metadata: payload.event.metadata ?? {},
+          createdAt: now,
+        });
+      }
+      recomputeJsonRollup(db, storeId, day);
+      return { sessionId, visitorId };
+    }),
+  getAnalyticsRollups: (storeId: string | "all", from: string, to: string) =>
+    withDb((db) => {
+      const rows = db.analyticsRollups.filter((row) => row.day >= from && row.day <= to && (storeId === "all" || row.storeId === storeId));
+      if (storeId === "all") {
+        const byDay = new Map<string, import("@/lib/analytics/types").DailyRollupMetrics>();
+        for (const row of rows) {
+          const existing = byDay.get(row.day);
+          if (!existing) byDay.set(row.day, row.metrics);
+          else byDay.set(row.day, mergeRollups([existing, row.metrics]));
+        }
+        return [...byDay.entries()].map(([day, metrics]) => ({ day, metrics }));
+      }
+      return rows.map((row) => ({ day: row.day, metrics: row.metrics }));
+    }),
+  refreshAnalyticsRollup: (storeId: string, day?: string) =>
+    withDb((db) => {
+      recomputeJsonRollup(db, storeId, day ?? londonDay());
     }),
   createOrder: (order: Order) =>
     withDb((db) => {
-      db.orders.push(order);
+      db.orders.push({ ...order, storeId: order.storeId ?? DEFAULT_STORE_ID });
     }),
   updateOrder: (id: string, patch: Partial<Order>) =>
     withDb((db) => {
@@ -104,14 +264,25 @@ export const jsonStore = {
     withDb((db) => structuredClone(db.orders.find((item) => item.id === orderId && item.uploadToken === token) ?? null)),
   getOrderByCheckoutSession: (sessionId: string) =>
     withDb((db) => structuredClone(db.orders.find((item) => item.stripeCheckoutSessionId === sessionId) ?? null)),
-  getOrderByReferralCode: (code: string) =>
+  getOrderByReferralCode: (code: string, storeId?: string) =>
     withDb((db) =>
-      structuredClone(db.orders.find((item) => item.ownReferralCode.toLowerCase() === code.toLowerCase()) ?? null),
+      structuredClone(
+        db.orders.find(
+          (item) =>
+            item.ownReferralCode.toLowerCase() === code.toLowerCase() && (!storeId || item.storeId === storeId),
+        ) ?? null,
+      ),
     ),
   getOrderBySubscription: (subscriptionId: string) =>
     withDb((db) => structuredClone(db.orders.find((item) => item.stripeSubscriptionId === subscriptionId) ?? null)),
-  listOrders: () =>
-    withDb((db) => structuredClone([...db.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))),
+  listOrders: (storeId?: string | "all") =>
+    withDb((db) =>
+      structuredClone(
+        [...db.orders]
+          .filter((order) => !storeId || storeId === "all" || order.storeId === storeId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ),
+    ),
   addAsset: (asset: Asset) =>
     withDb((db) => {
       db.assets.push(asset);
@@ -158,10 +329,18 @@ export const jsonStore = {
     }),
   addEvent: (event: AnalyticsEvent) =>
     withDb((db) => {
-      db.events.push(event);
+      db.events.push({ ...event, storeId: event.storeId ?? DEFAULT_STORE_ID });
     }),
-  countEvents: (type: AnalyticsEvent["type"], day?: string) =>
-    withDb((db) => db.events.filter((event) => event.type === type && (!day || londonDay(new Date(event.createdAt)) === day)).length),
+  countEvents: (type: AnalyticsEvent["type"], day?: string, storeId?: string | "all") =>
+    withDb(
+      (db) =>
+        db.events.filter(
+          (event) =>
+            event.type === type &&
+            (!day || londonDay(new Date(event.createdAt)) === day) &&
+            (!storeId || storeId === "all" || event.storeId === storeId),
+        ).length,
+    ),
   addPrint: (print: PrintOrder) =>
     withDb((db) => {
       db.prints.push(print);
@@ -179,11 +358,18 @@ export const jsonStore = {
     }),
   addPreorder: (preorder: Preorder) =>
     withDb((db) => {
-      db.preorders.push(preorder);
+      db.preorders.push({ ...preorder, storeId: preorder.storeId ?? DEFAULT_STORE_ID });
     }),
   getPreorderBySession: (sessionId: string) =>
     withDb((db) => structuredClone(db.preorders.find((item) => item.stripeCheckoutSessionId === sessionId) ?? null)),
-  listPreorders: () => withDb((db) => structuredClone([...db.preorders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))),
+  listPreorders: (storeId?: string | "all") =>
+    withDb((db) =>
+      structuredClone(
+        [...db.preorders]
+          .filter((row) => !storeId || storeId === "all" || row.storeId === storeId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ),
+    ),
   updatePreorder: (id: string, patch: Partial<Preorder>) =>
     withDb((db) => {
       const preorder = db.preorders.find((item) => item.id === id);
@@ -204,16 +390,17 @@ export const jsonStore = {
       row.count += 1;
       return { ok: true as const, remaining: limit - row.count };
     }),
-  addSpend: (gbp: number) =>
+  addSpend: (gbp: number, storeId = DEFAULT_STORE_ID) =>
     withDb((db) => {
       const day = londonDay();
-      let row = db.spend.find((item) => item.day === day);
+      let row = db.spend.find((item) => item.day === day && item.storeId === storeId);
       if (!row) {
-        row = { day, gbp: 0 };
+        row = { storeId, day, gbp: 0 };
         db.spend.push(row);
       }
       row.gbp = Math.round((row.gbp + gbp) * 10000) / 10000;
       return row.gbp;
     }),
-  todaySpend: () => withDb((db) => db.spend.find((item) => item.day === londonDay())?.gbp ?? 0),
+  todaySpend: (storeId = DEFAULT_STORE_ID) =>
+    withDb((db) => db.spend.find((item) => item.day === londonDay() && item.storeId === storeId)?.gbp ?? 0),
 };

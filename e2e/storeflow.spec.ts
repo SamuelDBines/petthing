@@ -31,12 +31,40 @@ test.describe("Pawtraitry store @mock", () => {
     await page.screenshot({ path: path.join(screenshotDir, "admin-orders.png"), fullPage: true });
   });
 
+  test("wildframe store checkout is isolated from pawtraitry", async ({ page }) => {
+    const email = `wild-${Date.now()}@wildframe.test`;
+    await completePortraitWizard(page, email, "wildframe");
+    await page.waitForURL(/\/checkout\/success/, { timeout: 60_000 });
+    await runGenerationOnSuccess(page);
+    await adminLogin(page);
+    await page.getByTestId("admin-store-switcher").selectOption("wildframe");
+    await expect(page.getByTestId("admin-orders-table")).toContainText(email);
+    await page.getByTestId("admin-store-switcher").selectOption("pawtraitry");
+    await expect(page.getByTestId("admin-orders-table")).not.toContainText(email);
+  });
+
+  test("analytics records visit and funnel", async ({ page }) => {
+    await page.goto("/?store=wildframe");
+    await page.evaluate(() => localStorage.setItem("ps_analytics_consent", "analytics"));
+    await page.goto("/create?store=wildframe");
+    await page.waitForTimeout(500);
+    await adminLogin(page);
+    await page.getByTestId("admin-store-switcher").selectOption("wildframe");
+    await page.getByTestId("admin-analytics-tab").click();
+    await expect(page.getByTestId("admin-analytics-panel")).toBeVisible();
+    await expect(page.getByTestId("admin-analytics-panel")).toContainText(/Sessions|Unique visitors/i);
+    await page.screenshot({ path: path.join(screenshotDir, "admin-analytics.png"), fullPage: true });
+  });
+
   test("screenshots @screenshots", async ({ page }) => {
     await page.goto("/");
     await page.screenshot({ path: path.join(screenshotDir, "storefront.png"), fullPage: true });
+    await page.goto("/?store=wildframe");
+    await page.screenshot({ path: path.join(screenshotDir, "storefront-wildframe.png"), fullPage: true });
     await page.goto("/create");
     await page.screenshot({ path: path.join(screenshotDir, "create-flow.png"), fullPage: true });
     await adminLogin(page);
+    await page.screenshot({ path: path.join(screenshotDir, "admin-store-switcher.png"), fullPage: true });
     await page.getByTestId("admin-content-tab").click();
     await page.screenshot({ path: path.join(screenshotDir, "admin-content-queue.png"), fullPage: true });
   });

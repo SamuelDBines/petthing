@@ -75,7 +75,13 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
     const fresh = await store.getOrder(order.id);
     if (fresh) await enqueueForOrder(fresh);
   }
-  await store.addEvent({ id: randomUUID(), type: "paid", orderId: order.id, createdAt: new Date().toISOString() });
+  await store.addEvent({
+    id: randomUUID(),
+    storeId: order.storeId,
+    type: "paid",
+    orderId: order.id,
+    createdAt: new Date().toISOString(),
+  });
   const rewarded = await store.getOrder(order.id);
   if (rewarded) await rewardReferrer(rewarded);
 }

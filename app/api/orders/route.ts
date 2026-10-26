@@ -5,6 +5,7 @@ import type { Order } from "@/lib/domain";
 import { cleanUtm, jsonError, parseBody } from "@/lib/http";
 import { orderInputSchema, photoConsentGiven } from "@/lib/orderInput";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
+import { requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 export async function POST(request: Request) {
   const parsed = parseBody(orderInputSchema, await request.json().catch(() => null));
@@ -12,11 +13,12 @@ export async function POST(request: Request) {
   const input = parsed.data;
   if (!photoConsentGiven(input)) return jsonError("Photo permission is required.", 400);
   const store = getStore();
+  const storeId = await requestStoreId();
   const ipHash = hashIp(clientIp(request));
-  const limit = await store.hitRateLimit(`order:${ipHash}`, 12, 60 * 60 * 1000);
+  const limit = await store.hitRateLimit(`order:${storeId}:${ipHash}`, 12, 60 * 60 * 1000);
   if (!limit.ok) return jsonError("Too many orders from this connection. Try again in an hour.", 429);
 
-  const { settings, theme } = await getCatalog();
+  const { settings, theme, config } = await getCatalog(storeId);
   if (settings.salesPaused) return jsonError("New orders are paused for a moment. Please check back shortly.", 409);
   if (input.themeId !== theme.id) return jsonError("That theme is not on sale.");
   const offer = input.offer ?? "one_off";
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
   let discount = 0;
   let referralCodeUsed: string | null = null;
   if (input.referralCode) {
-    const owner = await store.getOrderByReferralCode(input.referralCode.trim());
+    const owner = await store.getOrderByReferralCode(input.referralCode.trim(), storeId);
     if (!owner || owner.status !== "delivered") return jsonError("That referral code is not active yet.");
     discount = REFERRAL_DISCOUNT;
     referralCodeUsed = owner.ownReferralCode;
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const order: Order = {
     id: randomUUID(),
+    storeId,
     createdAt: now,
     email: input.email.trim().toLowerCase(),
     themeId: theme.id,
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
     digitalSupplyConsentAt: now,
     utm: cleanUtm(input.utm),
     referralCodeUsed,
-    ownReferralCode: referralCode(),
+    ownReferralCode: referralCode(config.brand.referralPrefix),
     resultsToken: randomUUID(),
     uploadToken: randomUUID(),
     generationCostGbp: 0,

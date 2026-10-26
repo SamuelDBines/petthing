@@ -28,6 +28,9 @@ export default function Page() {
         <li>Photos you upload to create portraits.</li>
         <li>Generated portrait files and watermarked previews.</li>
         <li>Shipping name and address for printed orders (collected by Stripe).</li>
+        <li>
+          First-party analytics (page views, funnel steps, device type, referrer/UTM, coarse country from hosting headers) stored in our database. Before consent we only count aggregate visits without a persistent visitor id.
+        </li>
         <li>Technical data: hashed IP for rate limiting, cookie choices, and optional UTM campaign tags.</li>
       </ul>
 
@@ -35,7 +38,7 @@ export default function Page() {
       <ul className="mt-3 list-disc space-y-2 pl-6">
         <li><strong>Contract</strong> — to create and deliver your portraits and any prints you order.</li>
         <li><strong>Legitimate interests</strong> — fraud prevention, service security, and improving the site (balanced against your rights).</li>
-        <li><strong>Consent</strong> — marketing pixels (Meta, TikTok) only after you accept cookies; you can refuse non-essential cookies.</li>
+        <li><strong>Consent</strong> — analytics visitor ids and marketing pixels (Meta, TikTok, optional PostHog replay) only after you choose Accept or Analytics; Essential-only mode keeps aggregate counts only.</li>
         <li><strong>Legal obligation</strong> — tax and accounting records where required.</li>
       </ul>
 

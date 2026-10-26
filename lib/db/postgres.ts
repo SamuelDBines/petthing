@@ -1,4 +1,15 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { collectVisitorAnalytics, listRollups, recomputeRollup } from "@/lib/db/analytics-methods";
+import {
+  ensureBuiltinStores,
+  getStoreRow,
+  getStoreSettings,
+  listStoreRows,
+  updateStoreSettings,
+  upsertStoreRow,
+} from "@/lib/db/tenant-methods";
+import type { VisitorCollectPayload } from "@/lib/analytics/types";
+import { DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import { getSql } from "@/lib/db/client";
@@ -23,6 +34,7 @@ function iso(value: Date | string | null | undefined) {
 function toOrder(row: typeof orders.$inferSelect): Order {
   return {
     id: row.id,
+    storeId: row.storeId ?? DEFAULT_STORE_ID,
     createdAt: iso(row.createdAt)!,
     email: row.email,
     themeId: row.themeId,
@@ -63,6 +75,7 @@ function toOrder(row: typeof orders.$inferSelect): Order {
 function orderValues(order: Order): typeof orders.$inferInsert {
   return {
     id: order.id,
+    storeId: order.storeId ?? DEFAULT_STORE_ID,
     createdAt: new Date(order.createdAt),
     email: order.email,
     themeId: order.themeId,
@@ -175,6 +188,7 @@ function toJob(row: typeof jobs.$inferSelect): Job {
 function toEvent(row: typeof events.$inferSelect): AnalyticsEvent {
   return {
     id: row.id,
+    storeId: row.storeId ?? DEFAULT_STORE_ID,
     type: row.type as AnalyticsEvent["type"],
     orderId: row.orderId,
     createdAt: iso(row.createdAt)!,
@@ -200,6 +214,7 @@ function toPrint(row: typeof prints.$inferSelect): PrintOrder {
 function toPreorder(row: typeof preorders.$inferSelect): Preorder {
   return {
     id: row.id,
+    storeId: row.storeId ?? DEFAULT_STORE_ID,
     orderId: row.orderId,
     email: row.email,
     themeId: row.themeId,
@@ -232,21 +247,30 @@ const defaultSettings = (): Settings => ({
 });
 
 export const postgresStore = {
-  async getSettings() {
-    const [row] = await db().select().from(appSettings).where(eq(appSettings.id, 1)).limit(1);
-    return row ? toSettings(row) : defaultSettings();
+  async getSettings(storeId = DEFAULT_STORE_ID) {
+    await ensureBuiltinStores();
+    return getStoreSettings(storeId);
   },
-  async updateSettings(patch: Partial<Settings>) {
-    const set: Partial<typeof appSettings.$inferInsert> = {};
-    if (patch.themeMode !== undefined) set.themeMode = patch.themeMode;
-    if (patch.activeThemeId !== undefined) set.activeThemeId = patch.activeThemeId;
-    if (patch.salesPaused !== undefined) set.salesPaused = patch.salesPaused;
-    if (patch.queueHalted !== undefined) set.queueHalted = patch.queueHalted;
-    if (patch.haltReason !== undefined) set.haltReason = patch.haltReason;
-    if (patch.haltNotifiedOn !== undefined) set.haltNotifiedOn = patch.haltNotifiedOn;
-    const [row] = await db().update(appSettings).set(set).where(eq(appSettings.id, 1)).returning();
-    if (!row) throw new Error("Settings not found");
-    return toSettings(row);
+  async updateSettings(patch: Partial<Settings>, storeId = DEFAULT_STORE_ID) {
+    return updateStoreSettings(storeId, patch);
+  },
+  async listStores() {
+    return listStoreRows();
+  },
+  async getStoreConfig(id: string) {
+    return getStoreRow(id);
+  },
+  async upsertStore(input: { id: string; slug: string; domains: string[]; config?: Record<string, unknown> }) {
+    return upsertStoreRow(input);
+  },
+  async collectAnalytics(storeId: string, payload: VisitorCollectPayload, countryCode?: string | null) {
+    return collectVisitorAnalytics(storeId, payload, countryCode);
+  },
+  async getAnalyticsRollups(storeId: string | "all", from: string, to: string) {
+    return listRollups(storeId, from, to);
+  },
+  async refreshAnalyticsRollup(storeId: string, day?: string) {
+    return recomputeRollup(storeId, day ?? londonDay());
   },
   async createOrder(order: Order) {
     await db().insert(orders).values(orderValues(order));
@@ -282,11 +306,13 @@ export const postgresStore = {
     const [row] = await db().select().from(orders).where(eq(orders.stripeCheckoutSessionId, sessionId)).limit(1);
     return row ? toOrder(row) : null;
   },
-  async getOrderByReferralCode(code: string) {
+  async getOrderByReferralCode(code: string, storeId?: string) {
+    const clauses = [sql`lower(${orders.ownReferralCode}) = ${code.toLowerCase()}`];
+    if (storeId) clauses.push(eq(orders.storeId, storeId));
     const [row] = await db()
       .select()
       .from(orders)
-      .where(sql`lower(${orders.ownReferralCode}) = ${code.toLowerCase()}`)
+      .where(and(...clauses))
       .limit(1);
     return row ? toOrder(row) : null;
   },
@@ -294,8 +320,11 @@ export const postgresStore = {
     const [row] = await db().select().from(orders).where(eq(orders.stripeSubscriptionId, subscriptionId)).limit(1);
     return row ? toOrder(row) : null;
   },
-  async listOrders() {
-    const rows = await db().select().from(orders).orderBy(desc(orders.createdAt));
+  async listOrders(storeId?: string | "all") {
+    const rows =
+      storeId && storeId !== "all"
+        ? await db().select().from(orders).where(eq(orders.storeId, storeId)).orderBy(desc(orders.createdAt))
+        : await db().select().from(orders).orderBy(desc(orders.createdAt));
     return rows.map(toOrder);
   },
   async addAsset(asset: Asset) {
@@ -427,13 +456,17 @@ export const postgresStore = {
   async addEvent(event: AnalyticsEvent) {
     await db().insert(events).values({
       id: event.id,
+      storeId: event.storeId ?? DEFAULT_STORE_ID,
       type: event.type,
       orderId: event.orderId,
       createdAt: new Date(event.createdAt),
     });
   },
-  async countEvents(type: AnalyticsEvent["type"], day?: string) {
-    const rows = await db().select().from(events).where(eq(events.type, type));
+  async countEvents(type: AnalyticsEvent["type"], day?: string, storeId?: string | "all") {
+    const rows =
+      storeId && storeId !== "all"
+        ? await db().select().from(events).where(and(eq(events.type, type), eq(events.storeId, storeId)))
+        : await db().select().from(events).where(eq(events.type, type));
     return rows.filter((row) => !day || londonDay(row.createdAt) === day).length;
   },
   async addPrint(print: PrintOrder) {
@@ -478,6 +511,7 @@ export const postgresStore = {
   async addPreorder(preorder: Preorder) {
     await db().insert(preorders).values({
       id: preorder.id,
+      storeId: preorder.storeId ?? DEFAULT_STORE_ID,
       orderId: preorder.orderId,
       email: preorder.email,
       themeId: preorder.themeId,
@@ -492,8 +526,11 @@ export const postgresStore = {
     const [row] = await db().select().from(preorders).where(eq(preorders.stripeCheckoutSessionId, sessionId)).limit(1);
     return row ? toPreorder(row) : null;
   },
-  async listPreorders() {
-    const rows = await db().select().from(preorders).orderBy(desc(preorders.createdAt));
+  async listPreorders(storeId?: string | "all") {
+    const rows =
+      storeId && storeId !== "all"
+        ? await db().select().from(preorders).where(eq(preorders.storeId, storeId)).orderBy(desc(preorders.createdAt))
+        : await db().select().from(preorders).orderBy(desc(preorders.createdAt));
     return rows.map(toPreorder);
   },
   async updatePreorder(id: string, patch: Partial<Preorder>) {
@@ -531,19 +568,23 @@ export const postgresStore = {
       return { ok: true as const, remaining: limit - row.count - 1 };
     });
   },
-  async addSpend(gbp: number) {
+  async addSpend(gbp: number, storeId = DEFAULT_STORE_ID) {
     const day = londonDay();
     const rows = await getSql()<{ gbp: string }[]>`
-      insert into daily_spend (day, gbp)
-      values (${day}, ${gbp})
-      on conflict (day) do update
+      insert into daily_spend (store_id, day, gbp)
+      values (${storeId}, ${day}, ${gbp})
+      on conflict (store_id, day) do update
       set gbp = round(daily_spend.gbp + excluded.gbp, 4)
       returning gbp
     `;
     return Number(rows[0]?.gbp ?? 0);
   },
-  async todaySpend() {
-    const [row] = await db().select().from(dailySpend).where(eq(dailySpend.day, londonDay())).limit(1);
+  async todaySpend(storeId = DEFAULT_STORE_ID) {
+    const [row] = await db()
+      .select()
+      .from(dailySpend)
+      .where(and(eq(dailySpend.storeId, storeId), eq(dailySpend.day, londonDay())))
+      .limit(1);
     return row?.gbp ?? 0;
   },
 };
