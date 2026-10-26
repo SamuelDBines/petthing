@@ -1,0 +1,243 @@
+import { randomUUID } from "crypto";
+import { z } from "zod";
+import { APP_NAME } from "@/config/brand";
+import { getPrint, PRINTS } from "@/config/prints";
+import {
+  CHRISTMAS_PREORDER_PENCE,
+  EXTRA_STYLES_COUNT,
+  EXTRA_STYLES_PENCE,
+  formatGbp,
+  getTier,
+  PRIORITY_PENCE,
+} from "@/config/pricing";
+import type { Preorder, PrintOrder } from "@/lib/domain";
+import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
+import { jsonError, parseBody } from "@/lib/http";
+import { appUrl, clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
+
+function requestOrigin(request: Request) {
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  if (!host) return appUrl();
+  const proto = request.headers.get("x-forwarded-proto") || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+import { getStore } from "@/lib/store";
+import { getStripe } from "@/lib/stripe";
+import type Stripe from "stripe";
+
+const schema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("portrait"), orderId: z.string().uuid(), uploadToken: z.string().min(10) }),
+  z.object({
+    kind: z.literal("extra_styles"),
+    token: z.string().min(10),
+    styleIds: z.array(z.string()).min(1).max(EXTRA_STYLES_COUNT),
+  }),
+  z.object({
+    kind: z.literal("print"),
+    token: z.string().min(10),
+    productId: z.enum(["puzzle_252"]),
+    assetId: z.string().uuid(),
+  }),
+  z.object({ kind: z.literal("christmas"), email: z.string().email(), token: z.string().optional() }),
+]);
+
+async function openSession(args: {
+  origin: string;
+  kind: string;
+  email: string;
+  lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
+  metadata: Record<string, string>;
+  successPath: string;
+  cancelPath: string;
+  idempotencyKey: string;
+  collectShipping?: boolean;
+  allowPromotionCodes?: boolean;
+  mode?: "payment" | "subscription";
+}) {
+  const stripe = getStripe();
+  const success = `${args.origin}${args.successPath}`;
+  if (!stripe) {
+    if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
+    return { demo: true as const, url: success.replace("{CHECKOUT_SESSION_ID}", `demo_${args.idempotencyKey}`) };
+  }
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: args.mode ?? "payment",
+      customer_email: args.email,
+      line_items: args.lineItems,
+      success_url: success,
+      cancel_url: `${args.origin}${args.cancelPath}`,
+      metadata: args.metadata,
+      integration_identifier: integrationIdentifier(args.kind),
+      allow_promotion_codes: args.allowPromotionCodes ?? false,
+      ...(args.collectShipping ? { shipping_address_collection: { allowed_countries: ["GB"] } } : {}),
+    },
+    { idempotencyKey: args.idempotencyKey },
+  );
+  if (!session.url) return jsonError("Stripe did not return a checkout URL.", 502);
+  return { demo: false as const, url: session.url, sessionId: session.id };
+}
+
+function line(name: string, amount: number, yearly = false): Stripe.Checkout.SessionCreateParams.LineItem {
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "gbp",
+      unit_amount: amount,
+      product_data: { name },
+      ...(yearly ? { recurring: { interval: "year" as const } } : {}),
+    },
+  };
+}
+
+export async function POST(request: Request) {
+  const origin = requestOrigin(request);
+  const parsed = parseBody(schema, await request.json().catch(() => null));
+  if (!parsed.ok) return parsed.response;
+  const store = getStore();
+  const limit = await store.hitRateLimit(`checkout:${hashIp(clientIp(request))}`, 10, 60 * 60 * 1000);
+  if (!limit.ok) return jsonError("Too many checkout attempts. Try again in an hour.", 429);
+  const body = parsed.data;
+
+  if (body.kind === "portrait") {
+    const order = await store.getOrderByUploadToken(body.orderId, body.uploadToken);
+    if (!order || order.status !== "pending_payment") return jsonError("Start again from the form.", 409);
+    const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
+    if (!uploads.length) return jsonError("Upload at least one photo first.");
+    const pass = order.offer === "season_pass";
+    const tier = getTier(order.tierId);
+    const portraitPence = order.amountPence - (order.priority ? PRIORITY_PENCE : 0);
+    const items = pass
+      ? [line(`${APP_NAME} season pass`, portraitPence, true)]
+      : [line(`${APP_NAME} · ${tier.name}`, portraitPence)];
+    if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
+    const opened = await openSession({
+      origin,
+      kind: pass ? "season" : "portrait",
+      email: order.email,
+      lineItems: items,
+      metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id },
+      mode: pass ? "subscription" : "payment",
+      successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+      cancelPath: "/create?cancelled=1",
+      idempotencyKey: `portrait-${order.id}-${order.amountPence}`,
+      allowPromotionCodes: !order.referralCodeUsed,
+    });
+    if (opened instanceof Response) return opened;
+    if (opened.demo) {
+      const sessionId = `demo_${order.id}`;
+      await markPortraitPaid(order.id, { sessionId, paymentIntentId: null, amountPence: order.amountPence });
+      await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+      return Response.json({ url: `${origin}/checkout/success?session_id=${sessionId}` });
+    }
+    await store.updateOrder(order.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
+    await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+    return Response.json({ url: opened.url });
+  }
+
+  if (body.kind === "extra_styles") {
+    const order = await store.getOrderByToken(body.token);
+    if (!order || order.status !== "delivered") return jsonError("That gallery is not ready.", 404);
+    const themeStyles = (await import("@/config/themes")).getTheme(order.themeId)?.styles ?? [];
+    const remaining = themeStyles.filter((style) => !order.styleIds.includes(style.id));
+    const chosen = remaining.length ? body.styleIds : body.styleIds;
+    if (remaining.length && chosen.length !== Math.min(EXTRA_STYLES_COUNT, remaining.length)) {
+      return jsonError(`Choose ${Math.min(EXTRA_STYLES_COUNT, remaining.length)} styles.`);
+    }
+    if (remaining.length && chosen.some((id) => !remaining.some((style) => style.id === id))) {
+      return jsonError("Choose styles you do not already have.");
+    }
+    if (!remaining.length && chosen.length !== EXTRA_STYLES_COUNT) return jsonError("Choose 3 styles for extra images.");
+    const opened = await openSession({
+      origin,
+      kind: "extra",
+      email: order.email,
+      lineItems: [line(`${APP_NAME} · 3 more styles`, EXTRA_STYLES_PENCE)],
+      metadata: { kind: "extra_styles", orderId: order.id, styleIds: chosen.join(",") },
+      successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
+      cancelPath: `/results/${order.resultsToken}`,
+      idempotencyKey: `extra-${order.id}-${chosen.slice().sort().join("-")}`,
+      allowPromotionCodes: true,
+    });
+    if (opened instanceof Response) return opened;
+    if (opened.demo) {
+      const sessionId = `demo_extra_${order.id}_${chosen.join("-")}`;
+      await markExtraPaid(order.id, chosen, { sessionId, paymentIntentId: null, amountPence: EXTRA_STYLES_PENCE });
+      return Response.json({ url: `${origin}/results/${order.resultsToken}` });
+    }
+    return Response.json({ url: opened.url });
+  }
+
+  if (body.kind === "print") {
+    const order = await store.getOrderByToken(body.token);
+    if (!order || order.status !== "delivered") return jsonError("That gallery is not ready.", 404);
+    const asset = (await store.listAssets(order.id)).find((item) => item.id === body.assetId && item.kind === "result");
+    if (!asset) return jsonError("Choose one of your portraits.");
+    if (!getStripe()) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
+    const product = getPrint(body.productId);
+    const print: PrintOrder = {
+      id: randomUUID(),
+      orderId: order.id,
+      productId: product.id,
+      assetId: asset.id,
+      stripeCheckoutSessionId: null,
+      stripePaymentIntentId: null,
+      prodigiOrderId: null,
+      status: "pending_payment",
+      shipping: null,
+      error: null,
+      createdAt: new Date().toISOString(),
+    };
+    await store.addPrint(print);
+    const opened = await openSession({
+      origin,
+      kind: "print",
+      email: order.email,
+      lineItems: [line(`${APP_NAME} · ${product.name}`, product.pricePence)],
+      metadata: { kind: "print", orderId: order.id, printId: print.id },
+      successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
+      cancelPath: `/results/${order.resultsToken}`,
+      idempotencyKey: `print-${print.id}`,
+      collectShipping: true,
+      allowPromotionCodes: true,
+    });
+    if (opened instanceof Response) return opened;
+    await store.updatePrint(print.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
+    return Response.json({ url: opened.url });
+  }
+
+  const email = body.email.trim().toLowerCase();
+  const linked = body.token ? await store.getOrderByToken(body.token) : null;
+  const preorder: Preorder = {
+    id: randomUUID(),
+    orderId: linked?.id ?? null,
+    email,
+    themeId: "christmas",
+    stripeCheckoutSessionId: null,
+    stripePaymentIntentId: null,
+    amountPence: CHRISTMAS_PREORDER_PENCE,
+    status: "pending_payment",
+    createdAt: new Date().toISOString(),
+  };
+  await store.addPreorder(preorder);
+  const opened = await openSession({
+    origin,
+    kind: "christmas",
+    email,
+    lineItems: [line(`${APP_NAME} · Christmas pre-order`, CHRISTMAS_PREORDER_PENCE)],
+    metadata: { kind: "christmas", preorderId: preorder.id },
+    successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+    cancelPath: "/",
+    idempotencyKey: `christmas-${preorder.id}`,
+    allowPromotionCodes: true,
+  });
+  if (opened instanceof Response) return opened;
+  if (opened.demo) {
+    const sessionId = `demo_${preorder.id}`;
+    await store.updatePreorder(preorder.id, { stripeCheckoutSessionId: sessionId, status: "pending_payment" });
+    await markChristmasPaid(preorder.id, { sessionId, paymentIntentId: null, amountPence: CHRISTMAS_PREORDER_PENCE });
+    return Response.json({ url: `${origin}/checkout/success?session_id=${sessionId}` });
+  }
+  await store.updatePreorder(preorder.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
+  return Response.json({ url: opened.url, price: formatGbp(CHRISTMAS_PREORDER_PENCE), prints: PRINTS.length });
+}

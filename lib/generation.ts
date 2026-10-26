@@ -1,0 +1,284 @@
+import { randomUUID } from "crypto";
+import { APP_NAME } from "@/config/brand";
+import { EXTRA_IMAGES_PER_STYLE, getTier, perStyleCounts } from "@/config/pricing";
+import { getTheme } from "@/config/themes";
+import { buildPrompt } from "@/config/stylePrompts";
+import type { Job, Order } from "@/lib/domain";
+import { deleteBlob, putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
+import { alertAdmin, resultsEmail, reviewReadyEmail, sendEmail } from "@/lib/email";
+import { getImageProvider } from "@/lib/imageProvider";
+import { moderateImage } from "@/lib/moderation";
+import { appUrl, londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
+import { retryDelayMs } from "@/lib/queue";
+import { getStore } from "@/lib/store";
+import { watermark } from "@/lib/watermark";
+
+const MAX_ATTEMPTS = 3;
+
+function seedFrom(id: string) {
+  let hash = 0;
+  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
+  return hash % 1_000_000;
+}
+
+async function halt(reason: string) {
+  const store = getStore();
+  const settings = await store.getSettings();
+  const today = londonDay();
+  await store.updateSettings({ queueHalted: true, haltReason: reason, haltNotifiedOn: today });
+  if (settings.haltNotifiedOn !== today) {
+    await alertAdmin("Generation queue halted", `<p>${reason}</p><p>Open admin and switch the queue back on after you have checked it.</p>`);
+  }
+}
+
+export async function enqueuePlan(orderId: string, plan: { styleId: string; count: number }[], bonus = false) {
+  const store = getStore();
+  const order = await store.getOrder(orderId);
+  if (!order) throw new Error("Order not found");
+  const existing = await store.listJobs(orderId);
+  const now = new Date().toISOString();
+  const jobs: Job[] = [];
+  for (const item of plan) {
+    const used = existing.filter((job) => job.styleId === item.styleId).map((job) => job.variantIndex);
+    let nextIndex = used.length ? Math.max(...used) + 1 : 0;
+    for (let count = 0; count < item.count; count += 1) {
+      jobs.push({
+        id: randomUUID(),
+        orderId,
+        styleId: item.styleId,
+        variantIndex: nextIndex,
+        status: "queued",
+        attempts: 0,
+        providerRequestId: null,
+        lastError: null,
+        costGbp: 0,
+        priority: order.priority,
+        lockedUntil: null,
+        nextRunAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      nextIndex += 1;
+    }
+  }
+  await store.addJobs(jobs);
+  const patch: Partial<Order> = {};
+  if (order.status !== "delivered" && order.status !== "refunded") {
+    patch.status = "generating";
+    patch.failureReason = null;
+  }
+  if (bonus) patch.pendingBonusEmail = true;
+  if (Object.keys(patch).length) await store.updateOrder(orderId, patch);
+}
+
+export async function enqueueForOrder(order: Order) {
+  const counts = perStyleCounts(getTier(order.tierId).imageCount, order.styleIds.length);
+  await enqueuePlan(
+    order.id,
+    order.styleIds.map((styleId, index) => ({ styleId, count: counts[index] ?? 1 })),
+  );
+}
+
+export async function deliverOrder(orderId: string) {
+  const store = getStore();
+  const order = await store.getOrder(orderId);
+  if (!order || order.status === "refunded" || order.status === "delivered") return;
+  const assets = await store.listAssets(orderId);
+  for (const asset of assets.filter((item) => item.kind === "result")) {
+    const previewPath = `${orderId}/previews/${asset.id}.jpg`;
+    if (assets.some((item) => item.storagePath === previewPath)) continue;
+    const file = await readBlob(asset.bucket, asset.storagePath);
+    if (!file) continue;
+    const preview = await watermark(file.bytes);
+    await putBlob("results", previewPath, preview, "image/jpeg");
+    await store.addAsset({
+      id: randomUUID(),
+      orderId,
+      kind: "preview",
+      styleId: asset.styleId,
+      variantIndex: asset.variantIndex,
+      storagePath: previewPath,
+      bucket: "results",
+      contentType: "image/jpeg",
+      moderation: "passed",
+      createdAt: new Date().toISOString(),
+    });
+  }
+  const now = new Date();
+  await store.updateOrder(orderId, {
+    status: "delivered",
+    deliveredAt: now.toISOString(),
+    photosDeleteAfter: new Date(now.getTime() + (order.offer === "season_pass" ? 365 : 7) * 24 * 60 * 60 * 1000).toISOString(),
+    resultsDeleteAfter: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    failureReason: null,
+  });
+  await sendEmail({
+    to: order.email,
+    subject: `Your ${APP_NAME} portraits are ready`,
+    html: resultsEmail(`${appUrl()}/results/${order.resultsToken}`),
+  });
+}
+
+async function finishIfDone(orderId: string) {
+  const store = getStore();
+  const jobs = await store.listJobs(orderId);
+  const settled = (status: Job["status"]) => status === "done" || status === "failed" || status === "dead";
+  if (jobs.some((job) => !settled(job.status))) return;
+  const order = await store.getOrder(orderId);
+  if (!order || order.status === "refunded") return;
+  const failed = jobs.some((job) => job.status === "failed" || job.status === "dead");
+  if (failed) {
+    if (order.status === "delivered") {
+      await alertAdmin("An extra style failed", `<p>${order.email} still has their original gallery. A later style failed.</p>`);
+    } else {
+      await store.updateOrder(orderId, { status: "failed", failureReason: "A portrait failed after three attempts." });
+      await alertAdmin("Generation failed", `<p>${order.email} needs a regenerate or a refund.</p>`);
+    }
+    return;
+  }
+  if (order.status === "delivered") {
+    if (order.pendingBonusEmail) {
+      await sendEmail({
+        to: order.email,
+        subject: `Your extra ${APP_NAME} style is ready`,
+        html: resultsEmail(`${appUrl()}/results/${order.resultsToken}`),
+      });
+      await store.updateOrder(orderId, { pendingBonusEmail: false });
+    }
+    return;
+  }
+  if (manualReviewEnabled()) {
+    await store.updateOrder(orderId, { status: "review", failureReason: null });
+    await alertAdmin("Order ready for review", reviewReadyEmail(`${appUrl()}/admin`, order.email));
+    return;
+  }
+  await deliverOrder(orderId);
+}
+
+async function processJob(jobId: string) {
+  const store = getStore();
+  const job = (await store.listJobs()).find((item) => item.id === jobId);
+  const order = job ? await store.getOrder(job.orderId) : null;
+  if (!job || !order) return;
+  const provider = getImageProvider();
+  try {
+    let requestId = job.providerRequestId;
+    if (!requestId) {
+      const { prompt, negative } = buildPrompt({
+        styleId: job.styleId,
+        subject: order.subjectType,
+        variantIndex: job.variantIndex,
+        quality: getTier(order.tierId).quality,
+      });
+      const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
+      const imageUrls: string[] = [];
+      for (const asset of uploads) imageUrls.push(await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60));
+      if (provider.id !== "placeholder" && imageUrls.length === 0) throw new Error("This order has no photos left to reference");
+      const submitted = await provider.submit({
+        prompt,
+        negativePrompt: negative,
+        imageUrls,
+        quality: getTier(order.tierId).quality,
+        seed: seedFrom(`${job.id}:${job.attempts}`),
+      });
+      requestId = submitted.requestId;
+      await store.updateJob(job.id, { providerRequestId: requestId, status: "submitted" });
+    }
+    const polled = await provider.poll(requestId);
+    if (polled.state === "pending") {
+      await store.updateJob(job.id, { status: "submitted" });
+      return;
+    }
+    if (polled.state === "failed") throw new Error(polled.error);
+    let cost = polled.costGbp;
+    if (polled.costGbp) await store.addSpend(polled.costGbp);
+    for (const image of polled.images) {
+      if (image.nsfw) throw new Error("The generator safety checker blocked this output");
+      const moderation = await moderateImage(image.bytes, image.contentType);
+      if (moderation.costGbp) {
+        cost += moderation.costGbp;
+        await store.addSpend(moderation.costGbp);
+      }
+      if (!moderation.allowed) throw new Error(moderation.reason);
+      const extension = image.contentType.includes("png") ? "png" : "jpg";
+      const storagePath = `${order.id}/results/${job.styleId}-${job.variantIndex}.${extension}`;
+      await putBlob("results", storagePath, image.bytes, image.contentType);
+      await store.addAsset({
+        id: randomUUID(),
+        orderId: order.id,
+        kind: "result",
+        styleId: job.styleId,
+        variantIndex: job.variantIndex,
+        storagePath,
+        bucket: "results",
+        contentType: image.contentType,
+        moderation: moderation.skipped ? "skipped" : "passed",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    const fresh = await store.getOrder(order.id);
+    await store.updateOrder(order.id, {
+      generationCostGbp: Math.round(((fresh?.generationCostGbp ?? 0) + cost) * 10000) / 10000,
+    });
+    await store.updateJob(job.id, { status: "done", costGbp: cost, lastError: null, lockedUntil: null, nextRunAt: null });
+    const spent = await store.todaySpend();
+    if (spent >= maxDailySpendGbp()) {
+      await halt(`Daily generation spend reached £${spent.toFixed(2)} (limit £${maxDailySpendGbp().toFixed(2)}).`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Generation failed";
+    const attempts = job.attempts + 1;
+    const dead = attempts >= MAX_ATTEMPTS;
+    await store.updateJob(job.id, {
+      status: dead ? "dead" : "queued",
+      attempts,
+      lastError: message,
+      providerRequestId: null,
+      lockedUntil: null,
+      nextRunAt: dead ? null : new Date(Date.now() + retryDelayMs(attempts)).toISOString(),
+    });
+  }
+  await finishIfDone(order.id);
+}
+
+export async function runQueue(limit = process.env.VERCEL ? 3 : 12) {
+  const store = getStore();
+  const settings = await store.getSettings();
+  if (settings.queueHalted) return { processed: 0, halted: true, reason: settings.haltReason };
+  if ((await store.todaySpend()) >= maxDailySpendGbp()) {
+    await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`);
+    return { processed: 0, halted: true, reason: "spend cap" };
+  }
+  const claimed = await store.claimJobs(limit);
+  for (const job of claimed) {
+    if ((await store.todaySpend()) >= maxDailySpendGbp()) break;
+    await processJob(job.id);
+  }
+  return { processed: claimed.length, halted: false, reason: null };
+}
+
+export async function regenerateStyle(orderId: string, styleId: string) {
+  const store = getStore();
+  const theme = getTheme((await store.getOrder(orderId))?.themeId || "");
+  if (!theme?.styles.some((style) => style.id === styleId)) throw new Error("That style is not on this theme");
+  const assets = await store.listAssets(orderId);
+  const doomed = assets.filter((asset) => asset.styleId === styleId && asset.kind !== "upload");
+  for (const asset of doomed) await deleteBlob(asset.bucket, asset.storagePath);
+  await store.deleteAssets(doomed.map((asset) => asset.id));
+  const jobs = (await store.listJobs(orderId)).filter((job) => job.styleId === styleId);
+  if (!jobs.length) {
+    await enqueuePlan(orderId, [{ styleId, count: EXTRA_IMAGES_PER_STYLE }]);
+    return;
+  }
+  for (const job of jobs) {
+    await store.updateJob(job.id, {
+      status: "queued",
+      attempts: 0,
+      providerRequestId: null,
+      lastError: null,
+      lockedUntil: null,
+      nextRunAt: null,
+    });
+  }
+  await store.updateOrder(orderId, { status: "generating", failureReason: null });
+}
