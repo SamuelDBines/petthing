@@ -32,7 +32,7 @@ export function openDatabase(connectionString: string, max: number) {
     max,
     idle_timeout: 20,
     connect_timeout: 10,
-    connection: { application_name: "portrait-spell" },
+    connection: { application_name: "pawtraitry" },
     onnotice: () => undefined,
   });
 }

@@ -68,7 +68,7 @@ export const SEASON_PASS = {
   subject: "family" as const,
   tierId: "classic" as const,
   blurb: "A family set every season, billed once a year.",
-  points: ["Family or group", "A Classic set each season", "Halloween now, Christmas next", "Photos kept for the next season"],
+  points: ["Family or group", "A Classic set each season", "Current season now, Christmas next", "Photos kept for the next season"],
 };
 export const REFERRAL_DISCOUNT = 0.2;
 

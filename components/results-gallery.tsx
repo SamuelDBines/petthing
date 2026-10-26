@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APP_NAME } from "@/config/brand";
+import { AI_GENERATED_LABEL, APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
 import { CardBuilder } from "@/components/card-builder";
 
@@ -99,6 +99,7 @@ export function ResultsGallery({ token }: { token: string }) {
     <main className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-4xl">{data.order.themeName} portraits</h1>
       <p className="mt-2 text-cream/75">{data.order.tierName} set for {data.order.email}. Download before the 30-day deletion.</p>
+      <p className="mt-2 text-sm text-cream/60">{AI_GENERATED_LABEL}</p>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         {data.images.map((image) => (
           <figure key={image.id} className="overflow-hidden rounded-3xl border border-line">

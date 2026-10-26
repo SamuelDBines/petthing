@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CONSENT_LABEL } from "@/config/brand";
+import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import { formatGbp, SEASON_PASS, TIERS, type TierId } from "@/config/pricing";
 import { SUBJECTS, THEMES, type StyleDefinition, type SubjectType } from "@/config/themes";
 import { track } from "@/components/cookie-banner";
@@ -37,7 +37,8 @@ export function CreateWizard() {
   const [paused, setPaused] = useState(false);
   const [cardNames, setCardNames] = useState("");
   const [email, setEmail] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [photoConsent, setPhotoConsent] = useState(false);
+  const [digitalSupplyConsent, setDigitalSupplyConsent] = useState(false);
   const [priority, setPriority] = useState(false);
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
@@ -117,7 +118,8 @@ export function CreateWizard() {
           styleIds: tier.styleCount === "all" ? themeStyles.map((style) => style.id) : styles,
           cardNames,
           email,
-          consent,
+          photoConsent,
+          digitalSupplyConsent,
           priority: seasonPass ? false : priority,
           offer: seasonPass ? "season_pass" : "one_off",
           referralCode: referral || undefined,
@@ -248,7 +250,7 @@ export function CreateWizard() {
             <input className="field mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
           </label>
           <label className="block text-sm">Referral code
-            <input className="field mt-1" value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="SPELL-••••••" />
+            <input className="field mt-1" value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="PAW-••••••" />
           </label>
           {seasonPass ? null : (
             <label className="flex gap-3 text-sm leading-6">
@@ -257,12 +259,16 @@ export function CreateWizard() {
             </label>
           )}
           <label className="flex gap-3 text-sm leading-6">
-            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-            {CONSENT_LABEL}
+            <input type="checkbox" checked={photoConsent} onChange={(event) => setPhotoConsent(event.target.checked)} />
+            {PHOTO_CONSENT_LABEL}
+          </label>
+          <label className="flex gap-3 text-sm leading-6">
+            <input type="checkbox" checked={digitalSupplyConsent} onChange={(event) => setDigitalSupplyConsent(event.target.checked)} />
+            {DIGITAL_SUPPLY_CONSENT_LABEL}
           </label>
           <div className="flex gap-2">
             <button className="rounded-full border border-line px-5 py-3" onClick={() => setStep(3)}>Back</button>
-            <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink disabled:opacity-50" disabled={busy || paused || !consent || !email} onClick={pay}>
+            <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink disabled:opacity-50" disabled={busy || paused || !photoConsent || !digitalSupplyConsent || !email} onClick={pay}>
               {busy ? "Sending…" : seasonPass ? `Start the pass · ${formatGbp(SEASON_PASS.pricePence)}/year` : "Pay securely"}
             </button>
           </div>
