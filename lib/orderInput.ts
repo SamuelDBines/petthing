@@ -5,7 +5,7 @@ import { utmSchema } from "@/lib/http";
 const orderBodySchema = z.object({
   themeId: z.string().min(1),
   subjectType: z.enum(["pet", "family", "couple", "me"]),
-  tierId: z.enum(["mini", "classic", "deluxe"]),
+  tierId: z.enum(["mini", "classic", "deluxe", "hand_painted_12x16", "hand_painted_16x20"]),
   styleIds: z.array(z.string()).min(1).max(12),
   cardNames: z.string().max(80).optional(),
   email: z.string().email("Enter a valid email"),

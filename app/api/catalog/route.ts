@@ -11,6 +11,7 @@ export async function GET() {
     themes: config.themes.map((item) => ({ id: item.id, name: item.name, startsOn: item.startsOn })),
     tiers: config.catalog.tiers,
     prints: PRINTS,
+    painting: config.catalog.painting ?? null,
     christmasPence: config.catalog.christmasPreorderPence,
     salesPaused: settings.salesPaused,
     themeMode: settings.themeMode,

@@ -1,6 +1,14 @@
-export type PrintProductId = "puzzle_252";
+import { CANVAS_PRINTS, canvasPrintIds } from "@/config/canvasPrints";
 
-export type PrintSheet = "board" | "lid";
+export type PrintProductId =
+  | "puzzle_252"
+  | "canvas_slim_12x16"
+  | "canvas_stretched_12x16"
+  | "canvas_stretched_16x20"
+  | "canvas_framed_slim_16x20"
+  | "canvas_framed_16x20";
+
+export type PrintSheet = "board" | "lid" | "canvas";
 
 export type PrintProduct = {
   id: PrintProductId;
@@ -8,10 +16,13 @@ export type PrintProduct = {
   detail: string;
   /** Customer price. Confirm it covers the Prodigi quote plus UK postage before going live. */
   pricePence: number;
-  skuEnv: "PRODIGI_SKU_PUZZLE";
+  skuEnv: string;
   defaultSku: string;
   copies: number;
-  areas: { printArea: "default" | "lid"; sheet: PrintSheet }[];
+  widthIn?: number;
+  heightIn?: number;
+  prodigiPrintArea?: string;
+  areas: { printArea: string; sheet: PrintSheet }[];
 };
 
 export const PUZZLE_252 = {
@@ -27,7 +38,7 @@ export function sheetPixels(sheet: PrintSheet) {
   };
 }
 
-export const PRINTS: PrintProduct[] = [
+const PUZZLE_PRINTS: PrintProduct[] = [
   {
     id: "puzzle_252",
     name: "252-piece puzzle",
@@ -43,6 +54,8 @@ export const PRINTS: PrintProduct[] = [
   },
 ];
 
+export const PRINTS: PrintProduct[] = [...PUZZLE_PRINTS, ...CANVAS_PRINTS];
+
 export function getPrint(id: PrintProductId) {
   const product = PRINTS.find((item) => item.id === id);
   if (!product) throw new Error("Unknown print");
@@ -51,6 +64,10 @@ export function getPrint(id: PrintProductId) {
 
 export function printName(id: string) {
   return PRINTS.find((item) => item.id === id)?.name ?? "Print";
+}
+
+export function allPrintProductIds(): PrintProductId[] {
+  return ["puzzle_252", ...canvasPrintIds()] as PrintProductId[];
 }
 
 export function printSku(product: PrintProduct) {

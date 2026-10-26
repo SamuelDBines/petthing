@@ -17,6 +17,7 @@ export function mergeStoreConfig(base: StoreConfig, patch?: Partial<StoreConfig>
   return {
     ...base,
     ...patch,
+    storeType: patch.storeType ?? base.storeType,
     brand: { ...base.brand, ...patch.brand },
     catalog: { ...base.catalog, ...patch.catalog },
     settings: { ...base.settings, ...patch.settings },
@@ -30,7 +31,11 @@ export function configFromRow(id: string, config: Partial<StoreConfig> | null, d
   const builtin = builtinStore(id);
   if (!builtin) throw new Error(`Unknown store ${id}`);
   const merged = mergeStoreConfig(builtin, config ?? undefined);
-  return { ...merged, domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]) };
+  return {
+    ...merged,
+    storeType: merged.storeType ?? builtin.storeType,
+    domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]),
+  };
 }
 
 export function listBuiltinStores(): StoreConfig[] {

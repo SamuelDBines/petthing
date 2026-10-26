@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { getPrint, PRINTS } from "@/config/prints";
+import { allPrintProductIds, getPrint, PRINTS, type PrintProductId } from "@/config/prints";
 import {
   CHRISTMAS_PREORDER_PENCE,
   EXTRA_STYLES_COUNT,
@@ -30,7 +30,7 @@ const schema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("print"),
     token: z.string().min(10),
-    productId: z.enum(["puzzle_252"]),
+    productId: z.enum(allPrintProductIds() as [string, ...string[]]),
     assetId: z.string().uuid(),
   }),
   z.object({ kind: z.literal("christmas"), email: z.string().email(), token: z.string().optional() }),
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
     if (!uploads.length) return jsonError("Upload at least one photo first.");
     const pass = order.offer === "season_pass";
-    const tier = getTier(order.tierId);
+    const tier = getTier(order.tierId, storeConfig.catalog.tiers);
     const portraitPence = order.amountPence - (order.priority ? PRIORITY_PENCE : 0);
     const items = pass
       ? [line(`${brand.appName} season pass`, portraitPence, true)]
@@ -189,7 +189,7 @@ export async function POST(request: Request) {
     const asset = (await store.listAssets(order.id)).find((item) => item.id === body.assetId && item.kind === "result");
     if (!asset) return jsonError("Choose one of your portraits.");
     if (!getStripe()) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
-    const product = getPrint(body.productId);
+    const product = getPrint(body.productId as PrintProductId);
     const print: PrintOrder = {
       id: randomUUID(),
       orderId: order.id,

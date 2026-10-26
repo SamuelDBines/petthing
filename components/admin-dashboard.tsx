@@ -27,7 +27,7 @@ type Sales = {
   contentWorkerToken: string;
 };
 
-type Tab = "orders" | "sales" | "content" | "analytics";
+type Tab = "orders" | "sales" | "content" | "analytics" | "hand_painted" | "products";
 
 type StoreOption = { id: string; slug: string; config: { brand: { appName: string } } };
 
@@ -54,6 +54,10 @@ export function AdminDashboard() {
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [adminStore, setAdminStore] = useState<string>("all");
   const [analytics, setAnalytics] = useState<AnalyticsDashboard | null>(null);
+  const [handPainted, setHandPainted] = useState<
+    { orderId: string; status: string; sizeLabel: string; supplierEmailDraft: string }[]
+  >([]);
+  const [goCsv, setGoCsv] = useState("");
 
   async function load() {
     const [orderResponse, statsResponse, salesResponse, storesResponse] = await Promise.all([
@@ -103,6 +107,11 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (tab === "analytics" && authed) void loadAnalytics();
+    if (tab === "hand_painted" && authed) {
+      void fetch("/api/admin/hand-painted")
+        .then((r) => r.json())
+        .then((body) => setHandPainted(body.orders ?? []));
+    }
   }, [tab, authed, adminStore]);
 
   async function login(event: React.FormEvent) {
@@ -176,6 +185,8 @@ export function AdminDashboard() {
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "sales" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("sales")} data-testid="admin-sales-tab">Sales</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "analytics" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("analytics")} data-testid="admin-analytics-tab">Analytics</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "content" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("content")} data-testid="admin-content-tab">Content queue</button>
+          <button type="button" className={`rounded-full px-4 py-2 ${tab === "hand_painted" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("hand_painted")} data-testid="admin-hand-painted-tab">Hand-painted</button>
+          <button type="button" className={`rounded-full px-4 py-2 ${tab === "products" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("products")} data-testid="admin-products-tab">Products</button>
           <button className="rounded-full border border-line px-4 py-2" onClick={() => fetch("/api/admin/run-queue", { method: "POST" }).then(load)}>Run queue</button>
         </div>
       </div>
@@ -311,6 +322,45 @@ export function AdminDashboard() {
             </table>
           </div>
         </>
+      ) : null}
+
+      {tab === "hand_painted" ? (
+        <section className="mt-6 space-y-4" data-testid="admin-hand-painted-panel">
+          <p className="text-sm text-cream/70">Paid hand-painted orders — copy the supplier email draft and send manually to ArtInBulk.</p>
+          {handPainted.length === 0 ? <p>No hand-painted orders yet.</p> : null}
+          {handPainted.map((row) => (
+            <article key={row.orderId} className="rounded-2xl border border-line p-4">
+              <p className="font-medium">{row.sizeLabel} · {row.status}</p>
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-cream/80">{row.supplierEmailDraft}</pre>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      {tab === "products" ? (
+        <section className="mt-6 space-y-4" data-testid="admin-products-panel">
+          <p className="text-sm text-cream/70">Catalogue stores: export paid Go Dropship UK orders as CSV for manual upload.</p>
+          <button
+            type="button"
+            className="rounded-full bg-pumpkin px-4 py-2 text-ink disabled:opacity-40"
+            data-testid="go-dropship-export"
+            disabled={adminStore !== "fixmonger"}
+            onClick={async () => {
+              const response = await fetch("/api/admin/go-dropship-export", { method: "POST" });
+              const body = await response.json();
+              if (!response.ok) {
+                setError(body.error || "Export failed");
+                return;
+              }
+              setGoCsv(body.csv ?? "");
+            }}
+          >
+            Download Go Dropship CSV
+          </button>
+          {goCsv ? (
+            <pre className="max-h-64 overflow-auto rounded-2xl border border-line p-3 text-xs" data-testid="go-dropship-csv">{goCsv}</pre>
+          ) : null}
+        </section>
       ) : null}
     </main>
   );

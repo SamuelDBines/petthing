@@ -32,6 +32,36 @@ export function assertPrinterCanFetch(url: string) {
   }
 }
 
+export async function quotePrintShipping(args: {
+  product: PrintProduct;
+  countryCode: string;
+  items?: number;
+}) {
+  if (prodigiMocked()) {
+    return { mocked: true, currency: "GBP", shipping: 499, subtotal: args.product.pricePence };
+  }
+  const sku = printSku(args.product);
+  const response = await prodigi("/quotes", {
+    method: "POST",
+    body: JSON.stringify({
+      shippingMethod: "Standard",
+      destinationCountryCode: args.countryCode,
+      items: [{ sku, copies: args.items ?? 1 }],
+    }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as {
+    quotes?: { costSummary?: { totalCost?: { amount?: string; currency?: string } } }[];
+  };
+  if (!response.ok) throw new Error(`Prodigi quote failed (${response.status})`);
+  const summary = payload.quotes?.[0]?.costSummary?.totalCost;
+  return {
+    mocked: false,
+    currency: summary?.currency ?? "GBP",
+    shipping: summary ? Math.round(Number(summary.amount) * 100) : null,
+    subtotal: args.product.pricePence,
+  };
+}
+
 export async function submitPrintOrder(args: {
   product: PrintProduct;
   shipping: Shipping;

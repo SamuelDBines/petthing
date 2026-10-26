@@ -1,4 +1,4 @@
-export type TierId = "mini" | "classic" | "deluxe";
+export type TierId = "mini" | "classic" | "deluxe" | "hand_painted_12x16" | "hand_painted_16x20";
 export type Quality = "standard" | "hd";
 
 export type Tier = {
@@ -76,8 +76,8 @@ export function formatGbp(pence: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
 
-export function getTier(id: TierId) {
-  const tier = TIERS.find((item) => item.id === id);
+export function getTier(id: TierId, extraTiers: Tier[] = []) {
+  const tier = [...TIERS, ...extraTiers].find((item) => item.id === id);
   if (!tier) throw new Error("Unknown tier");
   return tier;
 }

@@ -15,6 +15,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import { getSql } from "@/lib/db/client";
 import type { AnalyticsEvent, Asset, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import { shopDbMethods } from "@/lib/db/shop-methods";
 import { londonDay } from "@/lib/runtime";
 
 const { orders, assets, jobs, events, prints, preorders, appSettings, dailySpend } = schema;
@@ -589,4 +590,5 @@ export const postgresStore = {
       .limit(1);
     return row?.gbp ?? 0;
   },
+  ...shopDbMethods,
 };

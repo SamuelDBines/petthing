@@ -50,7 +50,8 @@ export function resolveStoreIdFromHostList(
   dbRows?: { id: string; domains: string[] }[],
 ) {
   if (process.env.NODE_ENV !== "production" && storeQuery) {
-    const fromQuery = builtinStore(storeQuery.trim());
+    const query = storeQuery.trim() === "wildframe" ? "fixmonger" : storeQuery.trim();
+    const fromQuery = builtinStore(query);
     if (fromQuery) return fromQuery.id;
   }
   const hostname = normalizeHost(host);

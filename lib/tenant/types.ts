@@ -1,6 +1,9 @@
+import type { PaintingCutoffs } from "@/config/paintings";
 import type { Tier } from "@/config/pricing";
 import type { ThemeDefinition } from "@/config/themes";
 import type { Settings } from "@/lib/domain";
+
+export type StoreType = "portrait" | "catalogue";
 
 export type StoreThemeColors = {
   ink: string;
@@ -31,6 +34,14 @@ export type StoreCatalog = {
   priorityPence: number;
   extraStylesPence: number;
   christmasPreorderPence: number;
+  /** Pawtraitry painted canvas + hand-painted messaging */
+  painting?: {
+    cutoffs: PaintingCutoffs;
+    dutiesDisclaimer: string;
+    freeUkShippingPence?: number;
+  };
+  /** Catalogue stores */
+  freeUkShipping?: boolean;
 };
 
 export type StoreIntegrations = {
@@ -49,6 +60,7 @@ export type StoreIntegrations = {
 export type StoreConfig = {
   id: string;
   slug: string;
+  storeType: StoreType;
   domains: string[];
   brand: StoreBrand;
   themes: ThemeDefinition[];

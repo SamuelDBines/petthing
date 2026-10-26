@@ -1,6 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import type { HandPaintedOrderRow } from "@/lib/handPainted";
+import type { ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { AnalyticsEvent, Asset, Database, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
 import type { VisitorCollectPayload } from "@/lib/analytics/types";
 import { mergeRollups, rollupDay } from "@/lib/analytics/rollup";
@@ -32,6 +34,9 @@ function emptyDb(): Database {
     events: [],
     prints: [],
     preorders: [],
+    shopOrders: [],
+    supplierBatches: [],
+    handPaintedOrders: [],
     settings: settingsByStore[DEFAULT_STORE_ID],
     settingsByStore,
     storeConfigPatches: {},
@@ -68,6 +73,9 @@ async function read(): Promise<Database> {
       visitorSessions: parsed.visitorSessions ?? [],
       visitorEvents: parsed.visitorEvents ?? [],
       analyticsRollups: parsed.analyticsRollups ?? [],
+      shopOrders: parsed.shopOrders ?? [],
+      supplierBatches: parsed.supplierBatches ?? [],
+      handPaintedOrders: parsed.handPaintedOrders ?? [],
       spend: (parsed.spend ?? []).map((row) => ({ storeId: row.storeId ?? DEFAULT_STORE_ID, day: row.day, gbp: row.gbp })),
       jobs: (parsed.jobs ?? []).map((job) => ({
         ...job,
@@ -403,4 +411,58 @@ export const jsonStore = {
     }),
   todaySpend: (storeId = DEFAULT_STORE_ID) =>
     withDb((db) => db.spend.find((item) => item.day === londonDay() && item.storeId === storeId)?.gbp ?? 0),
+  createShopOrder: (order: ShopOrder) =>
+    withDb((db) => {
+      db.shopOrders.push(order);
+      return structuredClone(order);
+    }),
+  getShopOrder: (id: string) => withDb((db) => structuredClone(db.shopOrders.find((o) => o.id === id) ?? null)),
+  getShopOrderBySession: (sessionId: string) =>
+    withDb((db) => structuredClone(db.shopOrders.find((o) => o.stripeCheckoutSessionId === sessionId) ?? null)),
+  updateShopOrder: (id: string, patch: Partial<ShopOrder>) =>
+    withDb((db) => {
+      const row = db.shopOrders.find((o) => o.id === id);
+      if (!row) throw new Error("Shop order not found");
+      Object.assign(row, patch);
+      return structuredClone(row);
+    }),
+  listShopOrders: (storeId?: string | "all", status?: string) =>
+    withDb((db) =>
+      structuredClone(
+        db.shopOrders
+          .filter((o) => (!storeId || storeId === "all" || o.storeId === storeId) && (!status || o.status === status))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ),
+    ),
+  addSupplierBatch: (batch: SupplierBatchExport) =>
+    withDb((db) => {
+      db.supplierBatches.push(batch);
+      return structuredClone(batch);
+    }),
+  listSupplierBatches: (storeId: string) =>
+    withDb((db) => structuredClone(db.supplierBatches.filter((b) => b.storeId === storeId))),
+  updateSupplierBatch: (id: string, patch: Partial<SupplierBatchExport>) =>
+    withDb((db) => {
+      const row = db.supplierBatches.find((b) => b.id === id);
+      if (!row) throw new Error("Batch not found");
+      Object.assign(row, patch);
+      return structuredClone(row);
+    }),
+  upsertHandPaintedOrder: (row: HandPaintedOrderRow) =>
+    withDb((db) => {
+      const idx = db.handPaintedOrders.findIndex((h) => h.orderId === row.orderId);
+      if (idx >= 0) db.handPaintedOrders[idx] = row;
+      else db.handPaintedOrders.push(row);
+      return structuredClone(row);
+    }),
+  getHandPaintedOrder: (orderId: string) =>
+    withDb((db) => structuredClone(db.handPaintedOrders.find((h) => h.orderId === orderId) ?? null)),
+  getHandPaintedByProofToken: (token: string) =>
+    withDb((db) => structuredClone(db.handPaintedOrders.find((h) => h.proofToken === token) ?? null)),
+  listHandPaintedOrders: (storeId?: string | "all") =>
+    withDb((db) =>
+      structuredClone(
+        db.handPaintedOrders.filter((h) => !storeId || storeId === "all" || h.storeId === storeId),
+      ),
+    ),
 };

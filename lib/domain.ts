@@ -1,4 +1,6 @@
+import type { ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { RollupRow, VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
+import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import type { PrintProductId } from "@/config/prints";
 import type { TierId } from "@/config/pricing";
 import type { SubjectType } from "@/config/themes";
@@ -151,6 +153,9 @@ export type Database = {
   events: AnalyticsEvent[];
   prints: PrintOrder[];
   preorders: Preorder[];
+  shopOrders: ShopOrder[];
+  supplierBatches: SupplierBatchExport[];
+  handPaintedOrders: HandPaintedOrderRow[];
   settings: Settings;
   settingsByStore: Record<string, Settings>;
   storeConfigPatches: Record<string, Record<string, unknown>>;

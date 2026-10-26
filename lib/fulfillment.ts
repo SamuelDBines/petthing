@@ -9,7 +9,11 @@ import type { Order, Shipping } from "@/lib/domain";
 import { alertAdmin, christmasEmail, sendEmail } from "@/lib/email";
 import { enqueueForOrder, enqueuePlan } from "@/lib/generation";
 import { submitPrintOrder } from "@/lib/prodigi";
+import { composeCanvasPortrait } from "@/lib/canvasSheet";
+import { isHandPaintedTierId } from "@/config/paintings";
+import { createHandPaintedWorkflow } from "@/lib/handPainted";
 import { composePrint } from "@/lib/puzzleSheet";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 import { getStripe, paymentIntentId } from "@/lib/stripe";
 
@@ -70,10 +74,17 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
     payments,
     failureReason: null,
   });
-  const jobs = await store.listJobs(order.id);
-  if (!jobs.length) {
-    const fresh = await store.getOrder(order.id);
-    if (fresh) await enqueueForOrder(fresh);
+  const freshAfterPay = await store.getOrder(order.id);
+  if (freshAfterPay && isHandPaintedTierId(freshAfterPay.tierId)) {
+    const config = await loadStoreConfig(freshAfterPay.storeId);
+    await store.updateOrder(freshAfterPay.id, { status: "review" });
+    await createHandPaintedWorkflow(freshAfterPay, config.brand.appName);
+  } else {
+    const jobs = await store.listJobs(order.id);
+    if (!jobs.length) {
+      const fresh = await store.getOrder(order.id);
+      if (fresh) await enqueueForOrder(fresh);
+    }
   }
   await store.addEvent({
     id: randomUUID(),
@@ -148,7 +159,14 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
     const product = getPrint(print.productId);
     const assets = [];
     for (const area of product.areas) {
-      const bytes = await composePrint(portrait.bytes, area.sheet);
+      const bytes =
+        area.sheet === "canvas"
+          ? await composeCanvasPortrait({
+              buffer: portrait.bytes,
+              widthIn: product.widthIn ?? 12,
+              heightIn: product.heightIn ?? 16,
+            })
+          : await composePrint(portrait.bytes, area.sheet as "board" | "lid");
       const storagePath = `prints/${print.id}/${area.sheet}.jpg`;
       await putBlob("results", storagePath, bytes, "image/jpeg");
       assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
@@ -163,8 +181,8 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
     if (order) {
       await sendEmail({
         to: order.email,
-        subject: `Your ${APP_NAME} puzzle is with the printer`,
-        html: "<p>We’ve sent your puzzle to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
+        subject: `Your ${APP_NAME} print is with the printer`,
+        html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
       });
     }
   } catch (error) {
@@ -211,6 +229,10 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
   }
   if (kind === "print" && session.metadata?.printId) await markPrintPaid(session.metadata.printId, session, args);
   if (kind === "christmas" && session.metadata?.preorderId) await markChristmasPaid(session.metadata.preorderId, args);
+  if (kind === "shop" && session.metadata?.shopOrderId) {
+    const { markShopOrderPaid } = await import("@/lib/shop/fulfillment");
+    await markShopOrderPaid(session.metadata.shopOrderId, session);
+  }
 }
 
 export async function noteFailedPayment(session: Stripe.Checkout.Session) {

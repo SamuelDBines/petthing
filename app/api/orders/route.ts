@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { isHandPaintedTierId } from "@/config/paintings";
 import { discountedPence, getTier, PRIORITY_PENCE, REFERRAL_DISCOUNT, SEASON_PASS, styleSlots } from "@/config/pricing";
 import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
@@ -27,11 +28,14 @@ export async function POST(request: Request) {
   if (offer === "season_pass" && input.subjectType !== "family") {
     return jsonError("The season pass is for a family or group.");
   }
-  const tier = getTier(offer === "season_pass" ? SEASON_PASS.tierId : input.tierId);
-  const slots = styleSlots(tier, theme.styles.length);
+  const tier = getTier(offer === "season_pass" ? SEASON_PASS.tierId : input.tierId, config.catalog.tiers);
+  const handPainted = isHandPaintedTierId(tier.id);
+  const slots = handPainted ? 1 : styleSlots(tier, theme.styles.length);
   const styleIds = tier.styleCount === "all" ? theme.styles.map((style) => style.id) : Array.from(new Set(input.styleIds));
   if (styleIds.length !== slots) return jsonError(`Choose ${slots} style${slots === 1 ? "" : "s"} for ${tier.name}.`);
-  if (styleIds.some((id) => !theme.styles.some((style) => style.id === id))) return jsonError("One of those styles is not in this theme.");
+  if (!handPainted && styleIds.some((id) => !theme.styles.some((style) => style.id === id))) {
+    return jsonError("One of those styles is not in this theme.");
+  }
 
   let discount = 0;
   let referralCodeUsed: string | null = null;

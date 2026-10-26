@@ -27,7 +27,7 @@ test("publicOriginForStore uses request host when it matches the store", () => {
   const request = new Request("https://wildframe.dropship.example/create", {
     headers: { host: "wildframe.dropship.example", "x-forwarded-proto": "https" },
   });
-  const origin = publicOriginForStore(request, brand, "wildframe", ["wildframe.dropship.example"]);
+  const origin = publicOriginForStore(request, brand, "fixmonger", ["wildframe.dropship.example"]);
   assert.equal(origin, "https://wildframe.dropship.example");
 });
 
@@ -57,7 +57,7 @@ test("publicOriginForStore falls back to canonical site domain in production", (
     },
   };
   const request = new Request("https://pawtraitry.co.uk/", { headers: { host: "pawtraitry.co.uk" } });
-  const origin = publicOriginForStore(request, brand, "wildframe", []);
+  const origin = publicOriginForStore(request, brand, "fixmonger", []);
   assert.equal(origin, "https://wildframe.studio");
   env.NODE_ENV = prev;
 });

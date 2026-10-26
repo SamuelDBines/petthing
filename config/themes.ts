@@ -139,6 +139,40 @@ export const THEMES: ThemeDefinition[] = [
       },
     ],
   },
+  {
+    id: "painted-canvas",
+    name: "Painted canvas",
+    startsOn: "2026-01-01",
+    endsOn: "2026-12-31",
+    deadlineIso: "2026-12-14T23:59:00.000Z",
+    deadlineLabel: "Canvas prints in time for Christmas",
+    heroTitle: "Your pet as a painted canvas.",
+    heroBody:
+      "Choose oil, watercolour, or charcoal. We paint from your photos, then you can order a Prodigi canvas print in the size you want.",
+    styles: [
+      {
+        id: "oil-painting",
+        name: "Oil painting",
+        blurb: "Rich brushstrokes, warm varnish glow, gallery depth.",
+        thumbnail: "/examples/pet-after.jpg",
+        swatch: "#5c4033",
+      },
+      {
+        id: "watercolour",
+        name: "Watercolour",
+        blurb: "Soft washes, paper texture, gentle edges.",
+        thumbnail: "/examples/couple-after.jpg",
+        swatch: "#6a8fa8",
+      },
+      {
+        id: "charcoal-sketch",
+        name: "Charcoal sketch",
+        blurb: "Dramatic monochrome shading with paper grain.",
+        thumbnail: "/examples/pet-before.jpg",
+        swatch: "#3a3a3a",
+      },
+    ],
+  },
 ];
 
 export function getTheme(id: string) {

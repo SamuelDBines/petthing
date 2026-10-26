@@ -139,7 +139,7 @@ export function ResultsGallery({ token }: { token: string }) {
       </section>
 
       <section className="mt-6 rounded-[2rem] border border-line p-5">
-        <h2 className="text-3xl">A puzzle, posted in the UK</h2>
+        <h2 className="text-3xl">Prints &amp; canvas, posted in the UK</h2>
         <label className="mt-3 block text-sm">Portrait for the puzzle
           <select className="field mt-1" value={assetId} onChange={(event) => setAssetId(event.target.value)}>
             {data.images.map((image) => <option key={image.id} value={image.id}>{image.styleName}</option>)}

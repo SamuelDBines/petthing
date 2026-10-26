@@ -1,4 +1,5 @@
 import { FOOTER_TRADING_DISCLOSURE, LEGAL_COMPANY_NAME, LEGAL_COMPANY_NUMBER, LEGAL_REGISTERED_OFFICE } from "@/config/brand";
+import { DEFAULT_DUTIES_DISCLAIMER, DEFAULT_PAINTING_CUTOFFS, HAND_PAINTED_TIERS } from "@/config/paintings";
 import { CHRISTMAS_PREORDER_PENCE, EXTRA_STYLES_PENCE, PRIORITY_PENCE, TIERS } from "@/config/pricing";
 import { THEMES } from "@/config/themes";
 import type { StoreConfig, StoreThemeColors } from "@/lib/tenant/types";
@@ -13,75 +14,32 @@ const pawtraitryColors: StoreThemeColors = {
   line: "#c4b9ac",
 };
 
-const wildframeColors: StoreThemeColors = {
-  ink: "#eef4ef",
-  cream: "#14231a",
-  pumpkin: "#2d5a3d",
-  gold: "#8a6f4e",
-  moss: "#c8dcc8",
-  bark: "#f7faf7",
-  line: "#a8b8a8",
+const fixmongerColors: StoreThemeColors = {
+  ink: "#1a1a1a",
+  cream: "#fff9f0",
+  pumpkin: "#c45c26",
+  gold: "#f0b429",
+  moss: "#4a6741",
+  bark: "#faf6ef",
+  line: "#d4c4a8",
 };
 
 function disclosure(tradingName: string) {
   return `${tradingName} is a trading name of ${LEGAL_COMPANY_NAME}, registered in England and Wales, company no. ${LEGAL_COMPANY_NUMBER}, registered office ${LEGAL_REGISTERED_OFFICE}.`;
 }
 
-const WILDFRAME_THEMES: typeof THEMES = [
+const FIXMONGER_THEME: typeof THEMES = [
   {
-    id: "evergreen",
-    name: "Evergreen",
+    id: "fixmonger-core",
+    name: "Fixmonger",
     startsOn: "2026-01-01",
     endsOn: "2026-12-31",
     deadlineIso: "2026-12-31T23:59:00.000Z",
-    deadlineLabel: "Delivered within a few days",
-    heroTitle: "Your pet, painted like a national-park poster.",
+    deadlineLabel: "Free UK delivery",
+    heroTitle: "Cheap fixes for proper British weather.",
     heroBody:
-      "Send a few clear photos. We turn dogs and cats into bold watercolour trail scenes — misty pines, canyon light, and a recognisable face in every frame.",
-    styles: [
-      {
-        id: "pine-mist",
-        name: "Pine mist morning",
-        blurb: "Cool greens, soft fog, and a quiet forest path.",
-        thumbnail: "",
-        swatch: "#3d5c4a",
-      },
-      {
-        id: "canyon-glow",
-        name: "Canyon glow",
-        blurb: "Warm sandstone light and a wide desert sky.",
-        thumbnail: "",
-        swatch: "#c46a3a",
-      },
-      {
-        id: "lake-reflection",
-        name: "Lake reflection",
-        blurb: "Still water, distant peaks, and a patient pose.",
-        thumbnail: "",
-        swatch: "#4a6d8c",
-      },
-      {
-        id: "meadow-wildflowers",
-        name: "Meadow wildflowers",
-        blurb: "Summer colour, soft brushstrokes, open grass.",
-        thumbnail: "",
-        swatch: "#7a9e5a",
-      },
-      {
-        id: "trail-companion",
-        name: "Trail companion",
-        blurb: "Backpack, boots, and your pet leading the way.",
-        thumbnail: "",
-        swatch: "#5c4a38",
-      },
-      {
-        id: "starlit-ridge",
-        name: "Starlit ridge",
-        blurb: "Twilight blues and a cosy bandana glow.",
-        thumbnail: "",
-        swatch: "#2a3d5c",
-      },
-    ],
+      "Frost covers, draught excluders, and the other sensible bits your shed should have had years ago. No electric. No nonsense.",
+    styles: [],
   },
 ];
 
@@ -91,6 +49,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
   {
     id: "pawtraitry",
     slug: "pawtraitry",
+    storeType: "portrait",
     domains: ["pawtraitry.co.uk", "www.pawtraitry.co.uk", "pawtraitry.localhost", "localhost"],
     brand: {
       appName: "Pawtraitry",
@@ -108,10 +67,14 @@ export const BUILTIN_STORES: StoreConfig[] = [
     },
     themes: THEMES,
     catalog: {
-      tiers: TIERS,
+      tiers: [...TIERS, ...HAND_PAINTED_TIERS],
       priorityPence: PRIORITY_PENCE,
       extraStylesPence: EXTRA_STYLES_PENCE,
       christmasPreorderPence: CHRISTMAS_PREORDER_PENCE,
+      painting: {
+        cutoffs: DEFAULT_PAINTING_CUTOFFS,
+        dutiesDisclaimer: DEFAULT_DUTIES_DISCLAIMER,
+      },
     },
     settings: {
       themeMode: "auto",
@@ -129,48 +92,58 @@ export const BUILTIN_STORES: StoreConfig[] = [
     },
   },
   {
-    id: "wildframe",
-    slug: "wildframe",
-    domains: ["wildframe.studio", "www.wildframe.studio", "wildframe.localhost"],
+    id: "fixmonger",
+    slug: "fixmonger",
+    storeType: "catalogue",
+    domains: [
+      "fixmonger.co.uk",
+      "www.fixmonger.co.uk",
+      "fixmonger.com",
+      "www.fixmonger.com",
+      "fixmonger.localhost",
+      "wildframe.localhost",
+      "wildframe.studio",
+      "www.wildframe.studio",
+    ],
     brand: {
-      appName: "WildFrame",
-      tagline: "National-park watercolours of the pets who hike with you.",
-      siteDomain: "wildframe.studio",
-      supportEmail: "hello@wildframe.studio",
-      legalTradingName: "WildFrame",
-      footerTradingDisclosure: disclosure("WildFrame"),
-      emailFromName: "WildFrame",
-      stripeStatementDescriptor: "WILDFRAME",
-      referralPrefix: "WLD",
-      logoPath: "/stores/wildframe-logo.svg",
-      colors: wildframeColors,
+      appName: "Fixmonger",
+      tagline: "Sensible fixes for British weather — frost covers, draught kits, and shed essentials.",
+      siteDomain: "fixmonger.co.uk",
+      supportEmail: "hello@fixmonger.co.uk",
+      legalTradingName: "Fixmonger",
+      footerTradingDisclosure: disclosure("Fixmonger"),
+      emailFromName: "Fixmonger",
+      stripeStatementDescriptor: "FIXMONGER",
+      referralPrefix: "FIX",
+      logoPath: "/stores/fixmonger-logo.svg",
+      colors: fixmongerColors,
     },
-    themes: WILDFRAME_THEMES,
+    themes: FIXMONGER_THEME,
     catalog: {
-      tiers: TIERS.map((tier) =>
-        tier.id === "mini" ? { ...tier, pricePence: 649, blurb: "One trail scene, two images." } : tier,
-      ),
-      priorityPence: PRIORITY_PENCE,
-      extraStylesPence: EXTRA_STYLES_PENCE,
-      christmasPreorderPence: CHRISTMAS_PREORDER_PENCE,
+      tiers: [],
+      priorityPence: 0,
+      extraStylesPence: 0,
+      christmasPreorderPence: 0,
+      freeUkShipping: true,
     },
     settings: {
       themeMode: "manual",
-      activeThemeId: "evergreen",
+      activeThemeId: "fixmonger-core",
       salesPaused: false,
       queueHalted: false,
       haltReason: null,
       haltNotifiedOn: null,
     },
     integrations: {
-      maxDailyGenSpendGbp: 15,
+      maxDailyGenSpendGbp: 0,
       prodigiEnv: "sandbox",
-      stylePresetIds: ["pine-mist", "canyon-glow", "lake-reflection"],
+      stylePresetIds: [],
       social: {},
     },
   },
 ];
 
 export function builtinStore(id: string) {
-  return BUILTIN_STORES.find((store) => store.id === id || store.slug === id) ?? null;
+  const normalized = id === "wildframe" ? "fixmonger" : id;
+  return BUILTIN_STORES.find((store) => store.id === normalized || store.slug === normalized) ?? null;
 }

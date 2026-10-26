@@ -1,3 +1,4 @@
+import { PAINTED_STYLE_IDS } from "@/config/paintings";
 import { THEMES, type SubjectType } from "@/config/themes";
 
 const BANNED = [
@@ -132,6 +133,21 @@ export const STYLE_PROMPTS: Record<string, StylePrompt> = {
       "Paint {subject} as an original fireside knit portrait. Hearth light, wool blankets used as clothing layers or a chair throw, stockings on the mantel. Faces and pet markings stay clear. Fully clothed.",
     negative: "nudity under blankets, logos, text",
   },
+  "oil-painting": {
+    template:
+      "Paint {subject} as a fine-art oil painting on canvas. Visible brushstrokes, warm varnish depth, neutral studio background, museum-quality pet portrait. Keep markings and expression faithful to the reference photos.",
+    negative: "photograph, flat digital art, watermark, text",
+  },
+  watercolour: {
+    template:
+      "Paint {subject} as a delicate watercolour on textured paper. Soft washes, subtle granulation, gentle edges, recognisable face and fur markings from the reference photos.",
+    negative: "oil paint, harsh outlines, photograph, watermark",
+  },
+  "charcoal-sketch": {
+    template:
+      "Draw {subject} as a charcoal sketch on toned paper. Strong values, smudged shadows, paper tooth, faithful likeness from the reference photos.",
+    negative: "colour, photograph, watermark, text",
+  },
 };
 
 function assertPrompts() {
@@ -146,7 +162,10 @@ function assertPrompts() {
     for (const style of theme.styles) {
       const prompt = STYLE_PROMPTS[style.id];
       if (!prompt) throw new Error(`Missing prompt for ${style.id}`);
-      if (!/fully clothed|costume painted over their clothes/i.test(prompt.template)) {
+      if (
+        !PAINTED_STYLE_IDS.includes(style.id as (typeof PAINTED_STYLE_IDS)[number]) &&
+        !/fully clothed|costume painted over their clothes/i.test(prompt.template)
+      ) {
         throw new Error(`Prompt for ${style.id} must keep subjects clothed`);
       }
     }

@@ -24,8 +24,9 @@ make dev
 | What | URL |
 | --- | --- |
 | Pawtraitry storefront | http://pawtraitry.localhost:3000 (or http://localhost:3000) |
-| WildFrame demo store | http://wildframe.localhost:3000 (or `?store=wildframe` on localhost) |
-| Create flow | `/create` on either host |
+| Fixmonger catalogue store | http://fixmonger.localhost:3000 (legacy `wildframe.localhost` aliases Fixmonger) |
+| Pawtraitry create flow | `/create` on Pawtraitry host |
+| Fixmonger shop | `/` and `/shop/cart` on Fixmonger host |
 | Admin (all stores) | http://localhost:3000/admin — use the **Store** dropdown for one brand or **All stores** |
 | Visitor analytics | Admin → **Analytics** tab (per-store or all stores) |
 | Content approval queue | http://localhost:8080/admin?token=dev-change-me |
@@ -35,8 +36,9 @@ make dev
 
 ### Multi-store local dev
 
-- Hostname picks the store (`pawtraitry.localhost`, `wildframe.localhost`). Plain `localhost` defaults to Pawtraitry.
-- On localhost only, append `?store=wildframe` (or `pawtraitry`) to override the hostname while testing.
+- Hostname picks the store (`pawtraitry.localhost`, `fixmonger.localhost`). Plain `localhost` defaults to Pawtraitry.
+- On localhost only, append `?store=fixmonger` (or `pawtraitry`) to override the hostname. `?store=wildframe` still resolves to Fixmonger for backwards compatibility.
+- Staging dropship hosts: set `STORE_EXTRA_DOMAINS` for `pawtraitry` and `fixmonger` (see `.env.local.example`).
 - Orders, referrals, spend caps, and analytics are scoped by `store_id`. Stripe Checkout metadata includes `storeId` so one test Stripe account can serve every brand.
 - Add another store from **Admin** (POST `/api/admin/stores`) or seed the `stores` table — no code deploy required for domains/copy/prices in `config` JSON.
 
