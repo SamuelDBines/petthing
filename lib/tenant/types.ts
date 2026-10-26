@@ -3,7 +3,7 @@ import type { Tier } from "@/config/pricing";
 import type { ThemeDefinition } from "@/config/themes";
 import type { Settings } from "@/lib/domain";
 
-export type StoreType = "portrait" | "catalogue";
+export type StoreType = "portrait" | "catalogue" | "christmas";
 
 export type StoreThemeColors = {
   ink: string;
@@ -42,6 +42,10 @@ export type StoreCatalog = {
   };
   /** Catalogue stores */
   freeUkShipping?: boolean;
+  jinglefold?: {
+    cutoffs: import("@/config/jinglefold").JinglefoldCutoffs;
+  };
+  pawtraitryPromos?: import("@/config/pawtraitry-promos").PawtraitryPromoSettings;
 };
 
 export type StoreIntegrations = {

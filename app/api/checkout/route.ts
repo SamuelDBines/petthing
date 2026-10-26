@@ -9,6 +9,10 @@ import {
   getTier,
   PRIORITY_PENCE,
 } from "@/config/pricing";
+import {
+  PAWTRAITRY_BUMP_PRICE_PENCE,
+  PAWTRAITRY_CANVAS_FREE_BAUBLE_MIN_PENCE,
+} from "@/config/pawtraitry-promos";
 import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
 import { jsonError, parseBody } from "@/lib/http";
@@ -32,6 +36,7 @@ const schema = z.discriminatedUnion("kind", [
     token: z.string().min(10),
     productId: z.enum(allPrintProductIds() as [string, ...string[]]),
     assetId: z.string().uuid(),
+    addPetBaubleBump: z.boolean().optional(),
   }),
   z.object({ kind: z.literal("christmas"), email: z.string().email(), token: z.string().optional() }),
 ]);
@@ -114,6 +119,8 @@ export async function POST(request: Request) {
       ? [line(`${brand.appName} season pass`, portraitPence, true)]
       : [line(`${brand.appName} · ${tier.name}`, portraitPence)];
     if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
+    const jinglefoldPersonalised =
+      order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised);
     const opened = await openSession({
       origin,
       kind: pass ? "season" : "portrait",
@@ -121,10 +128,13 @@ export async function POST(request: Request) {
       lineItems: items,
       metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id, storeId: order.storeId },
       mode: pass ? "subscription" : "payment",
-      successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
-      cancelPath: "/create?cancelled=1",
+      successPath: jinglefoldPersonalised
+        ? `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`
+        : "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+      cancelPath: jinglefoldPersonalised ? `/results/${order.resultsToken}` : "/create?cancelled=1",
       idempotencyKey: `portrait-${order.id}-${order.amountPence}`,
       allowPromotionCodes: !order.referralCodeUsed,
+      collectShipping: jinglefoldPersonalised,
     });
     if (opened instanceof Response) return opened;
     if (opened.demo) {
@@ -204,11 +214,24 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
     await store.addPrint(print);
+    const lineItems = [line(`${brand.appName} · ${product.name}`, product.pricePence)];
+    const promos = storeConfig.catalog.pawtraitryPromos;
+    const canvasProduct = product.id.startsWith("canvas_");
+    if (body.addPetBaubleBump) {
+      lineItems.push(line("Personalised pet bauble add-on", PAWTRAITRY_BUMP_PRICE_PENCE));
+    }
+    if (
+      promos?.freeBaubleWithCanvasEnabled &&
+      canvasProduct &&
+      product.pricePence >= PAWTRAITRY_CANVAS_FREE_BAUBLE_MIN_PENCE
+    ) {
+      lineItems.push(line("Complimentary pet bauble (canvas promo)", 0));
+    }
     const opened = await openSession({
       origin,
       kind: "print",
       email: order.email,
-      lineItems: [line(`${brand.appName} · ${product.name}`, product.pricePence)],
+      lineItems,
       metadata: { kind: "print", orderId: order.id, printId: print.id, storeId: order.storeId },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,

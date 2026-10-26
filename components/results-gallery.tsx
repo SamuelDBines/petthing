@@ -9,7 +9,12 @@ type ImageRow = { id: string; styleId: string | null; styleName: string; url: st
 type Gallery = {
   ready: boolean;
   status?: string;
+  storeId?: string;
+  previewCheckout?: boolean;
   order?: {
+    id?: string;
+    amountPence?: number;
+    uploadToken?: string;
     tierName: string;
     includesCard: boolean;
     cardNames: string;
@@ -23,6 +28,8 @@ type Gallery = {
     extra: { pricePence: number; count: number; remaining: { id: string; name: string }[]; bonusImages: boolean };
     prints: { id: "puzzle_252"; name: string; detail: string; pricePence: number }[];
     christmasPence: number;
+    petBaubleBumpPence?: number;
+    freeBaubleWithCanvasEnabled?: boolean;
   };
 };
 
@@ -89,6 +96,38 @@ export function ResultsGallery({ token }: { token: string }) {
       if (current.length >= needed) return [...current.slice(1), id];
       return [...current, id];
     });
+  }
+
+  if (data.previewCheckout && data.order?.amountPence) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-10" data-testid="jinglefold-preview-checkout">
+        <h1 className="text-4xl">Your preview is ready</h1>
+        <p className="mt-2 text-cream/75">{data.order.tierName} · {formatGbp(data.order.amountPence)} including UK delivery</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {data.images.map((image) => (
+            <figure key={image.id} className="overflow-hidden rounded-3xl border border-line">
+              <img src={image.previewUrl || image.url} alt={image.styleName} className="aspect-square w-full object-cover" />
+              <figcaption className="p-2 text-sm">{image.styleName}</figcaption>
+            </figure>
+          ))}
+        </div>
+        {message ? <p className="mt-4 text-sm">{message}</p> : null}
+        <button
+          type="button"
+          className="mt-6 w-full rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink"
+          data-testid="jinglefold-pay-button"
+          onClick={() =>
+            checkout({
+              kind: "portrait",
+              orderId: data.order!.id,
+              uploadToken: data.order!.uploadToken!,
+            })
+          }
+        >
+          Pay {formatGbp(data.order.amountPence)}
+        </button>
+      </main>
+    );
   }
 
   const styleChoices = data.offers.extra.bonusImages

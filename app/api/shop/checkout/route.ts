@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import { JINGLEFOLD_DELIVERY, jinglefoldShippingPence } from "@/config/jinglefold";
 import { getCatalogueProduct, listCatalogueProducts } from "@/lib/catalogue/products";
 import { shopOrderLinesForProduct } from "@/lib/catalogue/order-lines";
 import type { ShopOrder, ShopOrderLine } from "@/lib/catalogue/types";
@@ -68,7 +69,9 @@ export async function POST(request: Request) {
   if (!parsed.ok) return parsed.response;
   const storeId = await requestStoreId();
   const config = await loadStoreConfig(storeId);
-  if (config.storeType !== "catalogue") return jsonError("This store does not sell catalogue items.", 400);
+  if (config.storeType !== "catalogue" && config.storeType !== "christmas") {
+    return jsonError("This store does not sell catalogue items.", 400);
+  }
   const store = getStore();
   const limits = rateLimits();
   const limit = await store.hitRateLimit(
@@ -88,7 +91,12 @@ export async function POST(request: Request) {
     subtotal += product.pricePence * line.quantity;
   }
 
-  const shippingPence = fixmongerShippingPence(subtotal);
+  const shippingPence =
+    storeId === "jinglefold" ? jinglefoldShippingPence(subtotal) : fixmongerShippingPence(subtotal);
+  const deliveryMeta =
+    storeId === "jinglefold"
+      ? { freeOver: JINGLEFOLD_DELIVERY.freeDeliveryOverPence }
+      : { freeOver: FIXMONGER_DELIVERY.freeDeliveryOverPence };
   const orderTotalPence = subtotal + shippingPence;
 
   const shopOrder: ShopOrder = {
@@ -157,6 +165,6 @@ export async function POST(request: Request) {
     total: formatGbp(orderTotalPence),
     subtotal: formatGbp(subtotal),
     shipping: formatGbp(shippingPence),
-    freeDeliveryOver: formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence),
+    freeDeliveryOver: formatGbp(deliveryMeta.freeOver),
   });
 }

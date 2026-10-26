@@ -38,7 +38,7 @@ make dev
 
 - Hostname picks the store (`pawtraitry.localhost`, `fixmonger.localhost`). Plain `localhost` defaults to Pawtraitry.
 - On localhost only, append `?store=fixmonger` (or `pawtraitry`) to override the hostname. `?store=wildframe` still resolves to Fixmonger for backwards compatibility.
-- Staging dropship hosts: set `STORE_EXTRA_DOMAINS` for `pawtraitry` and `fixmonger` (see `.env.local.example`).
+- Staging dropship hosts: set `STORE_EXTRA_DOMAINS` for `pawtraitry`, `fixmonger`, and `jinglefold` (see `.env.local.example`). Dev: `?store=jinglefold`.
 - Orders, referrals, spend caps, and analytics are scoped by `store_id`. Stripe Checkout metadata includes `storeId` so one test Stripe account can serve every brand.
 - Add another store from **Admin** (POST `/api/admin/stores`) or seed the `stores` table — no code deploy required for domains/copy/prices in `config` JSON.
 

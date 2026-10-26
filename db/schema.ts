@@ -49,6 +49,7 @@ export const orders = pgTable("orders", {
   offer: text("offer").notNull().default("one_off"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status"),
+  productMeta: jsonb("product_meta").$type<Order["productMeta"]>(),
   payments: jsonb("payments").$type<Order["payments"]>().notNull().default([]),
 });
 

@@ -1,8 +1,10 @@
 import { FIXMONGER_SEED_PRODUCTS } from "@/config/catalogue/fixmonger-seed";
+import { JINGLEFOLD_DECOR_PRODUCTS } from "@/config/catalogue/jinglefold-seed";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 
 const SEED_BY_STORE: Record<string, CatalogueProduct[]> = {
   fixmonger: FIXMONGER_SEED_PRODUCTS,
+  jinglefold: JINGLEFOLD_DECOR_PRODUCTS,
 };
 
 let dbOverrides: CatalogueProduct[] = [];

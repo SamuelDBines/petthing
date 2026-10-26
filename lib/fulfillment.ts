@@ -81,7 +81,10 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
     await createHandPaintedWorkflow(freshAfterPay, config.brand.appName);
   } else {
     const jobs = await store.listJobs(order.id);
-    if (!jobs.length) {
+    if (order.storeId === "jinglefold" && order.productMeta?.personalised && jobs.some((j) => j.status === "done")) {
+      const { deliverOrder } = await import("@/lib/generation");
+      await deliverOrder(order.id);
+    } else if (!jobs.length) {
       const fresh = await store.getOrder(order.id);
       if (fresh) await enqueueForOrder(fresh);
     }

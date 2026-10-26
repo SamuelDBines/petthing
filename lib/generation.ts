@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { APP_NAME } from "@/config/brand";
-import { EXTRA_IMAGES_PER_STYLE, getTier, perStyleCounts } from "@/config/pricing";
+import { EXTRA_IMAGES_PER_STYLE, getTier, perStyleCounts, type Tier } from "@/config/pricing";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { getTheme } from "@/config/themes";
 import { buildPrompt } from "@/config/stylePrompts";
 import type { Job, Order } from "@/lib/domain";
@@ -14,6 +15,11 @@ import { getStore } from "@/lib/store";
 import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
+
+async function tierForOrder(order: Order): Promise<Tier> {
+  const config = await loadStoreConfig(order.storeId);
+  return getTier(order.tierId, config.catalog.tiers);
+}
 
 function seedFrom(id: string) {
   let hash = 0;
@@ -72,7 +78,8 @@ export async function enqueuePlan(orderId: string, plan: { styleId: string; coun
 }
 
 export async function enqueueForOrder(order: Order) {
-  const counts = perStyleCounts(getTier(order.tierId).imageCount, order.styleIds.length);
+  const tier = await tierForOrder(order);
+  const counts = perStyleCounts(tier.imageCount, order.styleIds.length);
   await enqueuePlan(
     order.id,
     order.styleIds.map((styleId, index) => ({ styleId, count: counts[index] ?? 1 })),
@@ -147,6 +154,31 @@ async function finishIfDone(orderId: string) {
     }
     return;
   }
+  if (order.storeId === "jinglefold" && order.productMeta?.personalised && order.status === "generating") {
+    const assets = await store.listAssets(orderId);
+    for (const asset of assets.filter((item) => item.kind === "result")) {
+      const previewPath = `${orderId}/previews/${asset.id}.jpg`;
+      if (assets.some((item) => item.storagePath === previewPath)) continue;
+      const file = await readBlob(asset.bucket, asset.storagePath);
+      if (!file) continue;
+      const preview = await watermark(file.bytes);
+      await putBlob("results", previewPath, preview, "image/jpeg");
+      await store.addAsset({
+        id: randomUUID(),
+        orderId,
+        kind: "preview",
+        styleId: asset.styleId,
+        variantIndex: asset.variantIndex,
+        storagePath: previewPath,
+        bucket: "results",
+        contentType: "image/jpeg",
+        moderation: "passed",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await store.updateOrder(orderId, { status: "pending_payment", failureReason: null });
+    return;
+  }
   if (manualReviewEnabled()) {
     await store.updateOrder(orderId, { status: "review", failureReason: null });
     await alertAdmin("Order ready for review", reviewReadyEmail(`${appUrl()}/admin`, order.email));
@@ -160,6 +192,7 @@ async function processJob(jobId: string) {
   const job = (await store.listJobs()).find((item) => item.id === jobId);
   const order = job ? await store.getOrder(job.orderId) : null;
   if (!job || !order) return;
+  const tier = await tierForOrder(order);
   const provider = getImageProvider();
   try {
     let requestId = job.providerRequestId;
@@ -168,7 +201,7 @@ async function processJob(jobId: string) {
         styleId: job.styleId,
         subject: order.subjectType,
         variantIndex: job.variantIndex,
-        quality: getTier(order.tierId).quality,
+        quality: tier.quality,
       });
       const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
       const imageUrls: string[] = [];
@@ -178,7 +211,7 @@ async function processJob(jobId: string) {
         prompt,
         negativePrompt: negative,
         imageUrls,
-        quality: getTier(order.tierId).quality,
+        quality: tier.quality,
         seed: seedFrom(`${job.id}:${job.attempts}`),
       });
       requestId = submitted.requestId;

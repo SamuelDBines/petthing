@@ -4,11 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatGbp } from "@/config/pricing";
 import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import { jinglefoldShippingPence, JINGLEFOLD_DELIVERY } from "@/config/jinglefold";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 import type { ShopCartLine } from "@/lib/catalogue/types";
 import { readCart, writeCart } from "@/lib/cart/storage";
 
-export function FixmongerCartPage({ products }: { products: StorefrontCatalogueProduct[] }) {
+export function FixmongerCartPage({
+  products,
+  storeId = "fixmonger",
+}: {
+  products: StorefrontCatalogueProduct[];
+  storeId?: string;
+}) {
   const [lines, setLines] = useState<ShopCartLine[]>([]);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,7 +34,10 @@ export function FixmongerCartPage({ products }: { products: StorefrontCatalogueP
     .filter(Boolean) as { line: ShopCartLine; product: StorefrontCatalogueProduct; total: number }[];
 
   const subtotal = rows.reduce((sum, row) => sum + row.total, 0);
-  const shippingPence = fixmongerShippingPence(subtotal);
+  const shippingPence =
+    storeId === "jinglefold" ? jinglefoldShippingPence(subtotal) : fixmongerShippingPence(subtotal);
+  const freeOver =
+    storeId === "jinglefold" ? JINGLEFOLD_DELIVERY.freeDeliveryOverPence : FIXMONGER_DELIVERY.freeDeliveryOverPence;
 
   async function checkout() {
     setBusy(true);
@@ -74,7 +84,7 @@ export function FixmongerCartPage({ products }: { products: StorefrontCatalogueP
             {shippingPence > 0 ? (
               <>
                 <br />
-                <span>Free delivery over {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}</span>
+                <span>Free delivery over {formatGbp(freeOver)}</span>
               </>
             ) : null}
           </p>

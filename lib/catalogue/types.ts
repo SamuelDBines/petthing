@@ -19,6 +19,8 @@ export type CatalogueProduct = {
   costPence: number;
   pricePence: number;
   compareAtPricePence?: number | null;
+  clpSafetyText?: string;
+  cutoffKind?: "prodigi_bauble" | "printful_stocking" | "go_dropship";
   kind?: "standard" | "bundle";
   bundleComponents?: CatalogueBundleComponent[];
   stock: number;

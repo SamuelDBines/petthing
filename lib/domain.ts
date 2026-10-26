@@ -51,6 +51,11 @@ export type Order = {
   stripeSubscriptionId: string | null;
   subscriptionStatus: "active" | "canceled" | null;
   payments: { sessionId: string; paymentIntentId: string | null; amountPence: number; kind: string; createdAt: string }[];
+  productMeta?: {
+    pricingSku?: string;
+    personalised?: boolean;
+    lateDeliveryAckAt?: string;
+  } | null;
 };
 
 export type Asset = {

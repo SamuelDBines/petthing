@@ -1,5 +1,7 @@
 import { FOOTER_TRADING_DISCLOSURE, LEGAL_COMPANY_NAME, LEGAL_COMPANY_NUMBER, LEGAL_REGISTERED_OFFICE } from "@/config/brand";
 import { DEFAULT_DUTIES_DISCLAIMER, DEFAULT_PAINTING_CUTOFFS, HAND_PAINTED_TIERS } from "@/config/paintings";
+import { DEFAULT_JINGLEFOLD_CUTOFFS, JINGLEFOLD_PERSONALISED_TIERS } from "@/config/jinglefold";
+import { DEFAULT_PAWTRAITRY_PROMOS } from "@/config/pawtraitry-promos";
 import { CHRISTMAS_PREORDER_PENCE, EXTRA_STYLES_PENCE, PRIORITY_PENCE, TIERS } from "@/config/pricing";
 import { THEMES } from "@/config/themes";
 import type { StoreConfig, StoreThemeColors } from "@/lib/tenant/types";
@@ -12,6 +14,16 @@ const pawtraitryColors: StoreThemeColors = {
   moss: "#e7e1d8",
   bark: "#fbf9f5",
   line: "#c4b9ac",
+};
+
+const jinglefoldColors: StoreThemeColors = {
+  ink: "#2c1810",
+  cream: "#fff8f0",
+  pumpkin: "#b83232",
+  gold: "#c9a227",
+  moss: "#5c4d3c",
+  bark: "#f5ebe0",
+  line: "#e0cfc0",
 };
 
 const fixmongerColors: StoreThemeColors = {
@@ -27,6 +39,42 @@ const fixmongerColors: StoreThemeColors = {
 function disclosure(tradingName: string) {
   return `${tradingName} is a trading name of ${LEGAL_COMPANY_NAME}, registered in England and Wales, company no. ${LEGAL_COMPANY_NUMBER}, registered office ${LEGAL_REGISTERED_OFFICE}.`;
 }
+
+const JINGLEFOLD_THEME: typeof THEMES = [
+  {
+    id: "jinglefold-core",
+    name: "Jinglefold",
+    startsOn: "2026-11-01",
+    endsOn: "2026-12-31",
+    deadlineIso: "2026-12-14T23:59:00.000Z",
+    deadlineLabel: "Order by 14 Dec for UK decor delivery",
+    heroTitle: "Personalised Christmas, folded into your home.",
+    heroBody: "Tasteful ornaments from your photos, plus ready-made decor shipped from UK stock.",
+    styles: [
+      {
+        id: "cosy-classic",
+        name: "Cosy classic",
+        blurb: "Warm candlelight and muted reds — elegant, not loud.",
+        thumbnail: "",
+        swatch: "#8b3a3a",
+      },
+      {
+        id: "snow-globe",
+        name: "Snow globe",
+        blurb: "Soft snowfall and gentle greens.",
+        thumbnail: "",
+        swatch: "#4a6741",
+      },
+      {
+        id: "hearthside",
+        name: "Hearthside",
+        blurb: "Fireside glow with a tasteful wreath.",
+        thumbnail: "",
+        swatch: "#c9a227",
+      },
+    ],
+  },
+];
 
 const FIXMONGER_THEME: typeof THEMES = [
   {
@@ -75,6 +123,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
         cutoffs: DEFAULT_PAINTING_CUTOFFS,
         dutiesDisclaimer: DEFAULT_DUTIES_DISCLAIMER,
       },
+      pawtraitryPromos: DEFAULT_PAWTRAITRY_PROMOS,
     },
     settings: {
       themeMode: "auto",
@@ -138,6 +187,48 @@ export const BUILTIN_STORES: StoreConfig[] = [
       maxDailyGenSpendGbp: 0,
       prodigiEnv: "sandbox",
       stylePresetIds: [],
+      social: {},
+    },
+  },
+  {
+    id: "jinglefold",
+    slug: "jinglefold",
+    storeType: "christmas",
+    domains: ["jinglefold.co.uk", "www.jinglefold.co.uk", "jinglefold.localhost"],
+    brand: {
+      appName: "Jinglefold",
+      tagline: "Personalised Christmas, folded into your home.",
+      siteDomain: "jinglefold.co.uk",
+      supportEmail: "hello@jinglefold.co.uk",
+      legalTradingName: "Jinglefold",
+      footerTradingDisclosure: disclosure("Jinglefold"),
+      emailFromName: "Jinglefold",
+      stripeStatementDescriptor: "JINGLEFOLD",
+      referralPrefix: "JIN",
+      logoPath: "/stores/jinglefold-logo.svg",
+      colors: jinglefoldColors,
+    },
+    themes: JINGLEFOLD_THEME,
+    catalog: {
+      tiers: JINGLEFOLD_PERSONALISED_TIERS,
+      priorityPence: 0,
+      extraStylesPence: 0,
+      christmasPreorderPence: 0,
+      freeUkShipping: false,
+      jinglefold: { cutoffs: DEFAULT_JINGLEFOLD_CUTOFFS },
+    },
+    settings: {
+      themeMode: "manual",
+      activeThemeId: "jinglefold-core",
+      salesPaused: false,
+      queueHalted: false,
+      haltReason: null,
+      haltNotifiedOn: null,
+    },
+    integrations: {
+      maxDailyGenSpendGbp: 15,
+      prodigiEnv: "sandbox",
+      stylePresetIds: ["cosy-classic", "snow-globe", "hearthside"],
       social: {},
     },
   },

@@ -1,4 +1,16 @@
-export type TierId = "mini" | "classic" | "deluxe" | "hand_painted_12x16" | "hand_painted_16x20";
+export type TierId =
+  | "mini"
+  | "classic"
+  | "deluxe"
+  | "hand_painted_12x16"
+  | "hand_painted_16x20"
+  | "jf_plas_baub"
+  | "jf_alum_sq"
+  | "jf_glass_sq"
+  | "jf_porc_baub"
+  | "jf_wood"
+  | "jf_stocking"
+  | "jf_plas_baub_3";
 export type Quality = "standard" | "hd";
 
 import { compareAtPence, recommendedPence } from "@/config/catalogue/pricing-seed";

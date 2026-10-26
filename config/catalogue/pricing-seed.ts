@@ -19,11 +19,13 @@ export type PricingSkuRow = {
 
 const rows = seed.skus as PricingSkuRow[];
 
-export function pricingRowsForStore(store: "Pawtraitry" | "Fixmonger") {
+export type PricingStoreName = "Pawtraitry" | "Fixmonger" | "Christmas store";
+
+export function pricingRowsForStore(store: PricingStoreName) {
   return rows.filter((row) => row.store === store);
 }
 
-export function pricingRow(store: "Pawtraitry" | "Fixmonger", sku: string) {
+export function pricingRow(store: PricingStoreName, sku: string) {
   const row = rows.find((item) => item.store === store && item.sku === sku);
   if (!row) throw new Error(`Missing pricing row: ${store} ${sku}`);
   return row;
@@ -37,18 +39,18 @@ export function gbpToPence(gbp: number) {
   return Math.round(gbp * 100);
 }
 
-export function recommendedPence(store: "Pawtraitry" | "Fixmonger", sku: string) {
+export function recommendedPence(store: PricingStoreName, sku: string) {
   return gbpToPence(pricingRow(store, sku).recommended_price);
 }
 
-export function compareAtPence(store: "Pawtraitry" | "Fixmonger", sku: string): number | null {
+export function compareAtPence(store: PricingStoreName, sku: string): number | null {
   const value = pricingRow(store, sku).compare_at_price;
   if (value == null || Number.isNaN(value)) return null;
   return gbpToPence(value);
 }
 
 /** Estimated unit cost for admin margin (not storefront). */
-export function adminUnitCostPence(store: "Pawtraitry" | "Fixmonger", sku: string) {
+export function adminUnitCostPence(store: PricingStoreName, sku: string) {
   const row = pricingRow(store, sku);
   return gbpToPence(row.wholesale + row.shipping_to_customer + row.packaging + row.ai_cost);
 }

@@ -1,8 +1,10 @@
 import { PRINTS, printName } from "@/config/prints";
 import { CHRISTMAS_PREORDER_PENCE, EXTRA_STYLES_COUNT, EXTRA_STYLES_PENCE, getTier } from "@/config/pricing";
+import { PAWTRAITRY_BUMP_PRICE_PENCE } from "@/config/pawtraitry-promos";
 import { getTheme } from "@/config/themes";
 import { signedBlobUrl } from "@/lib/blobs";
 import { getStore } from "@/lib/store";
+import { loadStoreConfig } from "@/lib/tenant/context";
 
 export async function galleryForToken(token: string, base?: string) {
   const store = getStore();
@@ -11,14 +13,26 @@ export async function galleryForToken(token: string, base?: string) {
   if (order.resultsDeletedAt) {
     return { ready: false as const, status: "expired" as const };
   }
-  if (order.status !== "delivered") {
+
+  const config = await loadStoreConfig(order.storeId);
+  const extraTiers = config.catalog.tiers;
+  const theme = getTheme(order.themeId);
+  const tier = getTier(order.tierId, extraTiers);
+  const assets = await store.listAssets(order.id);
+  const resultAssets = assets.filter((item) => item.kind === "result");
+
+  const jinglefoldPreview =
+    order.storeId === "jinglefold" &&
+    order.status === "pending_payment" &&
+    order.productMeta?.personalised &&
+    resultAssets.length > 0;
+
+  if (!jinglefoldPreview && order.status !== "delivered") {
     return { ready: false as const, status: order.status };
   }
-  const theme = getTheme(order.themeId);
-  const tier = getTier(order.tierId);
-  const assets = await store.listAssets(order.id);
+
   const images = [];
-  for (const asset of assets.filter((item) => item.kind === "result")) {
+  for (const asset of resultAssets) {
     const preview = assets.find((item) => item.kind === "preview" && item.storagePath.endsWith(`${asset.id}.jpg`));
     images.push({
       id: asset.id,
@@ -28,10 +42,16 @@ export async function galleryForToken(token: string, base?: string) {
       previewUrl: preview ? await signedBlobUrl(preview.bucket, preview.storagePath, 60 * 60 * 24 * 7, false, base) : null,
     });
   }
+
   const owned = new Set(order.styleIds);
   const remaining = (theme?.styles ?? []).filter((style) => !owned.has(style.id)).map((style) => ({ id: style.id, name: style.name }));
+
+  const promos = config.catalog.pawtraitryPromos;
+
   return {
     ready: true as const,
+    storeId: order.storeId,
+    previewCheckout: jinglefoldPreview,
     order: {
       id: order.id,
       email: order.email,
@@ -43,6 +63,8 @@ export async function galleryForToken(token: string, base?: string) {
       themeName: theme?.name ?? order.themeId,
       referralCode: order.ownReferralCode,
       priority: order.priority,
+      amountPence: order.amountPence,
+      uploadToken: order.uploadToken,
     },
     images,
     prints: (await store.listPrints(order.id)).map((print) => ({
@@ -65,6 +87,8 @@ export async function galleryForToken(token: string, base?: string) {
         pricePence: product.pricePence,
       })),
       christmasPence: CHRISTMAS_PREORDER_PENCE,
+      petBaubleBumpPence: PAWTRAITRY_BUMP_PRICE_PENCE,
+      freeBaubleWithCanvasEnabled: promos?.freeBaubleWithCanvasEnabled ?? false,
     },
   };
 }

@@ -344,7 +344,7 @@ export function AdminDashboard() {
             type="button"
             className="rounded-full bg-pumpkin px-4 py-2 text-ink disabled:opacity-40"
             data-testid="go-dropship-export"
-            disabled={adminStore !== "fixmonger"}
+            disabled={adminStore !== "fixmonger" && adminStore !== "jinglefold"}
             onClick={async () => {
               const response = await fetch("/api/admin/go-dropship-export", { method: "POST" });
               const body = await response.json();
