@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { publicOriginForStore } from "../lib/tenant/origin";
+import { publicOriginForStore, storeCanonicalOrigin } from "../lib/tenant/origin";
 
 test("publicOriginForStore uses request host when it matches the store", () => {
   const brand = {
@@ -60,4 +60,34 @@ test("publicOriginForStore falls back to canonical site domain in production", (
   const origin = publicOriginForStore(request, brand, "fixmonger", []);
   assert.equal(origin, "https://wildframe.studio");
   env.NODE_ENV = prev;
+});
+
+test("storeCanonicalOrigin uses store site domain instead of global app URL", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const prevUrl = env.NEXT_PUBLIC_APP_URL;
+  env.NEXT_PUBLIC_APP_URL = "https://dropship.store.bishop-co-tech.co.uk";
+  const brand = {
+    appName: "Fixmonger",
+    tagline: "",
+    siteDomain: "fixmonger.co.uk",
+    supportEmail: "hello@fixmonger.co.uk",
+    legalTradingName: "Fixmonger",
+    footerTradingDisclosure: "",
+    emailFromName: "Fixmonger",
+    stripeStatementDescriptor: "FIXMONGER",
+    referralPrefix: "FIX",
+    logoPath: "/stores/fixmonger-logo.svg",
+    colors: {
+      ink: "#000",
+      cream: "#fff",
+      pumpkin: "#000",
+      gold: "#000",
+      moss: "#000",
+      bark: "#000",
+      line: "#000",
+    },
+  };
+  const origin = storeCanonicalOrigin("fixmonger", brand, ["fixmonger.dropship.store.bishop-co-tech.co.uk"]);
+  assert.equal(origin, "https://fixmonger.dropship.store.bishop-co-tech.co.uk");
+  env.NEXT_PUBLIC_APP_URL = prevUrl;
 });

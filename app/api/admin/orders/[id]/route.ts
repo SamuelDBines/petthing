@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { APP_NAME } from "@/config/brand";
 import { requireAdmin } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
 import { deliverOrder, regenerateStyle, runQueue } from "@/lib/generation";
 import { jsonError, parseBody } from "@/lib/http";
-import { appUrl } from "@/lib/runtime";
+import { loadStoreConfig } from "@/lib/tenant/context";
+import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 
 const schema = z.object({
@@ -35,10 +35,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (parsed.data.action === "refund") await refundOrder(id);
   if (parsed.data.action === "resend") {
     if (order.status !== "delivered") return jsonError("Send the email after the order is delivered.");
+    const config = await loadStoreConfig(order.storeId);
+    const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
     await sendEmail({
       to: order.email,
-      subject: `Your ${APP_NAME} portraits are ready`,
-      html: resultsEmail(`${appUrl()}/results/${order.resultsToken}`),
+      subject: `Your ${config.brand.appName} portraits are ready`,
+      html: resultsEmail(`${origin}/results/${order.resultsToken}`),
     });
   }
   return Response.json({ ok: true, order: await store.getOrder(id) });

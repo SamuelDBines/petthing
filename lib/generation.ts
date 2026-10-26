@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { APP_NAME } from "@/config/brand";
 import { EXTRA_IMAGES_PER_STYLE, getTier, perStyleCounts, type Tier } from "@/config/pricing";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { getTheme } from "@/config/themes";
@@ -9,12 +8,24 @@ import { deleteBlob, putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
 import { alertAdmin, resultsEmail, reviewReadyEmail, sendEmail } from "@/lib/email";
 import { getImageProvider } from "@/lib/imageProvider";
 import { moderateImage } from "@/lib/moderation";
-import { appUrl, londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
+import { londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
+import { mediaSigningBase, storeCanonicalOrigin } from "@/lib/tenant/origin";
+import { isTransientError } from "@/lib/transientErrors";
 import { retryDelayMs } from "@/lib/queue";
 import { getStore } from "@/lib/store";
 import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
+
+async function orderPublicUrls(order: Order) {
+  const config = await loadStoreConfig(order.storeId);
+  const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
+  return {
+    origin,
+    mediaBase: mediaSigningBase(origin),
+    appName: config.brand.appName,
+  };
+}
 
 async function tierForOrder(order: Order): Promise<Tier> {
   const config = await loadStoreConfig(order.storeId);
@@ -119,10 +130,11 @@ export async function deliverOrder(orderId: string) {
     resultsDeleteAfter: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     failureReason: null,
   });
+  const { origin, appName } = await orderPublicUrls(order);
   await sendEmail({
     to: order.email,
-    subject: `Your ${APP_NAME} portraits are ready`,
-    html: resultsEmail(`${appUrl()}/results/${order.resultsToken}`),
+    subject: `Your ${appName} portraits are ready`,
+    html: resultsEmail(`${origin}/results/${order.resultsToken}`),
   });
 }
 
@@ -145,10 +157,11 @@ async function finishIfDone(orderId: string) {
   }
   if (order.status === "delivered") {
     if (order.pendingBonusEmail) {
+      const { origin, appName } = await orderPublicUrls(order);
       await sendEmail({
         to: order.email,
-        subject: `Your extra ${APP_NAME} style is ready`,
-        html: resultsEmail(`${appUrl()}/results/${order.resultsToken}`),
+        subject: `Your extra ${appName} style is ready`,
+        html: resultsEmail(`${origin}/results/${order.resultsToken}`),
       });
       await store.updateOrder(orderId, { pendingBonusEmail: false });
     }
@@ -181,7 +194,8 @@ async function finishIfDone(orderId: string) {
   }
   if (manualReviewEnabled()) {
     await store.updateOrder(orderId, { status: "review", failureReason: null });
-    await alertAdmin("Order ready for review", reviewReadyEmail(`${appUrl()}/admin`, order.email));
+    const { origin } = await orderPublicUrls(order);
+    await alertAdmin("Order ready for review", reviewReadyEmail(`${origin}/admin`, order.email));
     return;
   }
   await deliverOrder(orderId);
@@ -193,6 +207,7 @@ async function processJob(jobId: string) {
   const order = job ? await store.getOrder(job.orderId) : null;
   if (!job || !order) return;
   const tier = await tierForOrder(order);
+  const { mediaBase } = await orderPublicUrls(order);
   const provider = getImageProvider();
   try {
     let requestId = job.providerRequestId;
@@ -205,7 +220,9 @@ async function processJob(jobId: string) {
       });
       const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
       const imageUrls: string[] = [];
-      for (const asset of uploads) imageUrls.push(await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60));
+      for (const asset of uploads) {
+        imageUrls.push(await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, false, mediaBase));
+      }
       if (provider.id !== "placeholder" && imageUrls.length === 0) throw new Error("This order has no photos left to reference");
       const submitted = await provider.submit({
         prompt,
@@ -260,15 +277,17 @@ async function processJob(jobId: string) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed";
+    const transient = isTransientError(error);
     const attempts = job.attempts + 1;
-    const dead = attempts >= MAX_ATTEMPTS;
+    const dead = !transient && attempts >= MAX_ATTEMPTS;
+    const backoff = retryDelayMs(transient ? Math.min(attempts, 3) : attempts) * (transient ? 2 : 1);
     await store.updateJob(job.id, {
       status: dead ? "dead" : "queued",
-      attempts,
+      attempts: transient ? job.attempts : attempts,
       lastError: message,
       providerRequestId: null,
       lockedUntil: null,
-      nextRunAt: dead ? null : new Date(Date.now() + retryDelayMs(attempts)).toISOString(),
+      nextRunAt: dead ? null : new Date(Date.now() + backoff).toISOString(),
     });
   }
   await finishIfDone(order.id);

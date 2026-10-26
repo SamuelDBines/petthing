@@ -1,7 +1,5 @@
 import { readFileSync } from "fs";
-import { readdir, readFile } from "fs/promises";
-import path from "path";
-import { openDatabase } from "../lib/db/client";
+import { applyMigrations } from "../lib/db/migrate";
 
 function loadEnv() {
   try {
@@ -16,49 +14,14 @@ function loadEnv() {
   }
 }
 
-function statements(sqlText: string) {
-  const stripped = sqlText
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("--"))
-    .join("\n");
-  return stripped
-    .split(";")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
-}
-
 async function main() {
   loadEnv();
   const direct = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL;
   if (!direct) throw new Error("Set DATABASE_URL_DIRECT (or DATABASE_URL) before migrating.");
 
-  const sql = openDatabase(direct, 1);
-  try {
-    await sql`
-      create table if not exists schema_migrations (
-        id text primary key,
-        applied_at timestamptz not null default now()
-      )
-    `;
-    const dir = path.join(process.cwd(), "db", "migrations");
-    const files = (await readdir(dir)).filter((file) => file.endsWith(".sql")).sort();
-    for (const file of files) {
-      const applied = await sql<{ id: string }[]>`select id from schema_migrations where id = ${file}`;
-      if (applied.length) {
-        console.log(`skip ${file}`);
-        continue;
-      }
-      const body = await readFile(path.join(dir, file), "utf8");
-      const steps = statements(body);
-      await sql.begin(async (tx) => {
-        for (const step of steps) await tx.unsafe(step);
-        await tx`insert into schema_migrations (id) values (${file})`;
-      });
-      console.log(`applied ${file}`);
-    }
-  } finally {
-    await sql.end({ timeout: 5 });
-  }
+  const { applied, skipped } = await applyMigrations(direct);
+  for (const file of skipped) console.log(`skip ${file}`);
+  for (const file of applied) console.log(`applied ${file}`);
 }
 
 main().catch((error: unknown) => {

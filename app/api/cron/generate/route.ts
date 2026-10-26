@@ -1,6 +1,7 @@
 import { runQueue } from "@/lib/generation";
 import { jsonError } from "@/lib/http";
 import { assertCron } from "@/lib/runtime";
+import { withTransientRetries } from "@/lib/transientErrors";
 
 async function handle(request: Request) {
   try {
@@ -8,7 +9,7 @@ async function handle(request: Request) {
   } catch {
     return jsonError("Unauthorised", 401);
   }
-  const result = await runQueue();
+  const result = await withTransientRetries(() => runQueue());
   return Response.json(result);
 }
 
