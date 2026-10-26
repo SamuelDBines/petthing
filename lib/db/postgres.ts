@@ -15,6 +15,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import { getSql } from "@/lib/db/client";
 import type { AnalyticsEvent, Asset, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import { adminAuditDbMethods } from "@/lib/db/admin-audit-methods";
 import { catalogueDbMethods } from "@/lib/db/catalogue-methods";
 import { shopDbMethods } from "@/lib/db/shop-methods";
 import { londonDay } from "@/lib/runtime";
@@ -601,4 +602,5 @@ export const postgresStore = {
   },
   ...shopDbMethods,
   ...catalogueDbMethods,
+  ...adminAuditDbMethods,
 };

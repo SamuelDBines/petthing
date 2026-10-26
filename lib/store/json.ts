@@ -46,6 +46,7 @@ function emptyDb(): Database {
     visitorEvents: [],
     analyticsRollups: [],
     catalogueProducts: [],
+    adminLoginEvents: [],
   };
 }
 
@@ -75,6 +76,7 @@ async function read(): Promise<Database> {
       visitorEvents: parsed.visitorEvents ?? [],
       analyticsRollups: parsed.analyticsRollups ?? [],
       catalogueProducts: parsed.catalogueProducts ?? [],
+      adminLoginEvents: parsed.adminLoginEvents ?? [],
       shopOrders: parsed.shopOrders ?? [],
       supplierBatches: parsed.supplierBatches ?? [],
       handPaintedOrders: parsed.handPaintedOrders ?? [],
@@ -435,6 +437,14 @@ export const jsonStore = {
     }),
   listCatalogueProductOverrides: (storeId: string) =>
     withDb((db) => structuredClone(db.catalogueProducts.filter((p) => p.storeId === storeId))),
+  recordAdminLogin: (email: string, ip: string) =>
+    withDb((db) => {
+      const row = { id: randomUUID(), email, ip, createdAt: new Date().toISOString() };
+      db.adminLoginEvents.unshift(row);
+      if (db.adminLoginEvents.length > 200) db.adminLoginEvents.length = 200;
+    }),
+  listAdminLoginEvents: (limit = 20) =>
+    withDb((db) => structuredClone(db.adminLoginEvents.slice(0, limit))),
   upsertCatalogueProduct: (product: CatalogueProduct) =>
     withDb((db) => {
       const idx = db.catalogueProducts.findIndex((p) => p.storeId === product.storeId && p.id === product.id);

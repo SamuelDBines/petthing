@@ -170,4 +170,5 @@ export type Database = {
   visitorEvents: VisitorEventRow[];
   analyticsRollups: RollupRow[];
   catalogueProducts: CatalogueProduct[];
+  adminLoginEvents: { id: string; email: string; ip: string; createdAt: string }[];
 };

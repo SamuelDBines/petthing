@@ -70,9 +70,22 @@ type StoreEdit = {
   queueHalted: boolean;
 };
 
-export function AdminDashboard() {
+type LoginEvent = { id: string; email: string; ip: string; createdAt: string };
+
+type AdminDashboardProps = {
+  initialAuthed?: boolean;
+  oauthEnabled?: boolean;
+  passwordLogin?: boolean;
+};
+
+export function AdminDashboard({
+  initialAuthed = false,
+  oauthEnabled = true,
+  passwordLogin = false,
+}: AdminDashboardProps) {
   const [password, setPassword] = useState("");
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(initialAuthed);
+  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
@@ -117,6 +130,9 @@ export function AdminDashboard() {
     setStores(storesBody.stores ?? []);
     setAdminStore(storesBody.selected ?? "all");
     setAuthed(true);
+    void fetch("/api/admin/login-audit")
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((body) => setLoginEvents(body.events ?? []));
   }
 
   async function loadAnalytics() {
@@ -261,11 +277,26 @@ export function AdminDashboard() {
     return (
       <main className="mx-auto max-w-sm px-4 py-16" data-testid="admin-login">
         <h1 className="text-4xl">Admin</h1>
-        <form onSubmit={login} className="mt-6 space-y-3">
-          <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" data-testid="admin-password" />
-          <button className="rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink" type="submit">Sign in</button>
-          {error ? <p className="text-sm">{error}</p> : null}
-        </form>
+        {oauthEnabled ? (
+          <a
+            href="/api/auth/signin/google"
+            className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink"
+            data-testid="admin-google-signin"
+          >
+            Sign in with Google
+          </a>
+        ) : null}
+        {passwordLogin ? (
+          <form onSubmit={login} className="mt-6 space-y-3">
+            <p className="text-xs text-cream/60">Dev / E2E password login</p>
+            <input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" data-testid="admin-password" />
+            <button className="rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink" type="submit">Sign in with password</button>
+          </form>
+        ) : null}
+        {!oauthEnabled && !passwordLogin ? (
+          <p className="mt-6 text-sm text-cream/70">Configure Google OAuth or enable ADMIN_PASSWORD_LOGIN for local access.</p>
+        ) : null}
+        {error ? <p className="mt-3 text-sm">{error}</p> : null}
       </main>
     );
   }
@@ -286,7 +317,16 @@ export function AdminDashboard() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8" data-testid="admin-dashboard">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-4xl">Admin</h1>
+        <div>
+          <h1 className="text-4xl">Admin</h1>
+          <button
+            type="button"
+            className="mt-1 text-sm text-cream/60 underline"
+            onClick={() => void fetch("/api/admin/logout", { method: "POST" }).then(() => window.location.reload())}
+          >
+            Sign out
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm" data-testid="admin-store-switcher">
             Store
@@ -308,6 +348,18 @@ export function AdminDashboard() {
         </div>
       </div>
       {error ? <p className="mt-3 text-sm">{error}</p> : null}
+      {loginEvents.length ? (
+        <section className="mt-4 rounded-3xl border border-line p-4 text-sm" data-testid="admin-login-audit">
+          <h2 className="font-medium">Recent admin sign-ins</h2>
+          <ul className="mt-2 space-y-1 text-cream/70">
+            {loginEvents.slice(0, 8).map((row) => (
+              <li key={row.id}>
+                {row.email} · {new Date(row.createdAt).toLocaleString("en-GB")} · {row.ip || "—"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {stats ? (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
