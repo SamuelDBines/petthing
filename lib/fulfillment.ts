@@ -138,7 +138,11 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
   const shipping = shippingFrom(session);
   if (!shipping || shipping.countryCode !== "GB") {
     await store.updatePrint(print.id, { status: "failed", error: "UK shipping only at launch.", shipping });
-    await alertAdmin("Print order needs a UK address", `<p>${order?.email ?? print.orderId}</p>`);
+    await alertAdmin(
+      "Print order needs a UK address",
+      `<p>${order?.email ?? print.orderId}</p>`,
+      order?.storeId,
+    );
     return;
   }
   await store.updatePrint(print.id, {
@@ -191,7 +195,7 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
   } catch (error) {
     const message = error instanceof Error ? error.message : "Prodigi failed";
     await store.updatePrint(print.id, { status: "failed", error: message });
-    await alertAdmin("Prodigi order failed", `<p>${message}</p>`);
+    await alertAdmin("Prodigi order failed", `<p>${message}</p>`, order?.storeId);
   }
 }
 
@@ -256,7 +260,11 @@ export async function noteSeasonRenewed(subscriptionId: string) {
     subject: `Your ${APP_NAME} season pass renewed`,
     html: "<p>The next season’s family portraits will use the photos we already hold. We’ll email the gallery when that season opens.</p>",
   });
-  await alertAdmin("Season pass renewed", `<p>${order.email} renewed ${subscriptionId}. The next season is not generated automatically.</p>`);
+  await alertAdmin(
+    "Season pass renewed",
+    `<p>${order.email} renewed ${subscriptionId}. The next season is not generated automatically.</p>`,
+    order.storeId,
+  );
 }
 
 export async function noteSeasonCanceled(subscriptionId: string) {
@@ -264,7 +272,11 @@ export async function noteSeasonCanceled(subscriptionId: string) {
   const order = await store.getOrderBySubscription(subscriptionId);
   if (!order) return;
   await store.updateOrder(order.id, { subscriptionStatus: "canceled" });
-  await alertAdmin("Season pass canceled", `<p>${order.email} canceled ${subscriptionId}.</p>`);
+  await alertAdmin(
+    "Season pass canceled",
+    `<p>${order.email} canceled ${subscriptionId}.</p>`,
+    order.storeId,
+  );
 }
 
 export async function refundOrder(orderId: string) {

@@ -12,6 +12,7 @@ import { clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
+import { checkoutSessionOptions } from "@/lib/stripeCheckout";
 import { getStripe } from "@/lib/stripe";
 import { markShopOrderPaid } from "@/lib/shop/fulfillment";
 import type Stripe from "stripe";
@@ -36,7 +37,7 @@ async function openSession(args: {
     return { demo: true as const, url: success.replace("{CHECKOUT_SESSION_ID}", `demo_${args.idempotencyKey}`) };
   }
   const session = await stripe.checkout.sessions.create(
-    {
+    checkoutSessionOptions({
       mode: "payment",
       customer_email: args.email,
       line_items: args.lineItems,
@@ -57,7 +58,7 @@ async function openSession(args: {
           },
         },
       ],
-    },
+    }),
     { idempotencyKey: args.idempotencyKey },
   );
   if (!session.url) return jsonError("Stripe did not return a checkout URL.", 502);

@@ -27,13 +27,19 @@ export async function sendEmail(message: Message) {
   return { sent: true as const };
 }
 
-export async function alertAdmin(subject: string, html: string) {
+export async function alertAdmin(subject: string, html: string, storeId?: string) {
   const to = process.env.ADMIN_EMAIL;
+  let prefix = APP_NAME;
+  if (storeId) {
+    const { loadStoreConfig } = await import("@/lib/tenant/context");
+    const config = await loadStoreConfig(storeId);
+    prefix = config.brand.appName;
+  }
   if (!to) {
-    console.log(`[admin alert] ${subject}`);
+    console.log(`[admin alert] ${prefix}: ${subject}`);
     return;
   }
-  await sendEmail({ to, subject: `${APP_NAME}: ${subject}`, html });
+  await sendEmail({ to, subject: `${prefix}: ${subject}`, html });
 }
 
 export function resultsEmail(resultsUrl: string) {

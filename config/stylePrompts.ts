@@ -1,5 +1,6 @@
 import { PAINTED_STYLE_IDS } from "@/config/paintings";
 import { THEMES, type SubjectType } from "@/config/themes";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
 
 const BANNED = [
   "disney",
@@ -148,6 +149,21 @@ export const STYLE_PROMPTS: Record<string, StylePrompt> = {
       "Draw {subject} as a charcoal sketch on toned paper. Strong values, smudged shadows, paper tooth, faithful likeness from the reference photos.",
     negative: "colour, photograph, watermark, text",
   },
+  "cosy-classic": {
+    template:
+      "Paint {subject} as a festive Christmas ornament portrait for printing on a round bauble or flat ornament. Square 1:1 composition: subject centred inside a soft circular vignette with comfortable margin at the edges so nothing important is cropped when masked to a circle. Warm candlelight, muted reds and antique gold, subtle bokeh, elegant and calm. If the subject is a person, festive knitwear and they stay fully clothed. Keep faces and pet markings faithful to the reference photos.",
+    negative: "rectangular crop cutting off ears, corner-heavy composition, logos, horror, gore",
+  },
+  "snow-globe": {
+    template:
+      "Paint {subject} inside an original snow-globe Christmas ornament scene for bauble printing. Square format, centred subject within a circular safe zone, gentle snowfall, soft greens and frosted glass glow, no branded globe base. Subject recognisable with clear eyes and markings. People wear cosy winter layers, fully clothed.",
+    negative: "subject touching frame edge, dark horror snow, logos, text",
+  },
+  hearthside: {
+    template:
+      "Paint {subject} in a hearthside Christmas ornament portrait. Square composition with the subject centred for circular bauble printing, fireside warmth, tasteful wreath and garland in the background (not covering the face), gold and ember light. Wholesome, fully clothed if people. Faithful likeness from references.",
+    negative: "face hidden by wreath, scary fire, logos, rectangular poster crop",
+  },
 };
 
 function assertPrompts() {
@@ -160,19 +176,44 @@ function assertPrompts() {
   }
   for (const theme of THEMES) {
     for (const style of theme.styles) {
-      const prompt = STYLE_PROMPTS[style.id];
-      if (!prompt) throw new Error(`Missing prompt for ${style.id}`);
-      if (
-        !PAINTED_STYLE_IDS.includes(style.id as (typeof PAINTED_STYLE_IDS)[number]) &&
-        !/fully clothed|costume painted over their clothes/i.test(prompt.template)
-      ) {
-        throw new Error(`Prompt for ${style.id} must keep subjects clothed`);
+      assertStylePrompt(style.id, theme.id);
+    }
+  }
+  for (const store of BUILTIN_STORES) {
+    for (const theme of store.themes) {
+      for (const style of theme.styles) {
+        assertStylePrompt(style.id, `${store.id}/${theme.id}`);
+      }
+    }
+  }
+}
+
+function assertStylePrompt(styleId: string, context: string) {
+  const prompt = STYLE_PROMPTS[styleId];
+  if (!prompt) throw new Error(`Missing prompt for ${context} style ${styleId}`);
+  if (
+    !PAINTED_STYLE_IDS.includes(styleId as (typeof PAINTED_STYLE_IDS)[number]) &&
+    !/fully clothed|costume painted over their clothes/i.test(prompt.template)
+  ) {
+    throw new Error(`Prompt for ${styleId} must keep subjects clothed`);
+  }
+}
+
+/** Called at startup and from tests so every store theme style has a prompt. */
+export function assertAllStoreStylePrompts() {
+  for (const store of BUILTIN_STORES) {
+    for (const theme of store.themes) {
+      for (const style of theme.styles) {
+        if (!STYLE_PROMPTS[style.id]) {
+          throw new Error(`Missing STYLE_PROMPTS entry for ${store.id} style ${style.id}`);
+        }
       }
     }
   }
 }
 
 assertPrompts();
+assertAllStoreStylePrompts();
 
 export function buildPrompt(args: {
   styleId: string;

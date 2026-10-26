@@ -44,7 +44,11 @@ async function halt(reason: string, storeId: string) {
   const today = londonDay();
   await store.updateSettings({ queueHalted: true, haltReason: reason, haltNotifiedOn: today }, storeId);
   if (settings.haltNotifiedOn !== today) {
-    await alertAdmin("Generation queue halted", `<p>${reason}</p><p>Open admin and switch the queue back on after you have checked it.</p>`);
+    await alertAdmin(
+      "Generation queue halted",
+      `<p>${reason}</p><p>Open admin and switch the queue back on after you have checked it.</p>`,
+      storeId,
+    );
   }
 }
 
@@ -148,10 +152,18 @@ async function finishIfDone(orderId: string) {
   const failed = jobs.some((job) => job.status === "failed" || job.status === "dead");
   if (failed) {
     if (order.status === "delivered") {
-      await alertAdmin("An extra style failed", `<p>${order.email} still has their original gallery. A later style failed.</p>`);
+      await alertAdmin(
+        "An extra style failed",
+        `<p>${order.email} still has their original gallery. A later style failed.</p>`,
+        order.storeId,
+      );
     } else {
       await store.updateOrder(orderId, { status: "failed", failureReason: "A portrait failed after three attempts." });
-      await alertAdmin("Generation failed", `<p>${order.email} needs a regenerate or a refund.</p>`);
+      await alertAdmin(
+        "Generation failed",
+        `<p>${order.email} needs a regenerate or a refund.</p>`,
+        order.storeId,
+      );
     }
     return;
   }
@@ -195,7 +207,7 @@ async function finishIfDone(orderId: string) {
   if (manualReviewEnabled()) {
     await store.updateOrder(orderId, { status: "review", failureReason: null });
     const { origin } = await orderPublicUrls(order);
-    await alertAdmin("Order ready for review", reviewReadyEmail(`${origin}/admin`, order.email));
+    await alertAdmin("Order ready for review", reviewReadyEmail(`${origin}/admin`, order.email), order.storeId);
     return;
   }
   await deliverOrder(orderId);

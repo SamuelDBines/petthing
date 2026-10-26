@@ -30,6 +30,7 @@ const webServerEnv: Record<string, string> = {
   FILE_SIGNING_SECRET: local.FILE_SIGNING_SECRET || "e2e-files",
   IP_HASH_SALT: local.IP_HASH_SALT || "e2e-ip",
   ALLOW_DEMO_CHECKOUT: "true",
+  MOCK_MODERATION: "true",
   MANUAL_REVIEW: local.MANUAL_REVIEW || "true",
   DATABASE_URL: "",
   DATABASE_URL_DIRECT: "",

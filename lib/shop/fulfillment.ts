@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type Stripe from "stripe";
 import type { ShopOrder } from "@/lib/catalogue/types";
+import { sendShopOrderConfirmationEmail, sendShopOrderDispatchedEmail } from "@/lib/shop/emails";
 import { getStore } from "@/lib/store";
 
 function shippingFrom(session: Stripe.Checkout.Session) {
@@ -35,6 +36,12 @@ export async function markShopOrderPaid(shopOrderId: string, session: Stripe.Che
     orderId: null,
     createdAt: new Date().toISOString(),
   });
+  const fresh = await store.getShopOrder(order.id);
+  if (fresh) await sendShopOrderConfirmationEmail(fresh);
+}
+
+export async function notifyShopOrderDispatched(order: ShopOrder) {
+  await sendShopOrderDispatchedEmail(order);
 }
 
 export async function listPaidGoDropshipOrders(storeId: string): Promise<ShopOrder[]> {
