@@ -26,6 +26,10 @@ On the create flow, leave Stripe empty. "Pay securely" marks the order paid and 
 
 `MANUAL_REVIEW` defaults to on. After painting, the order sits in admin until you approve it. Set `MANUAL_REVIEW=false` in `.env.local` if you want the demo to email itself straight away.
 
+## Social content worker
+
+The `content-worker/` FastAPI service plans daily 9:16 pet before/after shorts, queues posts for approval, and can publish to YouTube, Instagram, Pinterest, TikTok, and X when credentials are set. See `content-worker/README.md` for env vars, Docker, and dry-run (`python3 scripts/dry_run.py`).
+
 ## Accounts you need before going live
 
 Nothing below is wired to a real call until the env var is set. Do these before you point a domain at Vercel.
