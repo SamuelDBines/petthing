@@ -135,11 +135,6 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
       payments: rememberPayment(order, args, "print"),
     });
   }
-  if (!process.env.PRODIGI_API_KEY) {
-    await store.updatePrint(print.id, { status: "paid", error: "Paid, but Prodigi is not configured yet." });
-    await alertAdmin("Print paid — Prodigi key missing", `<p>Order ${print.id} is paid and waiting for a Prodigi key.</p>`);
-    return;
-  }
   try {
     const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
     const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;

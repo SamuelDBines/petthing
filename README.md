@@ -28,6 +28,12 @@ Checkout requires **two consents**: photo permission and UK digital-supply ackno
 
 `MANUAL_REVIEW` defaults to on. After painting, the order sits in admin until you approve it.
 
+For a one-command local stack (Postgres, Mailpit, content worker, Stripe webhook forwarding), see **LOCAL.md**.
+
+## Social content worker
+
+The `content-worker/` FastAPI service plans daily 9:16 pet before/after shorts, queues posts for approval, and can publish to YouTube, Instagram, Pinterest, TikTok, and X when credentials are set. See `content-worker/README.md` for env vars, Docker, and dry-run (`python3 scripts/dry_run.py`).
+
 ## Go-live checklist (env vars)
 
 Set every variable below in Vercel (or your host) before taking real money. Do **not** commit secrets.

@@ -6,11 +6,17 @@ function databaseHost(connectionString: string) {
   return parsed.hostname;
 }
 
-function sslOptions(host: string): ConnectionOptions {
+function sslDisabled(host: string) {
+  if (process.env.DATABASE_SSL_MODE === "disable") return true;
+  return host === "localhost" || host === "127.0.0.1" || host === "postgres";
+}
+
+function sslOptions(host: string): ConnectionOptions | false {
+  if (sslDisabled(host)) return false;
   const raw = process.env.DATABASE_CA_CERT?.trim();
   if (!raw) {
     throw new Error(
-      "DATABASE_CA_CERT is required when DATABASE_URL is set. Download the CA from the DigitalOcean cluster, or set DATABASE_CA_CERT=system for an Advanced Edition cluster.",
+      "DATABASE_CA_CERT is required when DATABASE_URL is set. Download the CA from the DigitalOcean cluster, set DATABASE_CA_CERT=system for an Advanced Edition cluster, or use DATABASE_SSL_MODE=disable for local Postgres.",
     );
   }
   const base = { rejectUnauthorized: true as const, servername: host };
@@ -25,8 +31,9 @@ function sslOptions(host: string): ConnectionOptions {
 export function openDatabase(connectionString: string, max: number) {
   if (!connectionString) throw new Error("Missing a Postgres connection string");
   const host = databaseHost(connectionString);
+  const ssl = sslOptions(host);
   return postgres(connectionString, {
-    ssl: sslOptions(host),
+    ...(ssl ? { ssl } : {}),
     prepare: false,
     fetch_types: false,
     max,
