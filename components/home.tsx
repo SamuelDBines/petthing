@@ -17,7 +17,8 @@ const FAQS = [
   ["Who can see the pictures?", "Only you, via a private link. We don’t publish a gallery. Share buttons use a watermarked preview."],
   ["When are files deleted?", "One-off photos go 7 days after delivery. A season pass keeps them for up to a year so the next season can use them. Finished portraits go after 30 days."],
   ["Do you print?", "Yes. After the portraits are ready you can order a 252-piece puzzle in a tin, posted in the UK. The portrait stays whole on the board and on the lid."],
-  ["Is this only Halloween?", "No. Halloween is the season on sale now. Christmas opens on 1 November, and later seasons are added the same way."],
+  ["Is this only for one season?", "No. We run themed collections through the year — pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
+  ["Are the portraits real photos?", "No. They are AI-generated art styled from your uploads. We label them clearly on your gallery and in emails."],
   ["What is the season pass?", "A yearly plan for a family or group. You get a Classic set each season, starting with the one that’s open. One-off orders stay available for pets, couples, and a single season."],
 ];
 
@@ -59,8 +60,8 @@ export function HomePage() {
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-[1.1fr_.9fr] md:py-16">
         <div>
           <Countdown deadlineIso={theme.deadlineIso} label={`${theme.name} is this season`} />
-          <h1 className="mt-5 text-5xl leading-[0.95] sm:text-7xl">Portraits for every season.</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-cream/80">{TAGLINE} {theme.name} is open now. Christmas opens on 1 November, and later seasons join the same way.</p>
+          <h1 className="mt-5 text-5xl leading-[0.95] sm:text-7xl">A portrait your pet deserves.</h1>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-cream/80">{TAGLINE} {theme.name} styles are open now; Christmas arrives on 1 November.</p>
           {paused ? (
             <p className="mt-6 rounded-2xl border border-gold/40 bg-gold/10 p-4">Orders are paused while we catch up. The next season is still open below.</p>
           ) : (
@@ -73,7 +74,7 @@ export function HomePage() {
               </Link>
             </div>
           )}
-          <p className="mt-4 text-sm text-cream/60">One-off or a yearly family pass. No account. A posted puzzle if you want one.</p>
+          <p className="mt-4 text-sm text-cream/60">Made in the UK. No account needed. Optional puzzle gift with UK postage.</p>
         </div>
         <Compare before="/examples/pet-before.jpg" after="/examples/pet-after.jpg" label="A terrier, before and after" />
       </section>
@@ -155,7 +156,7 @@ export function HomePage() {
           <h2 className="text-3xl">Trust and privacy</h2>
           <ul className="mt-4 space-y-2 text-cream/80">
             <li>Uploads and results sit in private storage. Links expire.</li>
-            <li>Photos are used only to make your order. No public gallery, no training set.</li>
+            <li>Portraits are AI-generated from your photos and labelled as such. No public gallery, no training set.</li>
             <li>One-off photos are deleted 7 days after delivery. A season pass keeps them for the next season. Results go after 30 days.</li>
             <li>Nudity, sexual content, violence and gore are rejected. Family orders use stricter prompts.</li>
             <li>You confirm you have permission, including from parents where children are in the photos.</li>

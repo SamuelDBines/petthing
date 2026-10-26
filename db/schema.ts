@@ -18,6 +18,7 @@ export const orders = pgTable("orders", {
   amountPence: integer("amount_pence").notNull(),
   priority: boolean("priority").notNull().default(false),
   consentAt: ts("consent_at"),
+  digitalSupplyConsentAt: ts("digital_supply_consent_at"),
   utm: jsonb("utm").$type<Record<string, string>>().notNull().default({}),
   referralCodeUsed: text("referral_code_used"),
   ownReferralCode: text("own_referral_code").notNull(),

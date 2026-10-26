@@ -26,6 +26,7 @@ export type Order = {
   amountPence: number;
   priority: boolean;
   consentAt: string;
+  digitalSupplyConsentAt: string;
   utm: Record<string, string>;
   referralCodeUsed: string | null;
   ownReferralCode: string;

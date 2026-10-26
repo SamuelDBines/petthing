@@ -1,31 +1,16 @@
 import { randomUUID } from "crypto";
-import { z } from "zod";
-import { CONSENT_LABEL } from "@/config/brand";
 import { discountedPence, getTier, PRIORITY_PENCE, REFERRAL_DISCOUNT, SEASON_PASS, styleSlots } from "@/config/pricing";
 import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
-import { cleanUtm, jsonError, parseBody, utmSchema } from "@/lib/http";
+import { cleanUtm, jsonError, parseBody } from "@/lib/http";
+import { orderInputSchema, photoConsentGiven } from "@/lib/orderInput";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
-
-const schema = z.object({
-  themeId: z.string().min(1),
-  subjectType: z.enum(["pet", "family", "couple", "me"]),
-  tierId: z.enum(["mini", "classic", "deluxe"]),
-  styleIds: z.array(z.string()).min(1).max(12),
-  cardNames: z.string().max(80).optional(),
-  email: z.string().email("Enter a valid email"),
-  consent: z.boolean().refine((value) => value, CONSENT_LABEL),
-  priority: z.boolean(),
-  offer: z.enum(["one_off", "season_pass"]).optional(),
-  referralCode: z.string().max(40).optional(),
-  utm: utmSchema.optional(),
-});
-
 export async function POST(request: Request) {
-  const parsed = parseBody(schema, await request.json().catch(() => null));
+  const parsed = parseBody(orderInputSchema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const input = parsed.data;
+  if (!photoConsentGiven(input)) return jsonError("Photo permission is required.", 400);
   const store = getStore();
   const ipHash = hashIp(clientIp(request));
   const limit = await store.hitRateLimit(`order:${ipHash}`, 12, 60 * 60 * 1000);
@@ -72,6 +57,7 @@ export async function POST(request: Request) {
     amountPence,
     priority,
     consentAt: now,
+    digitalSupplyConsentAt: now,
     utm: cleanUtm(input.utm),
     referralCodeUsed,
     ownReferralCode: referralCode(),

@@ -36,6 +36,7 @@ function toOrder(row: typeof orders.$inferSelect): Order {
     amountPence: row.amountPence,
     priority: row.priority,
     consentAt: iso(row.consentAt) ?? "",
+    digitalSupplyConsentAt: iso(row.digitalSupplyConsentAt) ?? iso(row.consentAt) ?? "",
     utm: row.utm ?? {},
     referralCodeUsed: row.referralCodeUsed,
     ownReferralCode: row.ownReferralCode,
@@ -75,6 +76,7 @@ function orderValues(order: Order): typeof orders.$inferInsert {
     amountPence: order.amountPence,
     priority: order.priority,
     consentAt: at(order.consentAt),
+    digitalSupplyConsentAt: at(order.digitalSupplyConsentAt),
     utm: order.utm,
     referralCodeUsed: order.referralCodeUsed,
     ownReferralCode: order.ownReferralCode,
@@ -112,6 +114,7 @@ function orderSet(patch: Partial<Order>): Partial<typeof orders.$inferInsert> {
   if (patch.amountPence !== undefined) set.amountPence = patch.amountPence;
   if (patch.priority !== undefined) set.priority = patch.priority;
   if (patch.consentAt !== undefined) set.consentAt = at(patch.consentAt);
+  if (patch.digitalSupplyConsentAt !== undefined) set.digitalSupplyConsentAt = at(patch.digitalSupplyConsentAt);
   if (patch.utm !== undefined) set.utm = patch.utm;
   if (patch.referralCodeUsed !== undefined) set.referralCodeUsed = patch.referralCodeUsed;
   if (patch.ownReferralCode !== undefined) set.ownReferralCode = patch.ownReferralCode;
