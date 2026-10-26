@@ -3,12 +3,19 @@ import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { isAdmin } from "@/lib/adminAuth";
 import { jsonError, parseBody } from "@/lib/http";
 import { getStore } from "@/lib/store";
+import { adminCookieOptions } from "@/lib/admin/cookies";
 import { cookies } from "next/headers";
 
 export async function GET() {
   if (!(await isAdmin())) return jsonError("Sign in required", 401);
   const store = getStore();
-  const stores = store.listStores ? await store.listStores() : [];
+  const rows = store.listStores ? await store.listStores() : [];
+  const stores = await Promise.all(
+    rows.map(async (row) => ({
+      ...row,
+      settings: await store.getSettings(row.id),
+    })),
+  );
   const selected = await adminStoreFilter();
   return Response.json({ stores, selected });
 }
@@ -36,12 +43,6 @@ export async function PATCH(request: Request) {
   const parsed = parseBody(selectSchema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const jar = await cookies();
-  jar.set("ps_admin_store", parsed.data.storeId, {
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 90,
-  });
+  jar.set("ps_admin_store", parsed.data.storeId, adminCookieOptions(60 * 60 * 24 * 90));
   return Response.json({ ok: true, storeId: parsed.data.storeId });
 }

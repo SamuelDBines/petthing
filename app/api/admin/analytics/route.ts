@@ -1,6 +1,7 @@
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { isAdmin } from "@/lib/adminAuth";
 import { buildDashboard, rollupForEmptyRange } from "@/lib/analytics/dashboard";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
 import { jsonError } from "@/lib/http";
 import { londonDay } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
@@ -22,5 +23,18 @@ export async function GET(request: Request) {
     to,
     daily: daily.length ? daily : [{ day: from, metrics: (await import("@/lib/analytics/rollup")).emptyRollup() }],
   });
-  return Response.json(dashboard);
+  if (storeFilter !== "all") return Response.json(dashboard);
+  const byStore: Record<string, ReturnType<typeof buildDashboard>> = {};
+  for (const builtin of BUILTIN_STORES) {
+    const storeDaily = await store.getAnalyticsRollups(builtin.id, from, to);
+    byStore[builtin.id] = buildDashboard({
+      storeId: builtin.id,
+      from,
+      to,
+      daily: storeDaily.length
+        ? storeDaily
+        : [{ day: from, metrics: (await import("@/lib/analytics/rollup")).emptyRollup() }],
+    });
+  }
+  return Response.json({ ...dashboard, byStore });
 }

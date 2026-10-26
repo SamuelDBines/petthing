@@ -82,11 +82,13 @@ export async function POST(request: Request) {
   if (!limit.ok) return jsonError("Too many checkout attempts. Try again in an hour.", 429);
 
   const lines: ShopOrderLine[] = [];
+  const pricedLines: { product: NonNullable<Awaited<ReturnType<typeof getCatalogueProduct>>>; quantity: number }[] = [];
   let subtotal = 0;
   for (const line of parsed.data.lines) {
-    const product = getCatalogueProduct(storeId, line.productId);
+    const product = await getCatalogueProduct(storeId, line.productId);
     if (!product || !product.active) return jsonError(`Unknown product: ${line.productId}`);
     if (product.stock < line.quantity) return jsonError(`${product.name} is out of stock.`);
+    pricedLines.push({ product, quantity: line.quantity });
     lines.push(...shopOrderLinesForProduct(product, line.quantity));
     subtotal += product.pricePence * line.quantity;
   }
@@ -116,10 +118,9 @@ export async function POST(request: Request) {
   };
   await store.createShopOrder(shopOrder);
 
-  const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = parsed.data.lines.map((line) => {
-    const product = getCatalogueProduct(storeId, line.productId)!;
+  const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = pricedLines.map(({ product, quantity }) => {
     return {
-      quantity: line.quantity,
+      quantity,
       price_data: {
         currency: "gbp",
         unit_amount: product.pricePence,

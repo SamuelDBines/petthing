@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { adminCookieOptions } from "@/lib/admin/cookies";
 import { safeEqual, secret, signValue } from "@/lib/runtime";
 
 const COOKIE = "ps_admin";
@@ -27,18 +28,12 @@ export async function startAdminSession() {
   const exp = String(Date.now() + WEEK);
   const sig = signValue(exp, "ADMIN_SESSION_SECRET", sessionSecret());
   const jar = await cookies();
-  jar.set(COOKIE, `${exp}.${sig}`, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: WEEK / 1000,
-  });
+  jar.set(COOKIE, `${exp}.${sig}`, adminCookieOptions(WEEK / 1000));
 }
 
 export async function clearAdminSession() {
   const jar = await cookies();
-  jar.delete(COOKIE);
+  jar.set(COOKIE, "", { ...adminCookieOptions(0), maxAge: 0 });
 }
 
 export function passwordMatches(password: string) {

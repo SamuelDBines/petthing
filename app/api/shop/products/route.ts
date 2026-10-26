@@ -9,7 +9,7 @@ export async function GET() {
   const storeId = await requestStoreId();
   const config = await loadStoreConfig(storeId);
   if (config.storeType !== "catalogue" && config.storeType !== "christmas") return Response.json({ products: [] });
-  const products = toStorefrontProducts(listCatalogueProducts(storeId));
+  const products = toStorefrontProducts(await listCatalogueProducts(storeId));
   const delivery =
     storeId === "jinglefold"
       ? {

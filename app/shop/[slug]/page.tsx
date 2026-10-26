@@ -12,7 +12,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const config = await loadStoreConfig(storeId);
   if (config.storeType !== "christmas" && config.storeType !== "catalogue") redirect("/");
   const { slug } = await params;
-  const product = getCatalogueProduct(storeId, slug);
+  const product = await getCatalogueProduct(storeId, slug);
   if (!product || !product.active) notFound();
   const cutoffs = config.catalog.jinglefold?.cutoffs;
   const cutoffIso =

@@ -1,4 +1,4 @@
-import type { ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
+import type { CatalogueProduct, ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { RollupRow, VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
 import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import type { PrintProductId } from "@/config/prints";
@@ -169,4 +169,5 @@ export type Database = {
   visitorSessions: VisitorSessionRow[];
   visitorEvents: VisitorEventRow[];
   analyticsRollups: RollupRow[];
+  catalogueProducts: CatalogueProduct[];
 };

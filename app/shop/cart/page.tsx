@@ -11,6 +11,6 @@ export default async function Page() {
   const config = await loadStoreConfig(storeId);
   if (config.storeType !== "catalogue" && config.storeType !== "christmas") redirect("/");
   return (
-    <FixmongerCartPage storeId={storeId} products={toStorefrontProducts(listCatalogueProducts(storeId))} />
+    <FixmongerCartPage storeId={storeId} products={toStorefrontProducts(await listCatalogueProducts(storeId))} />
   );
 }

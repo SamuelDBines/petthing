@@ -15,6 +15,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
 import { getSql } from "@/lib/db/client";
 import type { AnalyticsEvent, Asset, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import { catalogueDbMethods } from "@/lib/db/catalogue-methods";
 import { shopDbMethods } from "@/lib/db/shop-methods";
 import { londonDay } from "@/lib/runtime";
 
@@ -585,13 +586,19 @@ export const postgresStore = {
     `;
     return Number(rows[0]?.gbp ?? 0);
   },
-  async todaySpend(storeId = DEFAULT_STORE_ID) {
+  async todaySpend(storeId: string | "all" = DEFAULT_STORE_ID) {
+    const day = londonDay();
+    if (storeId === "all") {
+      const rows = await db().select().from(dailySpend).where(eq(dailySpend.day, day));
+      return rows.reduce((sum, row) => sum + (row.gbp ?? 0), 0);
+    }
     const [row] = await db()
       .select()
       .from(dailySpend)
-      .where(and(eq(dailySpend.storeId, storeId), eq(dailySpend.day, londonDay())))
+      .where(and(eq(dailySpend.storeId, storeId), eq(dailySpend.day, day)))
       .limit(1);
     return row?.gbp ?? 0;
   },
   ...shopDbMethods,
+  ...catalogueDbMethods,
 };

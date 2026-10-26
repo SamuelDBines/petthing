@@ -9,10 +9,10 @@ export default async function Page() {
   const storeId = await requestStoreId();
   const config = await loadStoreConfig(storeId);
   if (config.storeType === "christmas") {
-    return <JinglefoldHome decor={toStorefrontProducts(listCatalogueProducts(storeId))} />;
+    return <JinglefoldHome decor={toStorefrontProducts(await listCatalogueProducts(storeId))} />;
   }
   if (config.storeType === "catalogue") {
-    return <FixmongerHome products={toStorefrontProducts(listCatalogueProducts(storeId))} />;
+    return <FixmongerHome products={toStorefrontProducts(await listCatalogueProducts(storeId))} />;
   }
   return <HomePage />;
 }

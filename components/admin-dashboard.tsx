@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { formatGbp } from "@/config/pricing";
 import { THEMES } from "@/config/themes";
 import { orderPipelineStatus, printSummary } from "@/lib/adminDisplay";
+import type { ShopOrder } from "@/lib/catalogue/types";
+import type { CatalogueProduct } from "@/lib/catalogue/types";
 import type { Order, PrintOrder } from "@/lib/domain";
 
 type OrderRow = Order & {
@@ -18,6 +20,19 @@ type Stats = {
   paid: number;
   createStartsToday: number;
   paidToday: number;
+  fulfilment?: {
+    portraitReview: number;
+    shopPaidAwaitingExport: number;
+    handPaintedOpen: number;
+    generating: number;
+  };
+  storeBreakdown?: {
+    storeId: string;
+    todayRevenue: string;
+    reviewQueue: number;
+    shopPaidQueue: number;
+    generating: number;
+  }[];
 };
 
 type Sales = {
@@ -27,9 +42,15 @@ type Sales = {
   contentWorkerToken: string;
 };
 
-type Tab = "orders" | "sales" | "content" | "analytics" | "hand_painted" | "products";
+type Tab = "orders" | "sales" | "content" | "analytics" | "hand_painted" | "products" | "stores";
 
-type StoreOption = { id: string; slug: string; config: { brand: { appName: string } } };
+type StoreOption = {
+  id: string;
+  slug: string;
+  domains?: string[];
+  config: { brand: { appName: string; tagline?: string; supportEmail?: string } };
+  settings?: { salesPaused: boolean; queueHalted: boolean };
+};
 
 type AnalyticsDashboard = {
   summary: { uniqueVisitors: number; sessions: number; bounceRate: number; newVisitors: number; returningVisitors: number };
@@ -38,6 +59,15 @@ type AnalyticsDashboard = {
   topLandingPages: { path: string; sessions: number; bounceRate: number }[];
   topSources: { source: string; sessions: number; bounceRate: number }[];
   daily: { day: string; uniqueVisitors: number; sessions: number; bounceRate: number }[];
+  byStore?: Record<string, AnalyticsDashboard>;
+};
+
+type StoreEdit = {
+  domains: string;
+  tagline: string;
+  supportEmail: string;
+  salesPaused: boolean;
+  queueHalted: boolean;
 };
 
 export function AdminDashboard() {
@@ -45,6 +75,8 @@ export function AdminDashboard() {
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
+  const [orderStoreFilter, setOrderStoreFilter] = useState<string>("all");
   const [preorders, setPreorders] = useState<{ id: string; email: string; status: string; amountPence: number }[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [sales, setSales] = useState<Sales | null>(null);
@@ -58,6 +90,8 @@ export function AdminDashboard() {
     { orderId: string; status: string; sizeLabel: string; supplierEmailDraft: string }[]
   >([]);
   const [goCsv, setGoCsv] = useState("");
+  const [catalogueByStore, setCatalogueByStore] = useState<Record<string, CatalogueProduct[]>>({});
+  const [storeEdits, setStoreEdits] = useState<Record<string, StoreEdit>>({});
 
   async function load() {
     const [orderResponse, statsResponse, salesResponse, storesResponse] = await Promise.all([
@@ -74,6 +108,7 @@ export function AdminDashboard() {
     const statsBody = await statsResponse.json();
     const salesBody = await salesResponse.json();
     setOrders(orderBody.orders);
+    setShopOrders(orderBody.shopOrders ?? []);
     setPreorders(orderBody.preorders ?? []);
     setSettings(orderBody.settings);
     setStats(statsBody);
@@ -105,6 +140,68 @@ export function AdminDashboard() {
     void load();
   }, []);
 
+  async function loadProducts() {
+    const response = await fetch("/api/admin/products");
+    if (!response.ok) return;
+    const body = await response.json();
+    if (body.byStore) setCatalogueByStore(body.byStore);
+    else if (body.products) setCatalogueByStore({ [adminStore]: body.products });
+  }
+
+  function initStoreEditsFromList(list: StoreOption[]) {
+    const next: Record<string, StoreEdit> = {};
+    for (const store of list) {
+      next[store.id] = {
+        domains: store.domains?.join(", ") ?? "",
+        tagline: store.config.brand.tagline ?? "",
+        supportEmail: store.config.brand.supportEmail ?? "",
+        salesPaused: store.settings?.salesPaused ?? false,
+        queueHalted: store.settings?.queueHalted ?? false,
+      };
+    }
+    setStoreEdits(next);
+  }
+
+  function storeLabel(storeId: string) {
+    return stores.find((s) => s.id === storeId)?.config.brand.appName ?? storeId;
+  }
+
+  async function saveStoreRow(storeId: string) {
+    const edit = storeEdits[storeId];
+    if (!edit) return;
+    const response = await fetch(`/api/admin/stores/${storeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        domains: edit.domains.split(",").map((d) => d.trim()).filter(Boolean),
+        tagline: edit.tagline,
+        supportEmail: edit.supportEmail,
+        salesPaused: edit.salesPaused,
+        queueHalted: edit.queueHalted,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) setError(body.error || "Could not save store");
+    else {
+      setError("");
+      await load();
+    }
+  }
+
+  async function saveProduct(storeId: string, productId: string, patch: { pricePence?: number; stock?: number; active?: boolean }) {
+    const response = await fetch("/api/admin/products", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storeId, productId, ...patch }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      setError(body.error || "Could not save product");
+      return;
+    }
+    await loadProducts();
+  }
+
   useEffect(() => {
     if (tab === "analytics" && authed) void loadAnalytics();
     if (tab === "hand_painted" && authed) {
@@ -112,7 +209,17 @@ export function AdminDashboard() {
         .then((r) => r.json())
         .then((body) => setHandPainted(body.orders ?? []));
     }
+    if (tab === "products" && authed) void loadProducts();
   }, [tab, authed, adminStore]);
+
+  useEffect(() => {
+    if (tab === "stores" && stores.length) initStoreEditsFromList(stores);
+  }, [stores, tab]);
+
+  useEffect(() => {
+    if (adminStore !== "all") setOrderStoreFilter(adminStore);
+    else setOrderStoreFilter("all");
+  }, [adminStore]);
 
   async function login(event: React.FormEvent) {
     event.preventDefault();
@@ -164,8 +271,17 @@ export function AdminDashboard() {
   }
 
   const conversion = stats && stats.createStarts ? Math.round((stats.paid / stats.createStarts) * 100) : 0;
-  const reviewCount = orders.filter((order) => order.status === "review").length;
+  const reviewCount = stats?.fulfilment?.portraitReview ?? orders.filter((order) => order.status === "review").length;
   const contentUrl = sales ? `${sales.contentWorkerUrl}?token=${encodeURIComponent(sales.contentWorkerToken)}` : "";
+  const showStoreColumn = adminStore === "all";
+  const filteredPortraitOrders = orders.filter(
+    (order) => orderStoreFilter === "all" || order.storeId === orderStoreFilter,
+  );
+  const filteredShopOrders = shopOrders.filter(
+    (order) => orderStoreFilter === "all" || order.storeId === orderStoreFilter,
+  );
+  const catalogueStores =
+    adminStore === "all" ? Object.keys(catalogueByStore) : catalogueByStore[adminStore] ? [adminStore] : [];
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8" data-testid="admin-dashboard">
@@ -187,20 +303,53 @@ export function AdminDashboard() {
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "content" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("content")} data-testid="admin-content-tab">Content queue</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "hand_painted" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("hand_painted")} data-testid="admin-hand-painted-tab">Hand-painted</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "products" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("products")} data-testid="admin-products-tab">Products</button>
+          <button type="button" className={`rounded-full px-4 py-2 ${tab === "stores" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("stores")} data-testid="admin-stores-tab">Stores</button>
           <button className="rounded-full border border-line px-4 py-2" onClick={() => fetch("/api/admin/run-queue", { method: "POST" }).then(load)}>Run queue</button>
         </div>
       </div>
       {error ? <p className="mt-3 text-sm">{error}</p> : null}
       {stats ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-          <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today</p><p className="text-2xl">{stats.todayRevenue}</p><p className="text-sm">{stats.todayOrders} orders</p></article>
-          <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Generation today</p><p className="text-2xl">£{stats.todaySpendGbp.toFixed(2)}</p><p className="text-sm">cap £{sales?.today.generationCapGbp ?? 25}</p></article>
-          <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Review queue</p><p className="text-2xl">{reviewCount}</p></article>
-          <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Start → paid</p><p className="text-2xl">{conversion}%</p><p className="text-sm">{stats.paid} / {stats.createStarts}</p></article>
-          <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today’s funnel</p><p className="text-2xl">{stats.paidToday}</p><p className="text-sm">{stats.createStartsToday} starts</p></article>
-        </div>
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today</p><p className="text-2xl">{stats.todayRevenue}</p><p className="text-sm">{stats.todayOrders} orders</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Generation today</p><p className="text-2xl">£{stats.todaySpendGbp.toFixed(2)}</p><p className="text-sm">cap £{sales?.today.generationCapGbp ?? 25}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Review queue</p><p className="text-2xl">{reviewCount}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Start → paid</p><p className="text-2xl">{conversion}%</p><p className="text-sm">{stats.paid} / {stats.createStarts}</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today’s funnel</p><p className="text-2xl">{stats.paidToday}</p><p className="text-sm">{stats.createStartsToday} starts</p></article>
+          </div>
+          {stats.fulfilment ? (
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="admin-fulfilment-panel">
+              <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Portrait review</p><p className="text-2xl">{stats.fulfilment.portraitReview}</p></article>
+              <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Shop paid (export)</p><p className="text-2xl">{stats.fulfilment.shopPaidAwaitingExport}</p></article>
+              <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Hand-painted open</p><p className="text-2xl">{stats.fulfilment.handPaintedOpen}</p></article>
+              <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Generating</p><p className="text-2xl">{stats.fulfilment.generating}</p></article>
+            </div>
+          ) : null}
+          {stats.storeBreakdown?.length ? (
+            <div className="mt-3 overflow-x-auto rounded-3xl border border-line p-4" data-testid="admin-store-breakdown">
+              <p className="text-sm text-cream/60">Today by store</p>
+              <table className="mt-2 w-full text-left text-sm">
+                <thead className="text-cream/60"><tr><th>Store</th><th>Revenue</th><th>Review</th><th>Shop paid</th><th>Generating</th></tr></thead>
+                <tbody>
+                  {stats.storeBreakdown.map((row) => (
+                    <tr key={row.storeId} className="border-t border-line">
+                      <td className="py-2">{storeLabel(row.storeId)}</td>
+                      <td>{row.todayRevenue}</td>
+                      <td>{row.reviewQueue}</td>
+                      <td>{row.shopPaidQueue}</td>
+                      <td>{row.generating}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </>
       ) : null}
 
+      {adminStore === "all" ? (
+        <p className="mt-4 text-sm text-cream/70">Select a single store in the switcher to edit theme and pause flags for that store.</p>
+      ) : (
       <section className="mt-6 grid gap-3 rounded-3xl border border-line p-4 md:grid-cols-4">
         <label className="text-sm">Theme
           <select className="field mt-1" value={settings.themeMode === "auto" ? "auto" : settings.activeThemeId} onChange={(event) => {
@@ -215,6 +364,7 @@ export function AdminDashboard() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.salesPaused} onChange={(event) => saveSettings({ ...settings, salesPaused: event.target.checked })} /> Sold out / paused</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.queueHalted} onChange={(event) => saveSettings({ ...settings, queueHalted: event.target.checked })} /> Halt generation queue</label>
       </section>
+      )}
 
       {tab === "analytics" && analytics ? (
         <section className="mt-6 space-y-6" data-testid="admin-analytics-panel">
@@ -248,6 +398,20 @@ export function AdminDashboard() {
               ))}
             </ul>
           </div>
+          {analytics.byStore ? (
+            <div data-testid="admin-analytics-by-store">
+              <h2 className="text-2xl">By store</h2>
+              <div className="mt-3 grid gap-4 md:grid-cols-3">
+                {Object.entries(analytics.byStore).map(([storeId, dash]) => (
+                  <article key={storeId} className="rounded-2xl border border-line p-4">
+                    <h3 className="font-medium">{storeLabel(storeId)}</h3>
+                    <p className="mt-2 text-sm">Visitors {dash.summary.uniqueVisitors} · Sessions {dash.summary.sessions}</p>
+                    <p className="text-sm">Bounce {Math.round(dash.summary.bounceRate * 100)}%</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -289,12 +453,26 @@ export function AdminDashboard() {
             </section>
           ) : null}
 
+          {showStoreColumn ? (
+            <label className="mt-6 block text-sm">
+              Filter orders
+              <select className="field ml-2" value={orderStoreFilter} onChange={(e) => setOrderStoreFilter(e.target.value)} data-testid="admin-order-store-filter">
+                <option value="all">All stores</option>
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>{store.config.brand.appName}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <div className="mt-6 overflow-x-auto" data-testid="admin-orders-table">
+            <h2 className="mb-2 text-2xl">Portrait orders</h2>
             <table className="w-full min-w-[860px] text-left text-sm">
-              <thead className="text-cream/60"><tr><th>When</th><th>Email</th><th>Pipeline</th><th>Tier</th><th>Paid</th><th>Gen cost</th><th></th></tr></thead>
+              <thead className="text-cream/60"><tr>{showStoreColumn ? <th>Store</th> : null}<th>When</th><th>Email</th><th>Pipeline</th><th>Tier</th><th>Paid</th><th>Gen cost</th><th></th></tr></thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredPortraitOrders.map((order) => (
                   <tr key={order.id} className="border-t border-line align-top" data-testid={`admin-order-${order.id}`}>
+                    {showStoreColumn ? <td className="py-3">{storeLabel(order.storeId)}</td> : null}
                     <td className="py-3">{new Date(order.createdAt).toLocaleString("en-GB")}</td>
                     <td>{order.email}{order.priority ? " · priority" : ""}<br />{order.failureReason ? <span className="text-danger">{order.failureReason}</span> : null}</td>
                     <td>
@@ -321,6 +499,27 @@ export function AdminDashboard() {
               </tbody>
             </table>
           </div>
+
+          {filteredShopOrders.length ? (
+            <div className="mt-8 overflow-x-auto" data-testid="admin-shop-orders-table">
+              <h2 className="mb-2 text-2xl">Shop / catalogue orders</h2>
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="text-cream/60"><tr>{showStoreColumn ? <th>Store</th> : null}<th>When</th><th>Email</th><th>Status</th><th>Lines</th><th>Paid</th></tr></thead>
+                <tbody>
+                  {filteredShopOrders.map((order) => (
+                    <tr key={order.id} className="border-t border-line">
+                      {showStoreColumn ? <td className="py-2">{storeLabel(order.storeId)}</td> : null}
+                      <td className="py-2">{new Date(order.createdAt).toLocaleString("en-GB")}</td>
+                      <td>{order.email}</td>
+                      <td>{order.status}</td>
+                      <td>{order.lines.map((l) => `${l.name}×${l.quantity}`).join(", ")}</td>
+                      <td>{formatGbp(order.amountPence)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -338,8 +537,8 @@ export function AdminDashboard() {
       ) : null}
 
       {tab === "products" ? (
-        <section className="mt-6 space-y-4" data-testid="admin-products-panel">
-          <p className="text-sm text-cream/70">Catalogue stores: export paid Go Dropship UK orders as CSV for manual upload.</p>
+        <section className="mt-6 space-y-6" data-testid="admin-products-panel">
+          <p className="text-sm text-cream/70">Edit catalogue price, stock, and visibility. Export paid Go Dropship orders when a single catalogue store is selected.</p>
           <button
             type="button"
             className="rounded-full bg-pumpkin px-4 py-2 text-ink disabled:opacity-40"
@@ -360,6 +559,107 @@ export function AdminDashboard() {
           {goCsv ? (
             <pre className="max-h-64 overflow-auto rounded-2xl border border-line p-3 text-xs" data-testid="go-dropship-csv">{goCsv}</pre>
           ) : null}
+          {catalogueStores.map((storeId) => (
+            <div key={storeId}>
+              <h2 className="text-2xl">{storeLabel(storeId)}</h2>
+              <table className="mt-2 w-full text-left text-sm">
+                <thead className="text-cream/60"><tr><th>Product</th><th>Price</th><th>Stock</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                  {(catalogueByStore[storeId] ?? []).map((product) => (
+                    <tr key={product.id} className="border-t border-line">
+                      <td className="py-2">{product.name}</td>
+                      <td>
+                        <input
+                          className="field w-24"
+                          type="number"
+                          value={Math.round(product.pricePence / 100)}
+                          onChange={(e) => {
+                            const pence = Math.round(Number(e.target.value) * 100);
+                            setCatalogueByStore((prev) => ({
+                              ...prev,
+                              [storeId]: (prev[storeId] ?? []).map((p) => (p.id === product.id ? { ...p, pricePence: pence } : p)),
+                            }));
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="field w-20"
+                          type="number"
+                          value={product.stock}
+                          onChange={(e) => {
+                            const stock = Number(e.target.value);
+                            setCatalogueByStore((prev) => ({
+                              ...prev,
+                              [storeId]: (prev[storeId] ?? []).map((p) => (p.id === product.id ? { ...p, stock } : p)),
+                            }));
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={product.active}
+                          onChange={(e) => {
+                            setCatalogueByStore((prev) => ({
+                              ...prev,
+                              [storeId]: (prev[storeId] ?? []).map((p) => (p.id === product.id ? { ...p, active: e.target.checked } : p)),
+                            }));
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="rounded-full border border-line px-3 py-1"
+                          onClick={() =>
+                            void saveProduct(storeId, product.id, {
+                              pricePence: product.pricePence,
+                              stock: product.stock,
+                              active: product.active,
+                            })
+                          }
+                        >
+                          Save
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {tab === "stores" ? (
+        <section className="mt-6 space-y-6" data-testid="admin-stores-panel">
+          <p className="text-sm text-cream/70">Domains (comma-separated), branding, and pause flags per store.</p>
+          {stores.map((store) => {
+            const edit = storeEdits[store.id];
+            if (!edit) return null;
+            return (
+              <article key={store.id} className="rounded-3xl border border-line p-4">
+                <h2 className="text-xl">{store.config.brand.appName}</h2>
+                <label className="mt-3 block text-sm">Domains
+                  <input
+                    className="field mt-1 w-full"
+                    value={edit.domains}
+                    onChange={(e) => setStoreEdits({ ...storeEdits, [store.id]: { ...edit, domains: e.target.value } })}
+                  />
+                </label>
+                <label className="mt-3 block text-sm">Tagline
+                  <input className="field mt-1 w-full" value={edit.tagline} onChange={(e) => setStoreEdits({ ...storeEdits, [store.id]: { ...edit, tagline: e.target.value } })} />
+                </label>
+                <label className="mt-3 block text-sm">Support email
+                  <input className="field mt-1 w-full" value={edit.supportEmail} onChange={(e) => setStoreEdits({ ...storeEdits, [store.id]: { ...edit, supportEmail: e.target.value } })} />
+                </label>
+                <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.salesPaused} onChange={(e) => setStoreEdits({ ...storeEdits, [store.id]: { ...edit, salesPaused: e.target.checked } })} /> Sales paused</label>
+                <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.queueHalted} onChange={(e) => setStoreEdits({ ...storeEdits, [store.id]: { ...edit, queueHalted: e.target.checked } })} /> Halt generation queue</label>
+                <button type="button" className="mt-4 rounded-full bg-pumpkin px-4 py-2 text-ink" onClick={() => void saveStoreRow(store.id)}>Save {store.config.brand.appName}</button>
+              </article>
+            );
+          })}
         </section>
       ) : null}
     </main>

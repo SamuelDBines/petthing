@@ -74,6 +74,22 @@ export async function getStoreRow(id: string): Promise<StoreRow | null> {
   };
 }
 
+function mergeConfigPatch(
+  existing: Partial<StoreConfig> | null | undefined,
+  patch: Partial<StoreConfig> | undefined,
+): Partial<StoreConfig> {
+  if (!patch) return existing ?? {};
+  const prev = existing ?? {};
+  return {
+    ...prev,
+    ...patch,
+    brand: patch.brand ? { ...prev.brand, ...patch.brand } : prev.brand,
+    catalog: patch.catalog ? { ...prev.catalog, ...patch.catalog } : prev.catalog,
+    settings: patch.settings ? { ...prev.settings, ...patch.settings } : prev.settings,
+    integrations: patch.integrations ? { ...prev.integrations, ...patch.integrations } : prev.integrations,
+  };
+}
+
 export async function upsertStoreRow(input: {
   id: string;
   slug: string;
@@ -81,17 +97,19 @@ export async function upsertStoreRow(input: {
   config?: Partial<StoreConfig>;
 }) {
   const base = configFromRow(input.id, null);
+  const [existing] = await tdb().select().from(stores).where(eq(stores.id, input.id)).limit(1);
+  const configPatch = mergeConfigPatch(existing?.config as Partial<StoreConfig>, input.config);
   await tdb()
     .insert(stores)
     .values({
       id: input.id,
       slug: input.slug,
       domains: input.domains,
-      config: input.config ?? {},
+      config: configPatch,
     })
     .onConflictDoUpdate({
       target: stores.id,
-      set: { slug: input.slug, domains: input.domains, config: input.config ?? {} },
+      set: { slug: input.slug, domains: input.domains, config: configPatch },
     });
   bustStoreDomainCache();
   await tdb()

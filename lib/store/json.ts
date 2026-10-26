@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import type { HandPaintedOrderRow } from "@/lib/handPainted";
-import type { ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
+import type { CatalogueProduct, ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { AnalyticsEvent, Asset, Database, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
 import type { VisitorCollectPayload } from "@/lib/analytics/types";
 import { mergeRollups, rollupDay } from "@/lib/analytics/rollup";
@@ -45,6 +45,7 @@ function emptyDb(): Database {
     visitorSessions: [],
     visitorEvents: [],
     analyticsRollups: [],
+    catalogueProducts: [],
   };
 }
 
@@ -73,6 +74,7 @@ async function read(): Promise<Database> {
       visitorSessions: parsed.visitorSessions ?? [],
       visitorEvents: parsed.visitorEvents ?? [],
       analyticsRollups: parsed.analyticsRollups ?? [],
+      catalogueProducts: parsed.catalogueProducts ?? [],
       shopOrders: parsed.shopOrders ?? [],
       supplierBatches: parsed.supplierBatches ?? [],
       handPaintedOrders: parsed.handPaintedOrders ?? [],
@@ -132,33 +134,47 @@ export const jsonStore = {
       return structuredClone(db.settingsByStore[storeId]);
     }),
   listStores: () =>
-    withDb(() =>
-      BUILTIN_STORES.map(
-        (builtin): StoreRow => ({
+    withDb((db) =>
+      BUILTIN_STORES.map((builtin): StoreRow => {
+        const patch = (db.storeConfigPatches[builtin.id] as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null;
+        return {
           id: builtin.id,
           slug: builtin.slug,
-          domains: builtin.domains,
-          config: configFromRow(builtin.id, null),
+          domains: patch?.domains?.length ? patch.domains : builtin.domains,
+          config: configFromRow(builtin.id, patch),
           createdAt: new Date().toISOString(),
-        }),
-      ),
+        };
+      }),
     ),
   getStoreConfig: (id: string) =>
-    withDb(async (db) => ({
-      id,
-      slug: id,
-      domains: BUILTIN_STORES.find((s) => s.id === id)?.domains ?? [],
-      config: configFromRow(id, (db.storeConfigPatches[id] as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null),
-      createdAt: new Date().toISOString(),
-    })),
+    withDb(async (db) => {
+      const builtin = BUILTIN_STORES.find((s) => s.id === id);
+      const patch = (db.storeConfigPatches[id] as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null;
+      return {
+        id,
+        slug: builtin?.slug ?? id,
+        domains: patch?.domains?.length ? patch.domains : builtin?.domains ?? [],
+        config: configFromRow(id, patch),
+        createdAt: new Date().toISOString(),
+      };
+    }),
   upsertStore: (input: { id: string; slug: string; domains: string[]; config?: Record<string, unknown> }) =>
     withDb((db) => {
-      db.storeConfigPatches[input.id] = input.config ?? {};
+      const prev = (db.storeConfigPatches[input.id] as Record<string, unknown>) ?? {};
+      const next = input.config ?? {};
+      const patch = {
+        ...prev,
+        ...next,
+        domains: input.domains,
+        catalog: { ...(prev.catalog as object), ...(next.catalog as object) },
+        brand: { ...(prev.brand as object), ...(next.brand as object) },
+      };
+      db.storeConfigPatches[input.id] = patch;
       return {
         id: input.id,
         slug: input.slug,
         domains: input.domains,
-        config: configFromRow(input.id, (input.config as Partial<import("@/lib/tenant/types").StoreConfig>) ?? null),
+        config: configFromRow(input.id, patch as Partial<import("@/lib/tenant/types").StoreConfig>),
         createdAt: new Date().toISOString(),
       };
     }),
@@ -409,8 +425,23 @@ export const jsonStore = {
       row.gbp = Math.round((row.gbp + gbp) * 10000) / 10000;
       return row.gbp;
     }),
-  todaySpend: (storeId = DEFAULT_STORE_ID) =>
-    withDb((db) => db.spend.find((item) => item.day === londonDay() && item.storeId === storeId)?.gbp ?? 0),
+  todaySpend: (storeId: string | "all" = DEFAULT_STORE_ID) =>
+    withDb((db) => {
+      const day = londonDay();
+      if (storeId === "all") {
+        return db.spend.filter((item) => item.day === day).reduce((sum, item) => sum + item.gbp, 0);
+      }
+      return db.spend.find((item) => item.day === day && item.storeId === storeId)?.gbp ?? 0;
+    }),
+  listCatalogueProductOverrides: (storeId: string) =>
+    withDb((db) => structuredClone(db.catalogueProducts.filter((p) => p.storeId === storeId))),
+  upsertCatalogueProduct: (product: CatalogueProduct) =>
+    withDb((db) => {
+      const idx = db.catalogueProducts.findIndex((p) => p.storeId === product.storeId && p.id === product.id);
+      if (idx >= 0) db.catalogueProducts[idx] = product;
+      else db.catalogueProducts.push(product);
+      return structuredClone(product);
+    }),
   createShopOrder: (order: ShopOrder) =>
     withDb((db) => {
       db.shopOrders.push(order);

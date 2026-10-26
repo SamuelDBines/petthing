@@ -11,13 +11,10 @@ export async function requestStoreId(): Promise<string> {
 
 export async function loadStoreConfig(storeId?: string): Promise<StoreConfig> {
   const id = storeId ?? (await requestStoreId());
-  if (!process.env.DATABASE_URL) {
-    return configFromRow(id, null);
-  }
   const data = getStore();
   if (data.getStoreConfig) {
     const row = await data.getStoreConfig(id);
-    if (row) return { ...row.config, domains: row.config.domains };
+    if (row) return row.config;
   }
   return configFromRow(id, null);
 }
