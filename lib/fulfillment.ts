@@ -16,6 +16,8 @@ import { composePrint } from "@/lib/puzzleSheet";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 import { getStripe, paymentIntentId } from "@/lib/stripe";
+import { manualReviewEnabled } from "@/lib/runtime";
+import { reviewReadyEmail } from "@/lib/email";
 
 type PaidArgs = {
   sessionId: string;
@@ -82,8 +84,20 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
   } else {
     const jobs = await store.listJobs(order.id);
     if (order.storeId === "jinglefold" && order.productMeta?.personalised && jobs.some((j) => j.status === "done")) {
-      const { deliverOrder } = await import("@/lib/generation");
-      await deliverOrder(order.id);
+      if (manualReviewEnabled()) {
+        await store.updateOrder(order.id, { status: "review", failureReason: null });
+        const config = await loadStoreConfig(order.storeId);
+        const { storeCanonicalOrigin } = await import("@/lib/tenant/origin");
+        const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
+        await alertAdmin(
+          "Jinglefold personalised order ready for approval",
+          reviewReadyEmail(`${origin}/admin`, order.email),
+          order.storeId,
+        );
+      } else {
+        const { deliverOrder } = await import("@/lib/generation");
+        await deliverOrder(order.id);
+      }
     } else if (!jobs.length) {
       const fresh = await store.getOrder(order.id);
       if (fresh) await enqueueForOrder(fresh);
@@ -224,7 +238,13 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
     amountPence: session.amount_total,
   };
   if ((kind === "portrait" || kind === "season_pass") && session.metadata?.orderId) {
-    await markPortraitPaid(session.metadata.orderId, args);
+    const orderId = session.metadata.orderId;
+    const portraitOrder = await getStore().getOrder(orderId);
+    if (portraitOrder?.storeId === "jinglefold" && portraitOrder.productMeta?.personalised) {
+      const shipping = shippingFrom(session);
+      if (shipping) await getStore().updateOrder(orderId, { shipping });
+    }
+    await markPortraitPaid(orderId, args);
     if (kind === "season_pass") {
       const subscription = session.subscription;
       const stripeSubscriptionId = typeof subscription === "string" ? subscription : subscription?.id ?? null;

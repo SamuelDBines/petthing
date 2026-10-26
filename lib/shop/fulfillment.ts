@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import type { ShopOrder } from "@/lib/catalogue/types";
 import { sendShopOrderConfirmationEmail, sendShopOrderDispatchedEmail } from "@/lib/shop/emails";
 import { getStore } from "@/lib/store";
+import { paymentIntentId } from "@/lib/stripe";
 
 function shippingFrom(session: Stripe.Checkout.Session) {
   const details = session.collected_information?.shipping_details;
@@ -27,6 +28,7 @@ export async function markShopOrderPaid(shopOrderId: string, session: Stripe.Che
     status: "paid",
     shipping,
     stripeCheckoutSessionId: session.id,
+    stripePaymentIntentId: paymentIntentId(session),
     paidAt: new Date().toISOString(),
   });
   await store.addEvent({

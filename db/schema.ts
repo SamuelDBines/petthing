@@ -51,6 +51,8 @@ export const orders = pgTable("orders", {
   subscriptionStatus: text("subscription_status"),
   productMeta: jsonb("product_meta").$type<Order["productMeta"]>(),
   payments: jsonb("payments").$type<Order["payments"]>().notNull().default([]),
+  shipping: jsonb("shipping").$type<Order["shipping"]>(),
+  partnerFulfillment: jsonb("partner_fulfillment").$type<Order["partnerFulfillment"]>(),
 });
 
 export const assets = pgTable("assets", {

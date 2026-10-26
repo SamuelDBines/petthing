@@ -14,6 +14,8 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     amountPence: Number(row.amount_pence),
     shippingPence: Number(row.shipping_pence ?? 0),
     stripeCheckoutSessionId: row.stripe_checkout_session_id ? String(row.stripe_checkout_session_id) : null,
+    stripePaymentIntentId: row.stripe_payment_intent_id ? String(row.stripe_payment_intent_id) : null,
+    amountRefundedPence: Number(row.amount_refunded_pence ?? 0),
     trackingNumber: row.tracking_number ? String(row.tracking_number) : null,
     supplierBatchId: row.supplier_batch_id ? String(row.supplier_batch_id) : null,
     createdAt: new Date(row.created_at as string).toISOString(),
@@ -24,11 +26,12 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
 export const shopDbMethods = {
   async createShopOrder(order: ShopOrder) {
     await getSql()`
-      insert into shop_orders (id, store_id, email, status, lines, shipping, amount_pence, shipping_pence, stripe_checkout_session_id, created_at, paid_at)
+      insert into shop_orders (id, store_id, email, status, lines, shipping, amount_pence, shipping_pence, stripe_checkout_session_id, stripe_payment_intent_id, amount_refunded_pence, created_at, paid_at)
       values (
         ${order.id}::uuid, ${order.storeId}, ${order.email}, ${order.status}, ${JSON.stringify(order.lines)}::jsonb,
         ${order.shipping ? JSON.stringify(order.shipping) : null}::jsonb,
-        ${order.amountPence}, ${order.shippingPence}, ${order.stripeCheckoutSessionId}, ${order.createdAt}, ${order.paidAt}
+        ${order.amountPence}, ${order.shippingPence}, ${order.stripeCheckoutSessionId}, ${order.stripePaymentIntentId ?? null},
+        ${order.amountRefundedPence ?? 0}, ${order.createdAt}, ${order.paidAt}
       )
     `;
     return order;
@@ -50,6 +53,8 @@ export const shopDbMethods = {
         status = ${next.status},
         shipping = ${next.shipping ? JSON.stringify(next.shipping) : null}::jsonb,
         stripe_checkout_session_id = ${next.stripeCheckoutSessionId},
+        stripe_payment_intent_id = ${next.stripePaymentIntentId ?? null},
+        amount_refunded_pence = ${next.amountRefundedPence ?? 0},
         tracking_number = ${next.trackingNumber},
         supplier_batch_id = ${next.supplierBatchId},
         paid_at = ${next.paidAt}

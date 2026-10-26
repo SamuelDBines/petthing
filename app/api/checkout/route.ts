@@ -19,9 +19,10 @@ import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
+import type { StoreBrand } from "@/lib/tenant/types";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
-import { checkoutSessionOptions } from "@/lib/stripeCheckout";
+import { checkoutSessionForStore } from "@/lib/stripe/store-checkout";
 import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
 
@@ -43,6 +44,7 @@ const schema = z.discriminatedUnion("kind", [
 ]);
 
 async function openSession(args: {
+  brand: StoreBrand;
   origin: string;
   kind: string;
   email: string;
@@ -62,7 +64,9 @@ async function openSession(args: {
     return { demo: true as const, url: success.replace("{CHECKOUT_SESSION_ID}", `demo_${args.idempotencyKey}`) };
   }
   const session = await stripe.checkout.sessions.create(
-    checkoutSessionOptions({
+    checkoutSessionForStore(
+      args.brand,
+      {
       mode: args.mode ?? "payment",
       customer_email: args.email,
       line_items: args.lineItems,
@@ -72,7 +76,9 @@ async function openSession(args: {
       integration_identifier: integrationIdentifier(args.kind),
       allow_promotion_codes: args.allowPromotionCodes ?? false,
       ...(args.collectShipping ? { shipping_address_collection: { allowed_countries: ["GB"] } } : {}),
-    }),
+    },
+      { logoUrl: `${args.origin}${args.brand.logoPath}` },
+    ),
     { idempotencyKey: args.idempotencyKey },
   );
   if (!session.url) return jsonError("Stripe did not return a checkout URL.", 502);
@@ -123,6 +129,7 @@ export async function POST(request: Request) {
     const jinglefoldPersonalised =
       order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised);
     const opened = await openSession({
+      brand,
       origin,
       kind: pass ? "season" : "portrait",
       email: order.email,
@@ -175,6 +182,7 @@ export async function POST(request: Request) {
     }
     if (!remaining.length && chosen.length !== EXTRA_STYLES_COUNT) return jsonError("Choose 3 styles for extra images.");
     const opened = await openSession({
+      brand,
       origin,
       kind: "extra",
       email: order.email,
@@ -229,6 +237,7 @@ export async function POST(request: Request) {
       lineItems.push(line("Complimentary pet bauble (canvas promo)", 0));
     }
     const opened = await openSession({
+      brand,
       origin,
       kind: "print",
       email: order.email,
@@ -261,6 +270,7 @@ export async function POST(request: Request) {
   };
   await store.addPreorder(preorder);
   const opened = await openSession({
+    brand,
     origin,
     kind: "christmas",
     email,

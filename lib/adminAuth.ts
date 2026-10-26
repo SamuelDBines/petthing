@@ -66,3 +66,10 @@ export async function requireAdmin() {
   if (await isAdmin()) return null;
   return Response.json({ error: "Sign in required" }, { status: 401 });
 }
+
+export async function requireAdminPost(request: Request) {
+  const { assertAdminPostOrigin } = await import("@/lib/admin/csrf");
+  const originDenied = assertAdminPostOrigin(request);
+  if (originDenied) return originDenied;
+  return requireAdmin();
+}

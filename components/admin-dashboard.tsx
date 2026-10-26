@@ -264,6 +264,17 @@ export function AdminDashboard({
     await load();
   }
 
+  async function actShop(id: string, action: "refund_full" | "refund_partial", amountPence?: number) {
+    const response = await fetch(`/api/admin/shop-orders/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, amountPence }),
+    });
+    const body = await response.json();
+    if (!response.ok) setError(body.error || "Refund failed");
+    await load();
+  }
+
   async function saveSettings(next: typeof settings) {
     setSettings(next);
     await fetch("/api/admin/settings", {
@@ -532,6 +543,12 @@ export function AdminDashboard({
                       {order.prints.map((print) => (
                         <span key={print.id} className="mt-1 block text-cream/60">{print.productId}: {printSummary(print)}</span>
                       ))}
+                      {order.partnerFulfillment?.externalOrderId ? (
+                        <span className="mt-1 block text-cream/60">
+                          {order.partnerFulfillment.provider}: {order.partnerFulfillment.status}
+                          {order.partnerFulfillment.trackingNumber ? ` · ${order.partnerFulfillment.trackingNumber}` : ""}
+                        </span>
+                      ) : null}
                     </td>
                     <td>{order.tierId}</td>
                     <td>{formatGbp(order.amountPence)}</td>
@@ -556,16 +573,21 @@ export function AdminDashboard({
             <div className="mt-8 overflow-x-auto" data-testid="admin-shop-orders-table">
               <h2 className="mb-2 text-2xl">Shop / catalogue orders</h2>
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="text-cream/60"><tr>{showStoreColumn ? <th>Store</th> : null}<th>When</th><th>Email</th><th>Status</th><th>Lines</th><th>Paid</th></tr></thead>
+                <thead className="text-cream/60"><tr>{showStoreColumn ? <th>Store</th> : null}<th>When</th><th>Email</th><th>Status</th><th>Lines</th><th>Paid</th><th></th></tr></thead>
                 <tbody>
                   {filteredShopOrders.map((order) => (
-                    <tr key={order.id} className="border-t border-line">
+                    <tr key={order.id} className="border-t border-line align-top">
                       {showStoreColumn ? <td className="py-2">{storeLabel(order.storeId)}</td> : null}
                       <td className="py-2">{new Date(order.createdAt).toLocaleString("en-GB")}</td>
                       <td>{order.email}</td>
-                      <td>{order.status}</td>
+                      <td>{order.status}{order.trackingNumber ? <span className="block text-cream/60">Track: {order.trackingNumber}</span> : null}</td>
                       <td>{order.lines.map((l) => `${l.name}×${l.quantity}`).join(", ")}</td>
-                      <td>{formatGbp(order.amountPence)}</td>
+                      <td>{formatGbp(order.amountPence)}{(order.amountRefundedPence ?? 0) > 0 ? <span className="block text-cream/60">Refunded {formatGbp(order.amountRefundedPence ?? 0)}</span> : null}</td>
+                      <td className="py-2 space-y-1">
+                        {order.status !== "refunded" && order.status !== "pending_payment" ? (
+                          <button type="button" className="block text-sm" onClick={() => actShop(order.id, "refund_full")}>Full refund</button>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

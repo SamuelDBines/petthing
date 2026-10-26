@@ -85,10 +85,19 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
               <p className="mt-2 text-moss">{product.clpSafetyText}</p>
             </section>
           ) : null}
-          {product.gpsrSafetyText ? (
+          {product.gpsr || product.gpsrSafetyText ? (
             <section className="mt-6 rounded-xl border border-line bg-bark p-4 text-sm" data-testid="gpsr-safety">
               <h2 className="font-medium text-cream">Product safety (GPSR)</h2>
-              <p className="mt-2 text-moss">{product.gpsrSafetyText}</p>
+              {product.gpsr ? (
+                <dl className="mt-2 space-y-2 text-moss">
+                  <div><dt className="font-medium text-cream">Manufacturer</dt><dd>{product.gpsr.manufacturerName} — {product.gpsr.manufacturerAddress}</dd></div>
+                  <div><dt className="font-medium text-cream">Responsible person (UK/EU)</dt><dd>{product.gpsr.responsiblePersonName} — {product.gpsr.responsiblePersonAddress}</dd></div>
+                  {product.gpsr.safetyWarnings ? <div><dt className="font-medium text-cream">Warnings</dt><dd>{product.gpsr.safetyWarnings}</dd></div> : null}
+                  {product.gpsr.allergens ? <div><dt className="font-medium text-cream">Allergens</dt><dd>{product.gpsr.allergens}</dd></div> : null}
+                  {product.gpsr.needsConfirming ? <p className="text-xs text-moss/80">Supplier details flagged for confirmation in admin.</p> : null}
+                </dl>
+              ) : null}
+              {product.gpsrSafetyText ? <p className="mt-2 text-moss">{product.gpsrSafetyText}</p> : null}
             </section>
           ) : null}
         </div>

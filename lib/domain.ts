@@ -56,6 +56,16 @@ export type Order = {
     personalised?: boolean;
     lateDeliveryAckAt?: string;
   } | null;
+  shipping?: Shipping | null;
+  partnerFulfillment?: {
+    provider: "prodigi" | "printful";
+    externalOrderId: string;
+    status: string;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    lastSyncedAt: string;
+    error?: string | null;
+  } | null;
 };
 
 export type Asset = {

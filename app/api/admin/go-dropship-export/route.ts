@@ -1,13 +1,14 @@
 import { randomUUID } from "crypto";
-import { isAdmin } from "@/lib/adminAuth";
+import { requireAdminPost } from "@/lib/adminAuth";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { buildGoDropshipCsv } from "@/lib/suppliers/goDropship";
 import { listPaidGoDropshipOrders, notifyShopOrderDispatched } from "@/lib/shop/fulfillment";
 import { jsonError } from "@/lib/http";
 import { getStore } from "@/lib/store";
 
-export async function POST() {
-  if (!(await isAdmin())) return jsonError("Sign in required", 401);
+export async function POST(request: Request) {
+  const denied = await requireAdminPost(request);
+  if (denied) return denied;
   const storeId = await adminStoreFilter();
   if (!storeId || storeId === "all") return jsonError("Select a catalogue store first.");
   const orders = await listPaidGoDropshipOrders(storeId);
@@ -33,7 +34,8 @@ export async function POST() {
 }
 
 export async function PATCH(request: Request) {
-  if (!(await isAdmin())) return jsonError("Sign in required", 401);
+  const denied = await requireAdminPost(request);
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { batchId?: string };
   if (!body?.batchId) return jsonError("batchId required");
   const store = getStore();

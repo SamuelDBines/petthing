@@ -8,6 +8,7 @@ import {
   recommendedPence,
 } from "@/config/catalogue/pricing-seed";
 import { JINGLEFOLD_CLP_BY_SKU, JINGLEFOLD_EXCLUDED_DECOR_SKUS } from "@/config/jinglefold";
+import { gpsrForSupplier } from "@/config/gpsr-defaults";
 import { resolveProductImages } from "@/lib/catalogue/product-images";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 import type { JinglefoldCutoffKind } from "@/config/jinglefold";
@@ -55,6 +56,12 @@ function buildDecorProduct(row: ReturnType<typeof pricingRowsForStore>[number]):
     bundleComponents: isBundle ? bundleComponents : undefined,
     clpSafetyText: JINGLEFOLD_CLP_BY_SKU[row.sku],
     gpsrSafetyText: copy?.gpsr,
+    gpsr: gpsrForSupplier(
+      "go_dropship",
+      copy?.gpsr
+        ? { safetyWarnings: copy.gpsr, allergens: JINGLEFOLD_CLP_BY_SKU[row.sku] ? "See CLP section" : undefined }
+        : undefined,
+    ),
     cutoffKind: cutoffKindForSku(),
     stock: 50,
     images: paths,

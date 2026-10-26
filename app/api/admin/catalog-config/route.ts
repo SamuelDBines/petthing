@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DEFAULT_JINGLEFOLD_CUTOFFS } from "@/config/jinglefold";
 import { DEFAULT_PAWTRAITRY_PROMOS } from "@/config/pawtraitry-promos";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireAdmin, requireAdminPost } from "@/lib/adminAuth";
 import { jsonError, parseBody } from "@/lib/http";
 import { getStore } from "@/lib/store";
 import { loadStoreConfig } from "@/lib/tenant/context";
@@ -35,7 +35,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireAdminPost(request);
   if (denied) return denied;
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
 import { deliverOrder, regenerateStyle, runQueue } from "@/lib/generation";
@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdmin();
+  const denied = await requireAdminPost(request);
   if (denied) return denied;
   const { id } = await context.params;
   const parsed = parseBody(schema, await request.json().catch(() => null));

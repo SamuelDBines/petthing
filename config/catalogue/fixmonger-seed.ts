@@ -7,6 +7,7 @@ import {
   pricingRowsForStore,
   recommendedPence,
 } from "@/config/catalogue/pricing-seed";
+import { gpsrForSupplier } from "@/config/gpsr-defaults";
 import { resolveProductImages } from "@/lib/catalogue/product-images";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 
@@ -40,6 +41,7 @@ function buildProduct(row: ReturnType<typeof pricingRowsForStore>[number]): Cata
     specs: copy?.specs,
     deliveryEstimate: copy?.delivery,
     gpsrSafetyText: copy?.gpsr,
+    gpsr: gpsrForSupplier("go_dropship", copy?.gpsr ? { safetyWarnings: copy.gpsr } : undefined),
     supplier: "go_dropship",
     supplierSku: row.sku,
     costPence,

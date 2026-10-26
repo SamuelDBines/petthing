@@ -14,6 +14,16 @@ export type CatalogueProductImage = {
   alt: string;
 };
 
+export type GpsrInfo = {
+  manufacturerName: string;
+  manufacturerAddress: string;
+  responsiblePersonName: string;
+  responsiblePersonAddress: string;
+  safetyWarnings?: string;
+  allergens?: string;
+  needsConfirming?: boolean;
+};
+
 export type CatalogueProduct = {
   id: string;
   storeId: string;
@@ -32,6 +42,7 @@ export type CatalogueProduct = {
   compareAtPricePence?: number | null;
   clpSafetyText?: string;
   gpsrSafetyText?: string;
+  gpsr?: GpsrInfo;
   cutoffKind?: "prodigi_bauble" | "printful_stocking" | "go_dropship";
   kind?: "standard" | "bundle";
   bundleComponents?: CatalogueBundleComponent[];
@@ -85,6 +96,8 @@ export type ShopOrder = {
   amountPence: number;
   shippingPence: number;
   stripeCheckoutSessionId: string | null;
+  stripePaymentIntentId?: string | null;
+  amountRefundedPence?: number;
   trackingNumber: string | null;
   supplierBatchId: string | null;
   createdAt: string;

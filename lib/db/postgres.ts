@@ -74,6 +74,8 @@ function toOrder(row: typeof orders.$inferSelect): Order {
     subscriptionStatus: row.subscriptionStatus === "active" || row.subscriptionStatus === "canceled" ? row.subscriptionStatus : null,
     payments: row.payments ?? [],
     productMeta: row.productMeta ?? null,
+    shipping: row.shipping ?? null,
+    partnerFulfillment: row.partnerFulfillment ?? null,
   };
 }
 
@@ -116,6 +118,8 @@ function orderValues(order: Order): typeof orders.$inferInsert {
     subscriptionStatus: order.subscriptionStatus,
     payments: order.payments,
     productMeta: order.productMeta ?? null,
+    shipping: order.shipping ?? null,
+    partnerFulfillment: order.partnerFulfillment ?? null,
   };
 }
 
@@ -155,6 +159,8 @@ function orderSet(patch: Partial<Order>): Partial<typeof orders.$inferInsert> {
   if (patch.subscriptionStatus !== undefined) set.subscriptionStatus = patch.subscriptionStatus;
   if (patch.payments !== undefined) set.payments = patch.payments;
   if (patch.productMeta !== undefined) set.productMeta = patch.productMeta;
+  if (patch.shipping !== undefined) set.shipping = patch.shipping;
+  if (patch.partnerFulfillment !== undefined) set.partnerFulfillment = patch.partnerFulfillment;
   return set;
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireAdmin, requireAdminPost } from "@/lib/adminAuth";
 import { DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { jsonError, parseBody } from "@/lib/http";
@@ -14,7 +14,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireAdminPost(request);
   if (denied) return denied;
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;

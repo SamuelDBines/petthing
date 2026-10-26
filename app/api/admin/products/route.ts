@@ -2,7 +2,7 @@ import { z } from "zod";
 import { FIXMONGER_SEED_PRODUCTS } from "@/config/catalogue/fixmonger-seed";
 import { JINGLEFOLD_DECOR_PRODUCTS } from "@/config/catalogue/jinglefold-seed";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireAdmin, requireAdminPost } from "@/lib/adminAuth";
 import { mergeCatalogueProducts, upsertCatalogueOverride } from "@/lib/catalogue/products";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 import { jsonError, parseBody } from "@/lib/http";
@@ -45,7 +45,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireAdminPost(request);
   if (denied) return denied;
   const parsed = parseBody(patchSchema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;

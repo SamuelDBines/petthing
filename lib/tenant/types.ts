@@ -24,6 +24,8 @@ export type StoreBrand = {
   footerTradingDisclosure: string;
   emailFromName: string;
   stripeStatementDescriptor: string;
+  /** Stripe Checkout payment_intent_data.statement_descriptor_suffix (max 22 chars). */
+  stripeStatementDescriptorSuffix?: string;
   referralPrefix: string;
   logoPath: string;
   ogImagePath?: string;

@@ -17,7 +17,7 @@ import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
 
-async function orderPublicUrls(order: Order) {
+export async function orderPublicUrls(order: Order) {
   const config = await loadStoreConfig(order.storeId);
   const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
   return {
@@ -105,6 +105,16 @@ export async function deliverOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order || order.status === "refunded" || order.status === "delivered") return;
+  const { isJinglefoldPersonalisedPhysical, submitJinglefoldPhysicalOrder } = await import(
+    "@/lib/jinglefold/fulfillment"
+  );
+  if (isJinglefoldPersonalisedPhysical(order)) {
+    try {
+      await submitJinglefoldPhysicalOrder(order);
+    } catch {
+      return;
+    }
+  }
   const assets = await store.listAssets(orderId);
   for (const asset of assets.filter((item) => item.kind === "result")) {
     const previewPath = `${orderId}/previews/${asset.id}.jpg`;
