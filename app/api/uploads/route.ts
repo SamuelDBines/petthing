@@ -3,6 +3,7 @@ import { z } from "zod";
 import { jsonError, parseBody, sniffImage } from "@/lib/http";
 import { putBlob } from "@/lib/blobs";
 import { moderateImage } from "@/lib/moderation";
+import { flagOrderPhotoSafetyReview } from "@/lib/order-photo-review";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
   if (!contentType) return jsonError("Use a JPEG, PNG, or WebP photo. HEIC is converted in the browser.");
   const moderation = await moderateImage(bytes, contentType);
   if (moderation.costGbp) await store.addSpend(moderation.costGbp);
-  if (!moderation.allowed) return jsonError(moderation.reason, 422);
+  if (moderation.failOpen) await flagOrderPhotoSafetyReview(order.id);
+  if (!moderation.allowed) return jsonError(moderation.customerMessage, 422);
 
   const extension = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
   const storagePath = `${order.id}/uploads/${randomUUID()}.${extension}`;

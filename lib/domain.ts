@@ -55,6 +55,8 @@ export type Order = {
     pricingSku?: string;
     personalised?: boolean;
     lateDeliveryAckAt?: string;
+    /** Automated NSFW scan failed (fal outage) — manual photo review in admin. */
+    photoSafetyReviewRequired?: boolean;
   } | null;
   shipping?: Shipping | null;
   partnerFulfillment?: {

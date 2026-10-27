@@ -1,3 +1,4 @@
+import { recentFalHealthDetail } from "@/lib/fal/provider-errors";
 import { emailProviderId, sesCredentialsConfigured } from "@/lib/email/config";
 import { fetchSesHealth } from "@/lib/email/ses-health";
 import { envPresent } from "@/lib/go-live/requirements";
@@ -72,6 +73,7 @@ export function integrationHealth(): IntegrationHealthRow[] {
       id: "fal",
       label: "fal.ai",
       status: envPresent("FAL_KEY") ? "connected" : "missing",
+      detail: recentFalHealthDetail(),
     },
     {
       id: "prodigi",

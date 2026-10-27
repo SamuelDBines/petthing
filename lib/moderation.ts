@@ -1,3 +1,10 @@
+import {
+  CUSTOMER_MODERATION_RETRY,
+  CUSTOMER_NSFW_MESSAGE,
+  isFalProviderHttpStatus,
+  parseFalErrorDetail,
+  recordFalProviderIncident,
+} from "@/lib/fal/provider-errors";
 import { usdToGbp } from "@/lib/runtime";
 
 const THRESHOLD = 0.45;
@@ -6,13 +13,43 @@ function mockModerationEnabled() {
   return process.env.MOCK_MODERATION === "true" || process.env.ALLOW_MOCK_MODERATION === "true";
 }
 
-export async function moderateImage(bytes: Buffer, contentType: string) {
+export type ModerationResult = {
+  /** May upload / continue checkout when true (includes fail-open provider errors). */
+  allowed: boolean;
+  /** Genuine NSFW verdict — block checkout. */
+  blocked: boolean;
+  /** Provider/account outage — allow with manual photo review. */
+  failOpen: boolean;
+  customerMessage: string;
+  costGbp: number;
+  skipped: boolean;
+};
+
+function failOpenResult(): ModerationResult {
+  return {
+    allowed: true,
+    blocked: false,
+    failOpen: true,
+    customerMessage: CUSTOMER_MODERATION_RETRY,
+    costGbp: 0,
+    skipped: true,
+  };
+}
+
+export async function moderateImage(bytes: Buffer, contentType: string): Promise<ModerationResult> {
   const key = process.env.FAL_KEY;
   if (!key) {
     if (mockModerationEnabled() || process.env.NODE_ENV !== "production") {
-      return { allowed: true, reason: "moderation skipped (mock)", costGbp: 0, skipped: true };
+      return {
+        allowed: true,
+        blocked: false,
+        failOpen: false,
+        customerMessage: "",
+        costGbp: 0,
+        skipped: true,
+      };
     }
-    return { allowed: false, reason: "Image moderation is not configured", costGbp: 0, skipped: false };
+    return failOpenResult();
   }
 
   const dataUrl = `data:${contentType};base64,${bytes.toString("base64")}`;
@@ -25,8 +62,19 @@ export async function moderateImage(bytes: Buffer, contentType: string) {
     body: JSON.stringify({ image_url: dataUrl }),
   });
   if (!response.ok) {
-    const detail = await response.text();
-    return { allowed: false, reason: `Moderation failed (${response.status}): ${detail.slice(0, 180)}`, costGbp: 0, skipped: false };
+    const detail = parseFalErrorDetail(await response.text());
+    recordFalProviderIncident("nsfw", response.status, detail);
+    if (isFalProviderHttpStatus(response.status)) {
+      return failOpenResult();
+    }
+    return {
+      allowed: false,
+      blocked: true,
+      failOpen: false,
+      customerMessage: CUSTOMER_MODERATION_RETRY,
+      costGbp: 0,
+      skipped: false,
+    };
   }
   const body = (await response.json()) as { nsfw_probability?: number };
   const probability = Number(body.nsfw_probability ?? 0);
@@ -34,10 +82,19 @@ export async function moderateImage(bytes: Buffer, contentType: string) {
   if (probability >= THRESHOLD) {
     return {
       allowed: false,
-      reason: "That photo looks like it includes nudity or sexual content. Please upload a different one.",
+      blocked: true,
+      failOpen: false,
+      customerMessage: CUSTOMER_NSFW_MESSAGE,
       costGbp,
       skipped: false,
     };
   }
-  return { allowed: true, reason: "", costGbp, skipped: false };
+  return {
+    allowed: true,
+    blocked: false,
+    failOpen: false,
+    customerMessage: "",
+    costGbp,
+    skipped: false,
+  };
 }

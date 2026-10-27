@@ -1,3 +1,9 @@
+import {
+  FalProviderError,
+  isFalProviderHttpStatus,
+  parseFalErrorDetail,
+  recordFalProviderIncident,
+} from "@/lib/fal/provider-errors";
 import { imageCostGbp } from "@/lib/runtime";
 import { paintPlaceholder } from "@/lib/placeholderImage";
 
@@ -68,6 +74,11 @@ async function falFetch(url: string, init?: RequestInit) {
       ...(init?.headers || {}),
     },
   });
+  if (!response.ok && isFalProviderHttpStatus(response.status)) {
+    const detail = parseFalErrorDetail(await response.text());
+    recordFalProviderIncident("generation", response.status, detail);
+    throw new FalProviderError(response.status, detail);
+  }
   return response;
 }
 
@@ -92,7 +103,8 @@ const falProvider: ImageProvider = {
       }),
     });
     if (!response.ok) {
-      throw new Error(`fal queue rejected the job (${response.status}): ${(await response.text()).slice(0, 240)}`);
+      const detail = parseFalErrorDetail(await response.text());
+      throw new Error(`fal queue rejected the job (${response.status}): ${detail.slice(0, 240)}`);
     }
     const body = (await response.json()) as { request_id?: string };
     if (!body.request_id) throw new Error("fal queue did not return a request id");
@@ -102,6 +114,11 @@ const falProvider: ImageProvider = {
     const statusResponse = await falFetch(`https://queue.fal.run/${modelId()}/requests/${requestId}/status`);
     if (statusResponse.status === 404) return { state: "failed", error: "fal request was not found" };
     if (!statusResponse.ok) {
+      if (isFalProviderHttpStatus(statusResponse.status)) {
+        const detail = parseFalErrorDetail(await statusResponse.text());
+        recordFalProviderIncident("generation", statusResponse.status, detail);
+        return { state: "pending" };
+      }
       return { state: "failed", error: `fal status failed (${statusResponse.status})` };
     }
     const status = (await statusResponse.json()) as { status?: string; error?: string };
@@ -111,7 +128,14 @@ const falProvider: ImageProvider = {
     }
     const resultResponse = await falFetch(`https://queue.fal.run/${modelId()}/requests/${requestId}`);
     if (resultResponse.status === 202) return { state: "pending" };
-    if (!resultResponse.ok) return { state: "failed", error: `fal result failed (${resultResponse.status})` };
+    if (!resultResponse.ok) {
+      if (isFalProviderHttpStatus(resultResponse.status)) {
+        const detail = parseFalErrorDetail(await resultResponse.text());
+        recordFalProviderIncident("generation", resultResponse.status, detail);
+        return { state: "pending" };
+      }
+      return { state: "failed", error: `fal result failed (${resultResponse.status})` };
+    }
     const raw = (await resultResponse.json()) as {
       images?: { url?: string }[];
       has_nsfw_concepts?: boolean[];

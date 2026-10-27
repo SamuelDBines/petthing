@@ -10,6 +10,8 @@ import { getImageProvider } from "@/lib/imageProvider";
 import { moderateImage } from "@/lib/moderation";
 import { londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
 import { mediaSigningBase, storeCanonicalOrigin } from "@/lib/tenant/origin";
+import { isFalProviderError } from "@/lib/fal/provider-errors";
+import { flagOrderPhotoSafetyReview, orderNeedsPhotoSafetyReview } from "@/lib/order-photo-review";
 import { isTransientError } from "@/lib/transientErrors";
 import { retryDelayMs } from "@/lib/queue";
 import { getStore } from "@/lib/store";
@@ -214,10 +216,13 @@ async function finishIfDone(orderId: string) {
     await store.updateOrder(orderId, { status: "pending_payment", failureReason: null });
     return;
   }
-  if (manualReviewEnabled()) {
+  if (orderNeedsPhotoSafetyReview(order) || manualReviewEnabled()) {
     await store.updateOrder(orderId, { status: "review", failureReason: null });
     const { origin } = await orderPublicUrls(order);
-    await alertAdmin("Order ready for review", reviewReadyEmail(`${origin}/admin`, order.email), order.storeId);
+    const subject = orderNeedsPhotoSafetyReview(order)
+      ? "Order needs manual photo review (safety check deferred)"
+      : "Order ready for review";
+    await alertAdmin(subject, reviewReadyEmail(`${origin}/admin`, order.email), order.storeId);
     return;
   }
   await deliverOrder(orderId);
@@ -271,7 +276,8 @@ async function processJob(jobId: string) {
         cost += moderation.costGbp;
         await store.addSpend(moderation.costGbp, order.storeId);
       }
-      if (!moderation.allowed) throw new Error(moderation.reason);
+      if (moderation.failOpen) await flagOrderPhotoSafetyReview(order.id);
+      if (!moderation.allowed) throw new Error(moderation.customerMessage);
       const extension = image.contentType.includes("png") ? "png" : "jpg";
       const storagePath = `${order.id}/results/${job.styleId}-${job.variantIndex}.${extension}`;
       await putBlob("results", storagePath, image.bytes, image.contentType);
@@ -299,7 +305,7 @@ async function processJob(jobId: string) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed";
-    const transient = isTransientError(error);
+    const transient = isTransientError(error) || isFalProviderError(error);
     const attempts = job.attempts + 1;
     const dead = !transient && attempts >= MAX_ATTEMPTS;
     const backoff = retryDelayMs(transient ? Math.min(attempts, 3) : attempts) * (transient ? 2 : 1);

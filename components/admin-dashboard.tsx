@@ -545,6 +545,9 @@ export function AdminDashboard({
                     <td>{formatGbp(order.amountPence)}</td>
                     <td>£{order.generationCostGbp.toFixed(2)}</td>
                     <td className="space-y-2 py-3">
+                      {order.productMeta?.photoSafetyReviewRequired ? (
+                        <span className="block text-amber-200">Manual photo safety review</span>
+                      ) : null}
                       {order.status === "review" ? <button className="block rounded-full bg-pumpkin px-3 py-1 text-ink" onClick={() => act(order.id, "approve")} data-testid="approve-order">Approve</button> : null}
                       <select className="field" value={styleId[order.id] || order.styleIds[0] || ""} onChange={(event) => setStyleId({ ...styleId, [order.id]: event.target.value })}>
                         {order.styleIds.map((id) => <option key={id} value={id}>{id}</option>)}
