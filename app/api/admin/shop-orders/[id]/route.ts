@@ -9,7 +9,8 @@ import {
   type ShopCustomerEmailKind,
 } from "@/lib/shop/admin-order-actions";
 import { refundShopOrder } from "@/lib/shop/refunds";
-import { sendShopOrderDeliveredEmail, sendShopOrderDispatchedEmail } from "@/lib/shop/emails";
+import { sendShopOrderDeliveredEmail } from "@/lib/shop/emails";
+import { sendDispatchedEmailOnce } from "@/lib/shop/dispatched-email";
 import { getStore } from "@/lib/store";
 
 const postSchema = z.object({
@@ -80,13 +81,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const store = getStore();
   const order = await store.getShopOrder(id);
   if (!order) return jsonError("Shop order not found.", 404);
-  const markingShipped =
-    parsed.data.status === "shipped" || Boolean(parsed.data.trackingNumber?.trim());
-  if (
-    markingShipped &&
-    order.status === "paid" &&
-    !parsed.data.confirmEarlyShip
-  ) {
+
+  const nextTracking = parsed.data.trackingNumber?.trim();
+  const wantsShipped =
+    parsed.data.status === "shipped" ||
+    Boolean(nextTracking && parsed.data.confirmEarlyShip);
+
+  if (wantsShipped && order.status === "paid" && !parsed.data.confirmEarlyShip) {
     return jsonError(
       "Order is paid but not submitted to supplier. Pass confirmEarlyShip to mark shipped anyway.",
       400,
@@ -95,10 +96,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const now = new Date().toISOString();
   const patch: Partial<typeof order> = {};
-  const nextTracking = parsed.data.trackingNumber?.trim();
   if (nextTracking) patch.trackingNumber = nextTracking;
   if (parsed.data.status) patch.status = parsed.data.status;
-  if (parsed.data.status === "shipped") patch.shippedAt = order.shippedAt ?? now;
+  if (wantsShipped && (order.status === "paid" || order.status === "submitted_to_supplier")) {
+    patch.status = "shipped";
+    patch.shippedAt = order.shippedAt ?? now;
+  } else if (parsed.data.status === "shipped") {
+    patch.shippedAt = order.shippedAt ?? now;
+  }
   if (parsed.data.status === "delivered") patch.deliveredAt = now;
   if (parsed.data.shipping) {
     if (!canEditShopShipping(order)) {
@@ -114,13 +119,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     };
   }
   const updated = await store.updateShopOrder(id, patch);
-  const trackingChanged = Boolean(nextTracking && nextTracking !== (order.trackingNumber ?? ""));
-  const newlyShipped = parsed.data.status === "shipped" && order.status !== "shipped";
-  if (newlyShipped || trackingChanged) {
-    await sendShopOrderDispatchedEmail(updated);
+  if (wantsShipped && updated.status === "shipped") {
+    await sendDispatchedEmailOnce(updated);
   }
   if (parsed.data.status === "delivered" && order.status !== "delivered") {
     await sendShopOrderDeliveredEmail(updated);
   }
-  return Response.json({ ok: true, order: updated });
+  return Response.json({ ok: true, order: await getStore().getShopOrder(id) });
 }

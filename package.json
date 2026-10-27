@@ -18,7 +18,10 @@
     "test:e2e:stripe": "E2E_STRIPE=1 playwright test --grep @stripe",
     "test:e2e:all": "playwright test",
     "validate:go-live": "tsx scripts/validate-go-live.ts",
-    "test:e2e:prod-404": "playwright test e2e/shop-404-status.spec.ts --config=playwright.prod.config.ts"
+    "test:e2e:prod-404": "playwright test e2e/shop-404-status.spec.ts --config=playwright.prod.config.ts",
+    "test:e2e:prod-shop": "playwright test e2e/shop-checkout-prod.spec.ts --config=playwright.prod.config.ts",
+    "rebuild:rollups": "tsx scripts/rebuild-analytics-rollups.ts",
+    "test:postgres": "tsx --test tests/shop-supplier-batch.postgres.test.ts tests/migrate-0014-wildframe.test.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.0.0",

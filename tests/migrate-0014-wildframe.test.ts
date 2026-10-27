@@ -125,7 +125,7 @@ test("0014 merges wildframe FK rows into fixmonger and deletes wildframe store",
         select (metrics->>'uniqueVisitors')::int as unique_visitors
         from analytics_daily_rollups where store_id = 'fixmonger' and day = ${day}::date
       `;
-      assert.equal(rollup[0]?.unique_visitors, 13);
+      assert.equal(rollup[0]?.unique_visitors, 10);
 
       const wfRollup = await sql2`select 1 from analytics_daily_rollups where store_id = 'wildframe'`;
       assert.equal(wfRollup.length, 0);

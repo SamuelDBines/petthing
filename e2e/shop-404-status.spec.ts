@@ -5,4 +5,11 @@ test.describe("production server status codes", () => {
     const response = await request.get("/shop/this-product-does-not-exist-xyz?store=fixmonger");
     expect(response.status()).toBe(404);
   });
+
+  test("reserved shop routes return HTTP 200", async ({ request }) => {
+    for (const path of ["/shop/cart", "/shop/success"]) {
+      const response = await request.get(`${path}?store=fixmonger`);
+      expect(response.status()).toBe(200);
+    }
+  });
 });

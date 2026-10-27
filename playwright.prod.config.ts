@@ -11,6 +11,10 @@ export default {
       ...(base.webServer as { env?: Record<string, string> }).env,
       NODE_ENV: "production",
       PORT: "3001",
+      NEXT_PUBLIC_APP_URL: "http://localhost:3001",
+      ALLOW_DEMO_CHECKOUT: "true",
+      STRIPE_SECRET_KEY: "",
+      STRIPE_WEBHOOK_SECRET: "",
     },
   },
   use: {

@@ -36,6 +36,7 @@ export function imageCostGbp() {
 
 export function demoCheckoutAllowed() {
   if (process.env.STRIPE_SECRET_KEY) return false;
+  if (process.env.ALLOW_DEMO_CHECKOUT === "true") return true;
   if (process.env.NODE_ENV === "production") return false;
   return process.env.ALLOW_DEMO_CHECKOUT !== "false";
 }

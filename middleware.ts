@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { canonicalAdminOrigin, isCanonicalAdminHost } from "@/lib/admin/canonical";
 import { catalogueProductSlugExists } from "@/lib/catalogue/slug-index";
+import { should404UnknownShopProduct } from "@/lib/catalogue/shop-routes";
 import { resolveStoreIdFromHost } from "@/lib/tenant/resolve";
 
 export function middleware(request: NextRequest) {
@@ -26,15 +27,17 @@ export function middleware(request: NextRequest) {
   const storeQuery = request.nextUrl.searchParams.get("store");
   const cookieStore = request.cookies.get("ps_store")?.value;
   // Edge-safe: builtins + STORE_EXTRA_DOMAINS env only (no Postgres in middleware).
+  const hostname = host.trim().toLowerCase().split(":")[0];
+  const localhostHost = hostname === "localhost" || hostname === "127.0.0.1";
   let storeId = resolveStoreIdFromHost(host, storeQuery);
-  if (!storeQuery && cookieStore && process.env.NODE_ENV !== "production") {
+  if (!storeQuery && cookieStore && (process.env.NODE_ENV !== "production" || localhostHost)) {
     const fromCookie = resolveStoreIdFromHost(host, cookieStore);
     if (fromCookie) storeId = fromCookie;
   }
   const shopMatch = pathname.match(/^\/shop\/([^/]+)\/?$/);
   if (shopMatch) {
     const slug = decodeURIComponent(shopMatch[1]);
-    if (!catalogueProductSlugExists(storeId, slug)) {
+    if (should404UnknownShopProduct(storeId, slug, catalogueProductSlugExists(storeId, slug))) {
       return new NextResponse("Not found", { status: 404 });
     }
   }

@@ -25,6 +25,10 @@ export function publicOriginForStore(
   if (host && hostMatchesStore(host, storeId, dbOrAdminDomains)) {
     return `${requestProto(request, host)}://${host}`;
   }
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `${requestProto(request, host)}://${host}`;
+  }
   const perStore = process.env[`NEXT_PUBLIC_APP_URL_${storeId.replace(/-/g, "_").toUpperCase()}`]?.trim();
   if (perStore) return perStore.replace(/\/$/, "");
   const global = process.env.NEXT_PUBLIC_APP_URL?.trim();

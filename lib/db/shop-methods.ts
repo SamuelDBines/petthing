@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import type { ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import { getSql } from "@/lib/db/client";
+import { insertSupplierBatchRow } from "@/lib/db/pg-uuid-array";
 
 function toShopOrder(row: Record<string, unknown>): ShopOrder {
   return {
@@ -25,6 +26,9 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     shippedAt: row.shipped_at ? new Date(row.shipped_at as string).toISOString() : null,
     deliveredAt: row.delivered_at ? new Date(row.delivered_at as string).toISOString() : null,
     fulfillmentError: row.fulfillment_error ? String(row.fulfillment_error) : null,
+    dispatchedEmailSentAt: row.dispatched_email_sent_at
+      ? new Date(row.dispatched_email_sent_at as string).toISOString()
+      : null,
     createdAt: new Date(row.created_at as string).toISOString(),
     paidAt: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
   };
@@ -73,6 +77,7 @@ export const shopDbMethods = {
         shipped_at = ${next.shippedAt ?? null},
         delivered_at = ${next.deliveredAt ?? null},
         fulfillment_error = ${next.fulfillmentError ?? null},
+        dispatched_email_sent_at = ${next.dispatchedEmailSentAt ?? null},
         paid_at = ${next.paidAt}
       where id = ${id}::uuid
     `;
@@ -89,18 +94,15 @@ export const shopDbMethods = {
   },
   async addSupplierBatch(batch: SupplierBatchExport) {
     const sql = getSql();
-    await sql`
-      insert into supplier_batch_exports (id, store_id, supplier, order_ids, csv, created_at, submitted_at)
-      values (
-        ${batch.id}::uuid,
-        ${batch.storeId},
-        ${batch.supplier},
-        ${sql.array(batch.orderIds)}::uuid[],
-        ${batch.csv},
-        ${batch.createdAt},
-        ${batch.submittedAt}
-      )
-    `;
+    await insertSupplierBatchRow(sql, {
+      id: batch.id,
+      storeId: batch.storeId,
+      supplier: batch.supplier,
+      orderIds: batch.orderIds,
+      csv: batch.csv,
+      createdAt: batch.createdAt,
+      submittedAt: batch.submittedAt,
+    });
     return batch;
   },
   async listSupplierBatches(storeId: string) {
