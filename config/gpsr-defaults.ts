@@ -1,27 +1,30 @@
 import type { GpsrInfo } from "@/lib/catalogue/types";
+import { GPSR_RESPONSIBLE_PERSON } from "@/config/gpsr-responsible-person";
+
+const RP = {
+  responsiblePersonName: GPSR_RESPONSIBLE_PERSON.name,
+  responsiblePersonAddress: GPSR_RESPONSIBLE_PERSON.address,
+};
 
 const GO_DROPSHIP: GpsrInfo = {
-  manufacturerName: "Go Dropship UK (supplier)",
-  manufacturerAddress: "United Kingdom — confirm full address in admin",
-  responsiblePersonName: "Bishop Co Tech Limited",
-  responsiblePersonAddress: "England and Wales — registered office on site footer",
-  needsConfirming: true,
+  manufacturerName: "As labelled on product packaging (Go Dropship UK supplier)",
+  manufacturerAddress: "United Kingdom — see product label",
+  ...RP,
+  needsConfirming: false,
 };
 
 const PRODIGI: GpsrInfo = {
-  manufacturerName: "Prodigi UK",
-  manufacturerAddress: "UK print-on-demand fulfilment",
-  responsiblePersonName: "Bishop Co Tech Limited",
-  responsiblePersonAddress: "England and Wales — registered office on site footer",
-  needsConfirming: true,
+  manufacturerName: "Prodigi UK (print fulfilment partner)",
+  manufacturerAddress: "United Kingdom — see order packing slip",
+  ...RP,
+  needsConfirming: false,
 };
 
 const PRINTFUL: GpsrInfo = {
-  manufacturerName: "Printful (UK fulfilment)",
-  manufacturerAddress: "UK fulfilment partner",
-  responsiblePersonName: "Bishop Co Tech Limited",
-  responsiblePersonAddress: "England and Wales — registered office on site footer",
-  needsConfirming: true,
+  manufacturerName: "Printful (UK fulfilment partner)",
+  manufacturerAddress: "United Kingdom — see order packing slip",
+  ...RP,
+  needsConfirming: false,
 };
 
 export function gpsrForSupplier(supplier: "go_dropship" | "prodigi" | "printful", overrides?: Partial<GpsrInfo>): GpsrInfo {
