@@ -11,6 +11,8 @@ export type StoreThemeColors = {
   pumpkin: string;
   gold: string;
   moss: string;
+  /** Secondary body copy — must meet WCAG AA on `ink` and `bark`. */
+  muted: string;
   bark: string;
   line: string;
 };

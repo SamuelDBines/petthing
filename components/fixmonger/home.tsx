@@ -37,7 +37,7 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-pumpkin">Fixmonger</p>
           <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Cheap fixes for proper British weather.</h1>
-          <p className="mt-4 max-w-xl text-lg text-moss">
+          <p className="mt-4 max-w-xl text-lg text-muted">
             Frost covers, draught curtains, and shed essentials — no electric, no nonsense. Free UK delivery over{" "}
             {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.
           </p>
@@ -71,7 +71,7 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
         return (
           <section key={section.id} id={section.id} className="mx-auto max-w-6xl px-4 py-14">
             <h2 className="display text-3xl text-cream">{section.title}</h2>
-            <p className="mt-2 text-moss">{section.blurb}</p>
+            <p className="mt-2 text-muted">{section.blurb}</p>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="fixmonger-product-grid">
               {items.map((product) => <ProductCard key={product.id} product={product} />)}
             </div>

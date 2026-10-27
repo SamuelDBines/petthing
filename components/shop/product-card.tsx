@@ -28,11 +28,11 @@ export function ProductCard({ product, onAdded, compact }: Props) {
         <h3 className="display text-lg leading-snug text-cream">
           <Link href={`/shop/${product.slug}`}>{product.name}</Link>
         </h3>
-        {!compact && product.benefitLine ? <p className="mt-1 text-sm text-moss line-clamp-2">{product.benefitLine}</p> : null}
+        {!compact && product.benefitLine ? <p className="mt-1 text-sm text-muted line-clamp-2">{product.benefitLine}</p> : null}
         <p className="mt-3 font-semibold text-cream">
           {formatGbp(product.pricePence)}
           {product.compareAtPricePence ? (
-            <span className="ml-2 text-sm font-normal text-moss line-through">{formatGbp(product.compareAtPricePence)}</span>
+            <span className="ml-2 text-sm font-normal text-muted line-through">{formatGbp(product.compareAtPricePence)}</span>
           ) : null}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">

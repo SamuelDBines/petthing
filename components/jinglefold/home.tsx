@@ -44,7 +44,7 @@ export function JinglefoldHome({ decor }: { decor: StorefrontCatalogueProduct[] 
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-gold">Jinglefold</p>
           <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Personalised Christmas, folded into your home.</h1>
-          <p className="mt-4 max-w-xl text-lg text-moss">
+          <p className="mt-4 max-w-xl text-lg text-muted">
             Upload a photo for ornaments and stockings, or shop ready-made UK decor. Free delivery over{" "}
             {formatGbp(JINGLEFOLD_DELIVERY.freeDeliveryOverPence)}.
           </p>
@@ -74,7 +74,7 @@ export function JinglefoldHome({ decor }: { decor: StorefrontCatalogueProduct[] 
 
       <section id="personalised" className="mx-auto max-w-6xl px-4 py-14" data-testid="jinglefold-personalised">
         <h2 className="display text-3xl text-cream">Personalised for you</h2>
-        <p className="mt-2 text-moss">Preview your artwork before you pay.</p>
+        <p className="mt-2 text-muted">Preview your artwork before you pay.</p>
         <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {JINGLEFOLD_PERSONALISED_PRODUCTS.map((product) => {
             const { meta } = resolveProductImages(
@@ -91,7 +91,7 @@ export function JinglefoldHome({ decor }: { decor: StorefrontCatalogueProduct[] 
                 </div>
                 <div className="p-4">
                   <h3 className="font-medium text-cream">{product.name}</h3>
-                  <p className="mt-1 text-sm text-moss line-clamp-2">{product.detail}</p>
+                  <p className="mt-1 text-sm text-muted line-clamp-2">{product.detail}</p>
                   <Link
                     href={`/personalise/${product.slug}`}
                     className="mt-4 inline-flex rounded-full bg-pumpkin px-4 py-2 text-sm font-semibold text-white"

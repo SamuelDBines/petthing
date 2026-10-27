@@ -126,8 +126,8 @@ export function JinglefoldPersonaliseWizard({
           This product may arrive after Christmas. Last recommended order date has passed.
         </p>
       ) : (
-        <p className="mt-4 text-sm text-[var(--moss)]">
-          Order by {new Date(cutoffIso).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} for Christmas
+        <p className="mt-4 text-sm text-muted">
+          Order by {new Date(cutoffIso).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short" })} for Christmas
           delivery (estimate).
         </p>
       )}

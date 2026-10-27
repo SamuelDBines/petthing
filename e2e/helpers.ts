@@ -14,7 +14,7 @@ export async function fillStripeCheckoutAndPay(page: Page, cardNumber: string) {
   if (await linkSave.isVisible().catch(() => false)) {
     await linkSave.uncheck().catch(() => undefined);
   }
-  await page.getByRole("button", { name: /Pay/i }).click();
+  await page.getByTestId("hosted-payment-submit-button").click();
 }
 
 export const adminPassword = process.env.ADMIN_PASSWORD || "portrait-dev";

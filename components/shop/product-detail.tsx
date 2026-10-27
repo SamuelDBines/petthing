@@ -23,7 +23,7 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10" data-testid="shop-product-detail">
-      <Link href="/" className="text-sm text-moss">← Shop</Link>
+      <Link href="/" className="text-sm text-muted">← Shop</Link>
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
         <div>
           {main ? (
@@ -57,14 +57,14 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
         </div>
         <div>
           <h1 className="display text-4xl text-cream">{product.name}</h1>
-          {product.benefitLine ? <p className="mt-2 text-lg text-moss">{product.benefitLine}</p> : null}
+          {product.benefitLine ? <p className="mt-2 text-lg text-muted">{product.benefitLine}</p> : null}
           <p className="mt-4 text-2xl font-semibold text-cream">
             {formatGbp(product.pricePence)}
             {product.compareAtPricePence ? (
-              <span className="ml-2 text-base font-normal text-moss line-through">{formatGbp(product.compareAtPricePence)}</span>
+              <span className="ml-2 text-base font-normal text-muted line-through">{formatGbp(product.compareAtPricePence)}</span>
             ) : null}
           </p>
-          {product.deliveryEstimate ? <p className="mt-2 text-sm text-moss">{product.deliveryEstimate}</p> : null}
+          {product.deliveryEstimate ? <p className="mt-2 text-sm text-muted">{product.deliveryEstimate}</p> : null}
           {cutoffNote ? <p className="mt-2 text-sm text-pumpkin">{cutoffNote}</p> : null}
           <button
             type="button"
@@ -73,31 +73,31 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
           >
             Add to cart
           </button>
-          {product.longDescription ? <p className="mt-6 text-moss leading-7">{product.longDescription}</p> : null}
+          {product.longDescription ? <p className="mt-6 text-muted leading-7">{product.longDescription}</p> : null}
           {product.specs?.length ? (
-            <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-moss">
+            <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted">
               {product.specs.map((spec) => <li key={spec}>{spec}</li>)}
             </ul>
           ) : null}
           {product.clpSafetyText ? (
             <section className="mt-6 rounded-xl border border-line bg-bark p-4 text-sm" data-testid="clp-safety">
               <h2 className="font-medium text-cream">Safety &amp; CLP</h2>
-              <p className="mt-2 text-moss">{product.clpSafetyText}</p>
+              <p className="mt-2 text-muted">{product.clpSafetyText}</p>
             </section>
           ) : null}
           {product.gpsr || product.gpsrSafetyText ? (
             <section className="mt-6 rounded-xl border border-line bg-bark p-4 text-sm" data-testid="gpsr-safety">
               <h2 className="font-medium text-cream">Product safety (GPSR)</h2>
               {product.gpsr ? (
-                <dl className="mt-2 space-y-2 text-moss">
+                <dl className="mt-2 space-y-2 text-muted">
                   <div><dt className="font-medium text-cream">Manufacturer</dt><dd>{product.gpsr.manufacturerName} — {product.gpsr.manufacturerAddress}</dd></div>
                   <div><dt className="font-medium text-cream">Responsible person (UK/EU)</dt><dd>{product.gpsr.responsiblePersonName} — {product.gpsr.responsiblePersonAddress}</dd></div>
                   {product.gpsr.safetyWarnings ? <div><dt className="font-medium text-cream">Warnings</dt><dd>{product.gpsr.safetyWarnings}</dd></div> : null}
                   {product.gpsr.allergens ? <div><dt className="font-medium text-cream">Allergens</dt><dd>{product.gpsr.allergens}</dd></div> : null}
-                  {product.gpsr.needsConfirming ? <p className="text-xs text-moss/80">Supplier details flagged for confirmation in admin.</p> : null}
+                  {product.gpsr.needsConfirming ? <p className="text-xs text-muted/80">Supplier details flagged for confirmation in admin.</p> : null}
                 </dl>
               ) : null}
-              {product.gpsrSafetyText ? <p className="mt-2 text-moss">{product.gpsrSafetyText}</p> : null}
+              {product.gpsrSafetyText ? <p className="mt-2 text-muted">{product.gpsrSafetyText}</p> : null}
             </section>
           ) : null}
         </div>

@@ -13,7 +13,11 @@ export function CartDrawer({ storeId }: { storeId: string }) {
   const [open, setOpen] = useState(false);
   const [products, setProducts] = useState<StorefrontCatalogueProduct[]>([]);
   const [delivery, setDelivery] = useState<DeliveryConfig>({ freeOverPence: 2000, standardPence: 299 });
-  const [lines, setLines] = useState(readCart());
+  const [lines, setLines] = useState<import("@/lib/catalogue/types").ShopCartLine[]>([]);
+
+  useEffect(() => {
+    setLines(readCart());
+  }, []);
 
   const refresh = useCallback(() => setLines(readCart()), []);
 
@@ -80,15 +84,15 @@ export function CartDrawer({ storeId }: { storeId: string }) {
           <aside className="relative flex h-full w-full max-w-md flex-col border-l border-line bg-ink shadow-xl">
             <header className="flex items-center justify-between border-b border-line px-4 py-4">
               <h2 className="display text-xl text-cream">Your cart</h2>
-              <button type="button" className="text-sm text-moss" onClick={() => setOpen(false)}>Close</button>
+              <button type="button" className="text-sm text-muted" onClick={() => setOpen(false)}>Close</button>
             </header>
             <div className="border-b border-line px-4 py-3">
               {awayPence > 0 ? (
-                <p className="text-sm text-moss">
+                <p className="text-sm text-muted">
                   <span className="font-medium text-cream">{formatGbp(awayPence)}</span> away from free UK delivery
                 </p>
               ) : (
-                <p className="text-sm font-medium text-moss">You have free UK delivery</p>
+                <p className="text-sm font-medium text-muted">You have free UK delivery</p>
               )}
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-line/40">
                 <div className="h-full rounded-full bg-pumpkin transition-all" style={{ width: `${progress}%` }} />
@@ -96,7 +100,7 @@ export function CartDrawer({ storeId }: { storeId: string }) {
             </div>
             <ul className="flex-1 overflow-y-auto px-4 py-4">
               {enriched.length === 0 ? (
-                <li className="text-sm text-moss">Your cart is empty.</li>
+                <li className="text-sm text-muted">Your cart is empty.</li>
               ) : (
                 enriched.map(({ line, product }) => {
                   const img = product.imageMeta?.[0]?.src ?? product.images[0];
@@ -107,7 +111,7 @@ export function CartDrawer({ storeId }: { storeId: string }) {
                       ) : null}
                       <div className="flex-1">
                         <p className="text-sm font-medium text-cream">{product.name}</p>
-                        <p className="text-sm text-moss">{formatGbp(product.pricePence)}</p>
+                        <p className="text-sm text-muted">{formatGbp(product.pricePence)}</p>
                         <div className="mt-2 flex items-center gap-2">
                           <button type="button" className="rounded border border-line px-2 text-sm" onClick={() => setQuantity(line.productId, line.quantity - 1)} aria-label="Decrease quantity">−</button>
                           <span className="text-sm text-cream">{line.quantity}</span>

@@ -12,6 +12,7 @@ const pawtraitryColors: StoreThemeColors = {
   pumpkin: "#1c1916",
   gold: "#6b6258",
   moss: "#e7e1d8",
+  muted: "#4a433c",
   bark: "#fbf9f5",
   line: "#c4b9ac",
 };
@@ -22,6 +23,7 @@ const jinglefoldColors: StoreThemeColors = {
   pumpkin: "#9b1c1c",
   gold: "#c9a227",
   moss: "#1f4d3a",
+  muted: "#5c2a2a",
   bark: "#fffdf8",
   line: "#e8d5c4",
 };
@@ -32,6 +34,7 @@ const fixmongerColors: StoreThemeColors = {
   pumpkin: "#e85d04",
   gold: "#c9a227",
   moss: "#3d5a40",
+  muted: "#2f4534",
   bark: "#ffffff",
   line: "#d4cfc4",
 };

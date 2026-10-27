@@ -15,7 +15,7 @@ export function TrustRow() {
     <section className="border-y border-line bg-bark/80 py-8" aria-label="Why shop with us">
       <ul className="mx-auto grid max-w-6xl gap-4 px-4 sm:grid-cols-2 lg:grid-cols-4">
         {TRUST_ITEMS.map((item) => (
-          <li key={item} className="flex gap-3 text-sm text-moss">
+          <li key={item} className="flex gap-3 text-sm text-muted">
             <span className="mt-0.5 text-pumpkin" aria-hidden>✓</span>
             <span>{item}</span>
           </li>
@@ -35,13 +35,13 @@ export function HowPersonalisedWorks() {
   return (
     <section id="how-it-works" className="mx-auto max-w-6xl px-4 py-14">
       <h2 className="display text-3xl text-cream">How personalised orders work</h2>
-      <p className="mt-2 max-w-2xl text-moss">No surprises — you see the artwork before checkout.</p>
+      <p className="mt-2 max-w-2xl text-muted">No surprises — you see the artwork before checkout.</p>
       <ol className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map(([title, body], index) => (
           <li key={title} className="rounded-2xl border border-line bg-bark p-5">
             <p className="text-sm font-semibold text-pumpkin">Step {index + 1}</p>
             <h3 className="mt-2 display text-xl text-cream">{title}</h3>
-            <p className="mt-2 text-sm text-moss">{body}</p>
+            <p className="mt-2 text-sm text-muted">{body}</p>
           </li>
         ))}
       </ol>
@@ -57,7 +57,7 @@ export function ShopFaq({ items }: { items: [string, string][] }) {
         {items.map(([q, a]) => (
           <details key={q} className="group p-4">
             <summary className="cursor-pointer font-medium text-cream marker:content-none group-open:text-pumpkin">{q}</summary>
-            <p className="mt-2 text-sm leading-6 text-moss">{a}</p>
+            <p className="mt-2 text-sm leading-6 text-muted">{a}</p>
           </details>
         ))}
       </div>
@@ -77,7 +77,7 @@ export function EmailCapture({ storeName }: { storeName: string }) {
     <section className="mx-auto max-w-6xl px-4 py-14">
       <div className="rounded-3xl border border-line bg-moss/10 px-6 py-10 sm:px-10">
         <h2 className="display text-2xl text-cream">Next season on your inbox</h2>
-        <p className="mt-2 text-sm text-moss">Launch dates and cut-offs for {storeName}. No spam.</p>
+        <p className="mt-2 text-sm text-muted">Launch dates and cut-offs for {storeName}. No spam.</p>
         <form className="mt-6 flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
           <label className="sr-only" htmlFor="shop-email">Email</label>
           <input
@@ -93,7 +93,7 @@ export function EmailCapture({ storeName }: { storeName: string }) {
             Join the list
           </button>
         </form>
-        {note ? <p className="mt-3 text-sm text-moss">{note}</p> : null}
+        {note ? <p className="mt-3 text-sm text-muted">{note}</p> : null}
       </div>
     </section>
   );

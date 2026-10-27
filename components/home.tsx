@@ -61,7 +61,7 @@ export function HomePage() {
         <div>
           <Countdown deadlineIso={theme.deadlineIso} label={`${theme.name} is this season`} />
           <h1 className="mt-5 text-5xl leading-[0.95] sm:text-7xl">A portrait your pet deserves.</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-cream/80">{TAGLINE} {theme.name} styles are open now; Christmas arrives on 1 November.</p>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-muted">{TAGLINE} {theme.name} styles are open now; Christmas arrives on 1 November.</p>
           {paused ? (
             <p className="mt-6 rounded-2xl border border-gold/40 bg-gold/10 p-4">Orders are paused while we catch up. The next season is still open below.</p>
           ) : (
@@ -74,7 +74,7 @@ export function HomePage() {
               </Link>
             </div>
           )}
-          <p className="mt-4 text-sm text-cream/60">Made in the UK. No account needed. Optional puzzle gift with UK postage.</p>
+          <p className="mt-4 text-sm text-muted">Made in the UK. No account needed. Optional puzzle gift with UK postage.</p>
         </div>
         <Compare before="/examples/pet-before.jpg" after="/examples/pet-after.jpg" label="A terrier, before and after" />
       </section>
@@ -83,7 +83,7 @@ export function HomePage() {
         <Compare before="/examples/couple-before.jpg" after="/examples/couple-after.jpg" label="A couple, before and after" />
         <div className="rounded-2xl border border-line bg-bark p-6">
           <h2 className="text-3xl">How it works</h2>
-          <ol className="mt-4 space-y-4 text-cream/80">
+          <ol className="mt-4 space-y-4 text-muted">
             <li><strong className="text-cream">1. Tell us who.</strong> Pet, family, couple, or just you.</li>
             <li><strong className="text-cream">2. Add up to six photos.</strong> We compress them on your phone.</li>
             <li><strong className="text-cream">3. Pick styles and pay.</strong> Classic is the one most people choose.</li>
@@ -94,7 +94,7 @@ export function HomePage() {
 
       <section className="mx-auto max-w-6xl px-4 pb-16">
         <h2 className="text-4xl">This season: {theme.name}</h2>
-        <p className="mt-2 max-w-2xl text-cream/70">{theme.deadlineLabel}. Original scenes only. No film characters, no brand logos, everyone fully clothed. The next season gets its own set.</p>
+        <p className="mt-2 max-w-2xl text-muted">{theme.deadlineLabel}. Original scenes only. No film characters, no brand logos, everyone fully clothed. The next season gets its own set.</p>
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
           {theme.styles.map((style) => (
             <article key={style.id} className="overflow-hidden rounded-2xl border border-line bg-bark">
@@ -105,7 +105,7 @@ export function HomePage() {
               )}
               <div className="p-4">
                 <h3 className="text-xl">{style.name}</h3>
-                <p className="mt-1 text-sm text-cream/70">{style.blurb}</p>
+                <p className="mt-1 text-sm text-muted">{style.blurb}</p>
               </div>
             </article>
           ))}
@@ -114,36 +114,36 @@ export function HomePage() {
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 pb-16">
         <h2 className="text-4xl">Order {theme.name} once</h2>
-        <p className="mt-2 max-w-2xl text-cream/70">Pet, family, couple, or just you. Pay once for this season.</p>
+        <p className="mt-2 max-w-2xl text-muted">Pet, family, couple, or just you. Pay once for this season.</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {TIERS.map((tier) => (
             <article key={tier.id} className={`rounded-2xl border bg-bark p-6 ${tier.popular ? "order-first border-cream/30 md:order-none" : "border-line"}`}>
-              <p className="min-h-4 text-[11px] tracking-[0.16em] text-cream/50 uppercase">{tier.popular ? "Most popular" : ""}</p>
+              <p className="min-h-4 text-[11px] tracking-[0.16em] text-muted uppercase">{tier.popular ? "Most popular" : ""}</p>
               <h3 className="mt-3 text-3xl">{tier.name}</h3>
               <p className="mt-2 text-3xl">{formatGbp(tier.pricePence)}</p>
-              <p className="mt-2 text-cream/75">{tier.blurb}</p>
+              <p className="mt-2 text-muted">{tier.blurb}</p>
               <ul className="mt-4 space-y-1 text-sm">
                 {tier.points.map((point) => <li key={point}>{point}</li>)}
               </ul>
             </article>
           ))}
         </div>
-        <p className="mt-4 text-sm text-cream/60">Add priority delivery at checkout for {formatGbp(299)}. Add three more styles later for {formatGbp(499)}.</p>
+        <p className="mt-4 text-sm text-muted">Add priority delivery at checkout for {formatGbp(299)}. Add three more styles later for {formatGbp(499)}.</p>
       </section>
 
       <section id="pass" className="mx-auto max-w-6xl px-4 pb-16">
         <div className="grid items-end gap-8 border-y border-line py-10 md:grid-cols-[1.3fr_.7fr]">
           <div>
-            <p className="text-[11px] tracking-[0.16em] text-cream/50 uppercase">Alongside the one-offs</p>
+            <p className="text-[11px] tracking-[0.16em] text-muted uppercase">Alongside the one-offs</p>
             <h2 className="mt-3 text-4xl">A family set, every season</h2>
-            <p className="mt-3 max-w-xl text-cream/75">{SEASON_PASS.blurb} {theme.name} starts now. Christmas opens on 1 November, and later seasons join the same pass.</p>
-            <ul className="mt-4 space-y-1 text-sm text-cream/75">
+            <p className="mt-3 max-w-xl text-muted">{SEASON_PASS.blurb} {theme.name} starts now. Christmas opens on 1 November, and later seasons join the same pass.</p>
+            <ul className="mt-4 space-y-1 text-sm text-muted">
               {SEASON_PASS.points.map((point) => <li key={point}>{point}</li>)}
             </ul>
           </div>
           <div>
-            <p className="text-4xl">{formatGbp(SEASON_PASS.pricePence)}<span className="text-lg text-cream/55"> / year</span></p>
-            <p className="mt-2 text-sm text-cream/60">Renews once a year. The first set is {theme.name}.</p>
+            <p className="text-4xl">{formatGbp(SEASON_PASS.pricePence)}<span className="text-lg text-muted"> / year</span></p>
+            <p className="mt-2 text-sm text-muted">Renews once a year. The first set is {theme.name}.</p>
             <Link href="/create?offer=season" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-pumpkin px-5 text-sm font-medium text-ink">
               Start the family pass
             </Link>
@@ -154,7 +154,7 @@ export function HomePage() {
       <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-16 md:grid-cols-2">
         <div className="rounded-2xl border border-line bg-bark p-6">
           <h2 className="text-3xl">Trust and privacy</h2>
-          <ul className="mt-4 space-y-2 text-cream/80">
+          <ul className="mt-4 space-y-2 text-muted">
             <li>Uploads and results sit in private storage. Links expire.</li>
             <li>Portraits are AI-generated from your photos and labelled as such. No public gallery, no training set.</li>
             <li>One-off photos are deleted 7 days after delivery. A season pass keeps them for the next season. Results go after 30 days.</li>
@@ -164,7 +164,7 @@ export function HomePage() {
         </div>
         <form onSubmit={preorder} className="rounded-2xl border border-line bg-bark p-6">
           <h2 className="text-3xl">Next season: Christmas</h2>
-          <p className="mt-2 text-cream/80">Opens 1 November. A season pass already includes it. Or pre-order just that set for {formatGbp(CHRISTMAS_PREORDER_PENCE)}.</p>
+          <p className="mt-2 text-muted">Opens 1 November. A season pass already includes it. Or pre-order just that set for {formatGbp(CHRISTMAS_PREORDER_PENCE)}.</p>
           <label className="mt-4 block text-sm" htmlFor="christmas-email">Email</label>
           <input id="christmas-email" className="field mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
           <button className="mt-4 rounded-full bg-pumpkin px-5 py-3 text-sm font-medium text-ink" type="submit">Pre-order the next season</button>
@@ -178,11 +178,11 @@ export function HomePage() {
           {FAQS.map(([question, answer]) => (
             <details key={question} className="py-4">
               <summary className="cursor-pointer text-lg">{question}</summary>
-              <p className="mt-2 max-w-3xl text-cream/75">{answer}</p>
+              <p className="mt-2 max-w-3xl text-muted">{answer}</p>
             </details>
           ))}
         </div>
-        <p className="mt-6 text-sm text-cream/60">Questions: {SUPPORT_EMAIL}. {APP_NAME}.</p>
+        <p className="mt-6 text-sm text-muted">Questions: {SUPPORT_EMAIL}. {APP_NAME}.</p>
       </section>
     </main>
   );

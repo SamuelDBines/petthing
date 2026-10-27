@@ -4,6 +4,7 @@ import { cutoffIsoForKind, isPastCutoff } from "@/config/jinglefold";
 import { crossSellProducts } from "@/lib/shop/cross-sells";
 import { getCatalogueProduct, listCatalogueProducts } from "@/lib/catalogue/products";
 import { toStorefrontProduct } from "@/lib/catalogue/storefront";
+import { formatLondonDate } from "@/lib/format/date";
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 
 export const instant = false;
@@ -41,7 +42,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const cutoffNote = cutoffIso
     ? past
       ? "May arrive after Christmas — order only if you are happy with late delivery."
-      : `Order by ${new Date(cutoffIso).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} for Christmas delivery (estimate).`
+      : `Order by ${formatLondonDate(cutoffIso, { day: "numeric", month: "short" })} for Christmas delivery (estimate).`
     : null;
 
   return <ShopProductDetail product={toStorefrontProduct(product)} crossSells={crossSells} cutoffNote={cutoffNote} />;

@@ -35,9 +35,9 @@ export function SiteFooter({ brand }: BrandProps) {
   const name = brand?.appName ?? APP_NAME;
   const disclosure = brand?.footerTradingDisclosure ?? FOOTER_TRADING_DISCLOSURE;
   return (
-    <footer className="border-t border-line px-4 py-10 text-sm text-cream/70">
+    <footer className="border-t border-line px-4 py-10 text-sm text-muted">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <p className="max-w-3xl leading-6 text-cream/60">{disclosure}</p>
+        <p className="max-w-3xl leading-6 text-muted">{disclosure}</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <p>© 2026 {name}. Your photos stay private to your order.</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1">
@@ -45,7 +45,6 @@ export function SiteFooter({ brand }: BrandProps) {
             <Link href="/privacy">Privacy</Link>
             <Link href="/refunds">Returns &amp; refunds</Link>
             <Link href="/shipping">Shipping</Link>
-            <Link href="/admin">Admin</Link>
           </p>
         </div>
       </div>

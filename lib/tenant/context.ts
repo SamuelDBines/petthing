@@ -26,6 +26,7 @@ export function themeCssVars(colors: StoreConfig["brand"]["colors"]) {
     "--color-pumpkin": colors.pumpkin,
     "--color-gold": colors.gold,
     "--color-moss": colors.moss,
+    "--color-muted": colors.muted,
     "--color-bark": colors.bark,
     "--color-line": colors.line,
   } as Record<string, string>;

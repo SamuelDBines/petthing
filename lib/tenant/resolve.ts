@@ -18,7 +18,11 @@ export function mergeStoreConfig(base: StoreConfig, patch?: Partial<StoreConfig>
     ...base,
     ...patch,
     storeType: patch.storeType ?? base.storeType,
-    brand: { ...base.brand, ...patch.brand },
+    brand: {
+      ...base.brand,
+      ...patch.brand,
+      colors: { ...base.brand.colors, ...patch.brand?.colors },
+    },
     catalog: { ...base.catalog, ...patch.catalog },
     settings: { ...base.settings, ...patch.settings },
     integrations: { ...base.integrations, ...patch.integrations },
