@@ -578,7 +578,11 @@ export function AdminDashboard({
                         {order.status}
                         {order.fulfillmentError ? <span className="block text-red-300">{order.fulfillmentError}</span> : null}
                         {order.supplierCancelRequestedAt ? (
-                          <span className="block text-amber-200">Supplier cancel requested</span>
+                          <span
+                            className="mt-1 inline-block rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-950"
+                          >
+                            Supplier cancel requested
+                          </span>
                         ) : null}
                         {order.trackingNumber ? <span className="block text-cream/60">Track: {order.trackingNumber}</span> : null}
                       </td>

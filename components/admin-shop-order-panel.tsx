@@ -83,7 +83,11 @@ export function AdminShopOrderPanel({
             <p className="text-cream/60">Supplier batch: {order.supplierBatchId.slice(0, 8)}</p>
           ) : null}
           {order.supplierCancelRequestedAt ? (
-            <p className="text-amber-200">Cancel requested from supplier — chase Go Dropship</p>
+            <p
+              className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950"
+            >
+              Cancel requested from supplier — chase Go Dropship
+            </p>
           ) : null}
           {order.shippedAt ? <p className="text-cream/60">Shipped {new Date(order.shippedAt).toLocaleString("en-GB")}</p> : null}
           {order.deliveredAt ? <p className="text-cream/60">Delivered {new Date(order.deliveredAt).toLocaleString("en-GB")}</p> : null}
