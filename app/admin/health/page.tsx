@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { AdminHealthPanel } from "@/components/admin-health";
 import { isAdmin } from "@/lib/adminAuth";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminHealthPage() {
   if (!(await isAdmin())) redirect("/admin");
   return (
