@@ -11,6 +11,8 @@ import {
   sendShopOrderSubmittedToSupplierEmail,
   sendShopReviewRequestEmail,
 } from "@/lib/shop/emails";
+import { sendShopOrderCancelledEmail } from "@/lib/shop/emails";
+import { refundShopOrder } from "@/lib/shop/refunds";
 import { getStore } from "@/lib/store";
 
 export type ShopCustomerEmailKind =
@@ -20,7 +22,7 @@ export type ShopCustomerEmailKind =
   | "delivered"
   | "review";
 
-export async function cancelShopOrder(orderId: string) {
+export async function cancelShopOrder(orderId: string, options?: { refund?: boolean }) {
   const store = getStore();
   const order = await store.getShopOrder(orderId);
   if (!order) throw new Error("Shop order not found");
@@ -30,7 +32,18 @@ export async function cancelShopOrder(orderId: string) {
   if (order.status === "shipped" || order.status === "delivered") {
     throw new Error("Cannot cancel after dispatch — issue a refund instead");
   }
-  return store.updateShopOrder(orderId, { status: "cancelled", fulfillmentError: null });
+  const shouldRefund = options?.refund ?? true;
+  let refunded = false;
+  if (order.status === "paid" && shouldRefund) {
+    await refundShopOrder(orderId);
+    refunded = true;
+    const fresh = await store.getShopOrder(orderId);
+    if (fresh) await sendShopOrderCancelledEmail(fresh, true);
+    return fresh;
+  }
+  const updated = await store.updateShopOrder(orderId, { status: "cancelled", fulfillmentError: null });
+  await sendShopOrderCancelledEmail(updated, refunded);
+  return updated;
 }
 
 async function emailGoDropshipBatch(storeId: string, batchId: string, orders: ShopOrder[], csv: string) {

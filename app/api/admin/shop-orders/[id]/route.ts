@@ -21,6 +21,7 @@ const postSchema = z.object({
     "resend_email",
   ]),
   amountPence: z.number().int().positive().optional(),
+  refund: z.boolean().optional(),
   emailKind: z
     .enum(["confirmation", "submitted", "dispatched", "delivered", "review"])
     .optional(),
@@ -28,6 +29,7 @@ const postSchema = z.object({
 
 const patchSchema = z.object({
   trackingNumber: z.string().min(3).optional(),
+  confirmEarlyShip: z.boolean().optional(),
   status: z.enum(["shipped", "delivered", "submitted_to_supplier", "paid", "cancelled"]).optional(),
   shipping: z
     .object({
@@ -56,7 +58,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (!parsed.data.amountPence) return jsonError("amountPence required for partial refund.");
       await refundShopOrder(id, parsed.data.amountPence);
     } else if (parsed.data.action === "cancel") {
-      await cancelShopOrder(id);
+      await cancelShopOrder(id, { refund: parsed.data.refund ?? true });
     } else if (parsed.data.action === "resubmit") {
       await resubmitShopOrder(id);
     } else if (parsed.data.action === "resend_email") {
@@ -78,11 +80,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const store = getStore();
   const order = await store.getShopOrder(id);
   if (!order) return jsonError("Shop order not found.", 404);
+  const markingShipped =
+    parsed.data.status === "shipped" || Boolean(parsed.data.trackingNumber?.trim());
+  if (
+    markingShipped &&
+    order.status === "paid" &&
+    !parsed.data.confirmEarlyShip
+  ) {
+    return jsonError(
+      "Order is paid but not submitted to supplier. Pass confirmEarlyShip to mark shipped anyway.",
+      400,
+    );
+  }
+
   const now = new Date().toISOString();
   const patch: Partial<typeof order> = {};
-  if (parsed.data.trackingNumber) patch.trackingNumber = parsed.data.trackingNumber;
+  const nextTracking = parsed.data.trackingNumber?.trim();
+  if (nextTracking) patch.trackingNumber = nextTracking;
   if (parsed.data.status) patch.status = parsed.data.status;
-  if (parsed.data.status === "shipped") patch.shippedAt = now;
+  if (parsed.data.status === "shipped") patch.shippedAt = order.shippedAt ?? now;
   if (parsed.data.status === "delivered") patch.deliveredAt = now;
   if (parsed.data.shipping) {
     if (!canEditShopShipping(order)) {
@@ -98,10 +114,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     };
   }
   const updated = await store.updateShopOrder(id, patch);
-  if (parsed.data.status === "shipped" || parsed.data.trackingNumber) {
+  const trackingChanged = Boolean(nextTracking && nextTracking !== (order.trackingNumber ?? ""));
+  const newlyShipped = parsed.data.status === "shipped" && order.status !== "shipped";
+  if (newlyShipped || trackingChanged) {
     await sendShopOrderDispatchedEmail(updated);
   }
-  if (parsed.data.status === "delivered") {
+  if (parsed.data.status === "delivered" && order.status !== "delivered") {
     await sendShopOrderDeliveredEmail(updated);
   }
   return Response.json({ ok: true, order: updated });

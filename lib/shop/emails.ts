@@ -111,6 +111,22 @@ export async function sendShopAbandonedCheckoutEmail(order: ShopOrder) {
   });
 }
 
+export async function sendShopOrderCancelledEmail(order: ShopOrder, refunded: boolean) {
+  const { config } = await storeMailContext(order.storeId);
+  const refundNote = refunded
+    ? "<p>Any payment taken has been refunded to your original payment method.</p>"
+    : "<p>No payment was taken for this order.</p>";
+  await sendEmail({
+    to: order.email,
+    subject: `Order cancelled — ${config.brand.appName}`,
+    html: `
+      <p>Your ${config.brand.appName} order has been cancelled.</p>
+      ${refundNote}
+      <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
+    `,
+  });
+}
+
 export async function sendShopRefundEmail(order: ShopOrder, amountPence: number) {
   const { config } = await storeMailContext(order.storeId);
   await sendEmail({

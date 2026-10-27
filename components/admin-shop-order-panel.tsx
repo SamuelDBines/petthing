@@ -40,14 +40,25 @@ export function AdminShopOrderPanel({
     await onUpdated();
   }
 
-  async function patch(body: Record<string, unknown>) {
+  async function patch(body: Record<string, unknown>, confirmEarlyShip = false) {
     const response = await fetch(`/api/admin/shop-orders/${order.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, confirmEarlyShip: confirmEarlyShip || body.confirmEarlyShip }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (
+        !confirmEarlyShip &&
+        order.status === "paid" &&
+        (body.status === "shipped" || body.trackingNumber) &&
+        String(data.error ?? "").includes("confirmEarlyShip")
+      ) {
+        const ok = window.confirm(
+          "This order has not been sent to the supplier yet. Mark as shipped anyway?",
+        );
+        if (ok) return patch(body, true);
+      }
       onError(data.error ?? "Update failed");
       return;
     }
@@ -110,8 +121,20 @@ export function AdminShopOrderPanel({
               </button>
             ) : null}
             {order.status !== "refunded" && order.status !== "cancelled" && order.status !== "shipped" && order.status !== "delivered" ? (
-              <button type="button" className="block" onClick={() => void post({ action: "cancel" })}>
-                Cancel order
+              <button
+                type="button"
+                className="block"
+                onClick={() => {
+                  const refund = order.status === "paid";
+                  const ok = window.confirm(
+                    refund
+                      ? "Cancel this order and refund the customer?"
+                      : "Cancel this unpaid checkout?",
+                  );
+                  if (ok) void post({ action: "cancel", refund });
+                }}
+              >
+                Cancel{order.status === "paid" ? " + refund" : ""}
               </button>
             ) : null}
             {order.status !== "refunded" && order.status !== "pending_payment" ? (

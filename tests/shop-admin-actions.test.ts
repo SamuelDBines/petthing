@@ -30,3 +30,26 @@ test("cancelShopOrder rejects shipped orders", async () => {
   });
   await assert.rejects(() => cancelShopOrder(id), /Cannot cancel after dispatch/);
 });
+
+test("cancelShopOrder cancels pending checkout without refund", async () => {
+  const { getStore } = await import("../lib/store");
+  const store = getStore();
+  const id = randomUUID();
+  await store.createShopOrder({
+    id,
+    storeId: "fixmonger",
+    email: "pending-cancel@example.com",
+    status: "pending_payment",
+    lines: [],
+    shipping: null,
+    amountPence: 1500,
+    shippingPence: 0,
+    stripeCheckoutSessionId: null,
+    trackingNumber: null,
+    supplierBatchId: null,
+    createdAt: new Date().toISOString(),
+    paidAt: null,
+  });
+  const updated = await cancelShopOrder(id, { refund: false });
+  assert.equal(updated.status, "cancelled");
+});
