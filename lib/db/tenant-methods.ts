@@ -53,7 +53,7 @@ export async function ensureBuiltinStores() {
 export async function listStoreRows(): Promise<StoreRow[]> {
   await ensureBuiltinStores();
   const rows = await tdb().select().from(stores).orderBy(stores.id);
-  return rows.map((row) => ({
+  return rows.filter((row) => row.id !== "wildframe").map((row) => ({
     id: row.id,
     slug: row.slug,
     domains: row.domains ?? [],
