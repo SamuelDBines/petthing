@@ -21,7 +21,7 @@ const SKIP_SKUS = new Set(["HB-76661", "GEM-76737"]);
 const KIT_TILES = {
   "FX-KIT-CAR": ["CAR-46787", "AB6701"],
   "FX-KIT-DOOR": ["HOM-76459", "CAR-46787"],
-  "FX-KIT-GARDEN": ["HOM-56098", "HOM-55115", "HOM-55115"],
+  "FX-KIT-GARDEN": ["HOM-56098", "HOM-55115", "HOM-55115-2"],
   "XM-KIT-TREE": ["GEM-76745", "GEM-76752", "GEM-76758"],
 };
 
@@ -87,7 +87,11 @@ function kitBadgeSvg(itemCount) {
 </svg>`);
 }
 
-async function resizedToFit(imagePath, maxW, maxH) {
+async function resizedToFit(imagePath, maxW, maxH, { cover = false } = {}) {
+  if (cover) {
+    const buffer = await sharp(imagePath).resize(maxW, maxH, { fit: "cover", position: "centre" }).toBuffer();
+    return { buffer, w: maxW, h: maxH };
+  }
   const meta = await sharp(imagePath).metadata();
   const scale = Math.min(maxW / (meta.width ?? maxW), maxH / (meta.height ?? maxH));
   const w = Math.max(1, Math.round((meta.width ?? maxW) * scale));
@@ -132,12 +136,13 @@ async function buildBundleComposite(store, sku, components, bySku) {
   } else {
     const cols = paths.length;
     const cellW = (contentW - GUTTER * (cols - 1)) / cols;
+    const fillTile = cols <= 2;
     for (let i = 0; i < paths.length; i++) {
-      const tile = await resizedToFit(paths[i], cellW, contentH);
+      const tile = await resizedToFit(paths[i], cellW, contentH, { cover: fillTile });
       composites.push({
         input: tile.buffer,
-        left: GUTTER + i * (cellW + GUTTER) + Math.floor((cellW - tile.w) / 2),
-        top: contentTop + Math.floor((contentH - tile.h) / 2),
+        left: GUTTER + i * (cellW + GUTTER),
+        top: contentTop,
       });
     }
   }

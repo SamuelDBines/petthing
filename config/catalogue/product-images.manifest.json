@@ -1168,7 +1168,7 @@
       "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
       "width": 1200,
       "height": 1200,
-      "bytes": 123480,
+      "bytes": 203552,
       "alt": "FX-KIT-CAR bundle — 2 items"
     },
     "gallery": [
@@ -1176,7 +1176,7 @@
         "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
         "width": 1200,
         "height": 1200,
-        "bytes": 123480,
+        "bytes": 203552,
         "alt": "FX-KIT-CAR bundle — 2 items"
       }
     ],
@@ -1187,7 +1187,7 @@
       "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
       "width": 1200,
       "height": 1200,
-      "bytes": 94360,
+      "bytes": 159974,
       "alt": "FX-KIT-DOOR bundle — 2 items"
     },
     "gallery": [
@@ -1195,7 +1195,7 @@
         "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
         "width": 1200,
         "height": 1200,
-        "bytes": 94360,
+        "bytes": 159974,
         "alt": "FX-KIT-DOOR bundle — 2 items"
       }
     ],
@@ -1206,7 +1206,7 @@
       "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
       "width": 1200,
       "height": 1200,
-      "bytes": 45196,
+      "bytes": 107340,
       "alt": "FX-KIT-GARDEN bundle — 3 items"
     },
     "gallery": [
@@ -1214,11 +1214,11 @@
         "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
         "width": 1200,
         "height": 1200,
-        "bytes": 45196,
+        "bytes": 107340,
         "alt": "FX-KIT-GARDEN bundle — 3 items"
       }
     ],
-    "source": "bundle:HOM-56098+HOM-55115+HOM-55115"
+    "source": "bundle:HOM-56098+HOM-55115+HOM-55115-2"
   },
   "jinglefold:XM-KIT-TREE": {
     "main": {
