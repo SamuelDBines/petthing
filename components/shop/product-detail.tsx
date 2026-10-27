@@ -97,7 +97,10 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
                   {product.gpsr.needsConfirming ? <p className="text-xs text-muted/80">Supplier details flagged for confirmation in admin.</p> : null}
                 </dl>
               ) : null}
-              {product.gpsrSafetyText ? <p className="mt-2 text-muted">{product.gpsrSafetyText}</p> : null}
+              {product.gpsrSafetyText &&
+              product.gpsrSafetyText.trim() !== product.gpsr?.safetyWarnings?.trim() ? (
+                <p className="mt-2 text-muted">{product.gpsrSafetyText}</p>
+              ) : null}
             </section>
           ) : null}
         </div>

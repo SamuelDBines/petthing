@@ -17,10 +17,10 @@ export const JINGLEFOLD_BUNDLE_COMPONENTS: Record<string, CatalogueBundleCompone
       label: "Wooden nutcrackers",
     },
     {
-      supplierSku: "HOM-55255",
+      supplierSku: "GEM-76758",
       quantity: 1,
-      costPence: adminUnitCostPence("Christmas store", "HOM-55255"),
-      label: "Wreath hanger",
+      costPence: adminUnitCostPence("Christmas store", "GEM-76758"),
+      label: "Glitter reindeer (25 cm)",
     },
   ],
 };

@@ -20,7 +20,13 @@ const seed: CatalogueProduct = {
   images: ["/stores/products/fixmonger/HOM-76459.webp"],
   variants: [],
   active: true,
-  gpsrSafetyText: "Seed GPSR",
+  gpsr: {
+    manufacturerName: "M",
+    manufacturerAddress: "A",
+    responsiblePersonName: "R",
+    responsiblePersonAddress: "B",
+    safetyWarnings: "Seed GPSR",
+  },
 };
 
 const staleDb: CatalogueProduct = {
@@ -40,7 +46,7 @@ test("mergeSeedWithOverride keeps seed merchandising fields", () => {
   assert.equal(merged.pricePence, 2599);
   assert.equal(merged.description, "Full description from seed");
   assert.equal(merged.benefitLine, "Stops the draught");
-  assert.equal(merged.gpsrSafetyText, "Seed GPSR");
+  assert.equal(merged.gpsr?.safetyWarnings, seed.gpsr?.safetyWarnings);
   assert.equal(merged.stock, 12);
   assert.match(merged.images[0], /HOM-76459\.webp/);
 });

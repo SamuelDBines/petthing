@@ -55,7 +55,6 @@ function buildDecorProduct(row: ReturnType<typeof pricingRowsForStore>[number]):
     kind: isBundle ? "bundle" : "standard",
     bundleComponents: isBundle ? bundleComponents : undefined,
     clpSafetyText: JINGLEFOLD_CLP_BY_SKU[row.sku],
-    gpsrSafetyText: copy?.gpsr,
     gpsr: gpsrForSupplier(
       "go_dropship",
       copy?.gpsr

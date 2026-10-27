@@ -8,6 +8,7 @@ import {
   recommendedPence,
 } from "@/config/catalogue/pricing-seed";
 import { gpsrForSupplier } from "@/config/gpsr-defaults";
+import { CATALOGUE_CARD_HERO_INDEX } from "@/lib/catalogue/card-hero-index";
 import { resolveProductImages } from "@/lib/catalogue/product-images";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 
@@ -27,7 +28,8 @@ function buildProduct(row: ReturnType<typeof pricingRowsForStore>[number]): Cata
     : adminUnitCostPence("Fixmonger", row.sku);
 
   const name = copy?.name ?? row.name;
-  const { paths, meta } = resolveProductImages("fixmonger", row.sku, PLACEHOLDER, name);
+  const cardHero = CATALOGUE_CARD_HERO_INDEX[`fixmonger:${row.sku}`] ?? 0;
+  const { paths, meta } = resolveProductImages("fixmonger", row.sku, PLACEHOLDER, name, cardHero);
 
   return {
     id: slugFromSku(row.sku),
@@ -40,7 +42,6 @@ function buildProduct(row: ReturnType<typeof pricingRowsForStore>[number]): Cata
     longDescription: copy?.description,
     specs: copy?.specs,
     deliveryEstimate: copy?.delivery,
-    gpsrSafetyText: copy?.gpsr,
     gpsr: gpsrForSupplier("go_dropship", copy?.gpsr ? { safetyWarnings: copy.gpsr } : undefined),
     supplier: "go_dropship",
     supplierSku: row.sku,

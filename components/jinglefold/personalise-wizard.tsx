@@ -196,7 +196,7 @@ export function JinglefoldPersonaliseWizard({
                 className={
                   canContinueStep1
                     ? "min-h-12 rounded-full bg-pumpkin px-8 text-sm font-semibold text-white"
-                    : "min-h-12 cursor-not-allowed rounded-full border-2 border-dashed border-line bg-ink/50 px-8 text-sm font-semibold text-muted"
+                    : "min-h-12 cursor-not-allowed rounded-full border-2 border-cream bg-bark px-8 text-sm font-semibold text-cream"
                 }
                 onClick={() => canContinueStep1 && setStep(2)}
               >

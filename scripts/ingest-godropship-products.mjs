@@ -22,12 +22,13 @@ const KIT_TILES = {
   "FX-KIT-CAR": ["CAR-46787", "AB6701"],
   "FX-KIT-DOOR": ["HOM-76459", "CAR-46787"],
   "FX-KIT-GARDEN": ["HOM-56098", "HOM-55115", "HOM-55115"],
-  "XM-KIT-TREE": ["GEM-76745", "GEM-76752", "HOM-55255"],
+  "XM-KIT-TREE": ["GEM-76745", "GEM-76752", "GEM-76758"],
 };
 
 const CANVAS = 1200;
-const PAD = 36;
-const BADGE_H = 72;
+const GUTTER = 24;
+const BADGE_H = 56;
+const CANVAS_BG = { r: 252, g: 250, b: 247, alpha: 1 };
 
 async function toWebp(srcPath, destPath, width, height) {
   await mkdir(path.dirname(destPath), { recursive: true });
@@ -78,18 +79,21 @@ async function readManifestProducts() {
   return manifestProductsCache;
 }
 
-function gridForCount(n) {
-  if (n <= 2) return { cols: 2, rows: 1 };
-  if (n === 3) return { cols: 3, rows: 1 };
-  return { cols: 2, rows: 2 };
-}
-
 function kitBadgeSvg(itemCount) {
   return Buffer.from(`
 <svg width="${CANVAS}" height="${BADGE_H}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="${CANVAS - 248}" y="16" width="220" height="40" rx="20" fill="#1a2e1f" opacity="0.92"/>
-  <text x="${CANVAS - 138}" y="42" text-anchor="middle" font-family="system-ui,sans-serif" font-size="15" font-weight="600" fill="#fff8f0">Kit: ${itemCount} items</text>
+  <rect x="24" y="10" width="210" height="44" rx="10" fill="#1a2e1f"/>
+  <text x="129" y="38" text-anchor="middle" font-family="system-ui,sans-serif" font-size="17" font-weight="700" fill="#fff8f0">Kit · ${itemCount} items</text>
 </svg>`);
+}
+
+async function resizedToFit(imagePath, maxW, maxH) {
+  const meta = await sharp(imagePath).metadata();
+  const scale = Math.min(maxW / (meta.width ?? maxW), maxH / (meta.height ?? maxH));
+  const w = Math.max(1, Math.round((meta.width ?? maxW) * scale));
+  const h = Math.max(1, Math.round((meta.height ?? maxH) * scale));
+  const buffer = await sharp(imagePath).resize(w, h, { fit: "inside" }).toBuffer();
+  return { buffer, w, h };
 }
 
 async function buildBundleComposite(store, sku, components, bySku) {
@@ -102,38 +106,50 @@ async function buildBundleComposite(store, sku, components, bySku) {
   if (!paths.length) return null;
 
   const itemCount = tiles.length;
-  const { cols, rows } = gridForCount(paths.length);
-  const contentTop = BADGE_H;
-  const contentH = CANVAS - contentTop;
-  const cellW = Math.floor(CANVAS / cols);
-  const cellH = Math.floor(contentH / rows);
+  const contentTop = BADGE_H + 4;
+  const contentH = CANVAS - contentTop - GUTTER;
+  const contentW = CANVAS - GUTTER * 2;
+  const composites = [];
 
-  const composites = [{ input: await sharp(kitBadgeSvg(itemCount)).png().toBuffer(), top: 0, left: 0 }];
-
-  for (let i = 0; i < paths.length; i++) {
-    const innerW = cellW - PAD * 2;
-    const innerH = cellH - PAD * 2;
-    const tileBuf = await sharp(paths[i])
-      .resize(innerW, innerH, {
-        fit: "contain",
-        background: { r: 247, g: 244, b: 238, alpha: 1 },
-      })
-      .toBuffer();
-    const col = i % cols;
-    const row = Math.floor(i / cols);
+  if (paths.length === 3) {
+    const leftW = Math.floor(contentW * 0.54);
+    const rightW = contentW - leftW - GUTTER;
+    const rightH = (contentH - GUTTER) / 2;
+    const hero = await resizedToFit(paths[0], leftW, contentH);
     composites.push({
-      input: tileBuf,
-      left: col * cellW + PAD,
-      top: contentTop + row * cellH + PAD,
+      input: hero.buffer,
+      left: GUTTER + Math.floor((leftW - hero.w) / 2),
+      top: contentTop + Math.floor((contentH - hero.h) / 2),
     });
+    for (let i = 1; i < 3; i++) {
+      const tile = await resizedToFit(paths[i], rightW, rightH);
+      composites.push({
+        input: tile.buffer,
+        left: GUTTER + leftW + GUTTER + Math.floor((rightW - tile.w) / 2),
+        top: contentTop + (i - 1) * (rightH + GUTTER) + Math.floor((rightH - tile.h) / 2),
+      });
+    }
+  } else {
+    const cols = paths.length;
+    const cellW = (contentW - GUTTER * (cols - 1)) / cols;
+    for (let i = 0; i < paths.length; i++) {
+      const tile = await resizedToFit(paths[i], cellW, contentH);
+      composites.push({
+        input: tile.buffer,
+        left: GUTTER + i * (cellW + GUTTER) + Math.floor((cellW - tile.w) / 2),
+        top: contentTop + Math.floor((contentH - tile.h) / 2),
+      });
+    }
   }
+
+  composites.unshift({ input: await sharp(kitBadgeSvg(itemCount)).png().toBuffer(), top: 0, left: 0 });
 
   const buf = await sharp({
     create: {
       width: CANVAS,
       height: CANVAS,
       channels: 4,
-      background: { r: 245, g: 242, b: 236, alpha: 1 },
+      background: CANVAS_BG,
     },
   })
     .composite(composites)
