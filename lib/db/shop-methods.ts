@@ -88,9 +88,18 @@ export const shopDbMethods = {
       .filter((o) => !status || o.status === status);
   },
   async addSupplierBatch(batch: SupplierBatchExport) {
-    await getSql()`
+    const sql = getSql();
+    await sql`
       insert into supplier_batch_exports (id, store_id, supplier, order_ids, csv, created_at, submitted_at)
-      values (${batch.id}::uuid, ${batch.storeId}, ${batch.supplier}, ${batch.orderIds}::uuid[], ${batch.csv}, ${batch.createdAt}, ${batch.submittedAt})
+      values (
+        ${batch.id}::uuid,
+        ${batch.storeId},
+        ${batch.supplier},
+        ${sql.array(batch.orderIds)}::uuid[],
+        ${batch.csv},
+        ${batch.createdAt},
+        ${batch.submittedAt}
+      )
     `;
     return batch;
   },
