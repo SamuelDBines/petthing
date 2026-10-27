@@ -5,6 +5,7 @@ export type IntegrationId =
   | "fal"
   | "prodigi"
   | "printful"
+  | "ses"
   | "resend"
   | "google_oauth"
   | "storage"
@@ -40,10 +41,16 @@ export const INTEGRATION_ENV: Record<IntegrationId, EnvRequirement[]> = {
   fal: [{ key: "FAL_KEY", description: "fal.ai image generation" }],
   prodigi: [{ key: "PRODIGI_API_KEY", description: "Prodigi print API" }],
   printful: [{ key: "PRINTFUL_API_KEY", description: "Printful API (Jinglefold stocking)" }],
-  resend: [
-    { key: "RESEND_API_KEY", description: "Transactional email" },
-    { key: "EMAIL_FROM", description: "From address (verified domain)" },
+  ses: [
+    { key: "AWS_ACCESS_KEY_ID", description: "AWS credentials for SES" },
+    { key: "AWS_SECRET_ACCESS_KEY", description: "AWS secret for SES" },
+    { key: "AWS_SES_REGION", optional: true, description: "SES region (default eu-west-2)" },
+    { key: "EMAIL_FROM", description: "From address (verified SES identity)" },
     { key: "ADMIN_EMAIL", description: "Admin alerts + digest" },
+  ],
+  resend: [
+    { key: "RESEND_API_KEY", optional: true, description: "Optional Resend provider (EMAIL_PROVIDER=resend)" },
+    { key: "EMAIL_FROM", description: "From address (verified domain)" },
   ],
   google_oauth: [
     { key: "AUTH_SECRET", description: "NextAuth secret" },
@@ -79,17 +86,17 @@ export const STORE_PROFILES: StoreGoLiveProfile[] = [
   {
     storeId: "pawtraitry",
     label: "Pawtraitry",
-    integrations: ["stripe", "fal", "prodigi", "resend", "google_oauth", "storage", "artinbulk_email"],
+    integrations: ["stripe", "fal", "prodigi", "ses", "google_oauth", "storage", "artinbulk_email"],
   },
   {
     storeId: "fixmonger",
     label: "Fixmonger",
-    integrations: ["stripe", "resend", "godropship_email", "storage"],
+    integrations: ["stripe", "ses", "godropship_email", "storage"],
   },
   {
     storeId: "jinglefold",
     label: "Jinglefold",
-    integrations: ["stripe", "fal", "prodigi", "printful", "resend", "godropship_email", "storage"],
+    integrations: ["stripe", "fal", "prodigi", "printful", "ses", "godropship_email", "storage"],
   },
 ];
 

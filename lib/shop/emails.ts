@@ -34,6 +34,7 @@ export async function sendShopOrderConfirmationEmail(order: ShopOrder) {
     to: order.email,
     subject: `Your ${config.brand.appName} order confirmation`,
     html,
+    storeId: order.storeId,
   });
 }
 
@@ -49,6 +50,7 @@ export async function sendShopOrderSubmittedToSupplierEmail(order: ShopOrder) {
     to: order.email,
     subject: `We're packing your ${config.brand.appName} order`,
     html,
+    storeId: order.storeId,
   });
 }
 
@@ -68,6 +70,7 @@ export async function sendShopOrderDispatchedEmail(order: ShopOrder) {
     to: order.email,
     subject: `Your ${config.brand.appName} order is on its way`,
     html,
+    storeId: order.storeId,
   });
 }
 
@@ -82,6 +85,7 @@ export async function sendShopOrderDeliveredEmail(order: ShopOrder) {
       <p>If anything is wrong, reply within 30 days for unused returns (see our <a href="${origin}/refunds">returns policy</a>).</p>
       <p><a href="${origin}">Shop again at ${config.brand.appName}</a></p>
     `,
+    storeId: order.storeId,
   });
 }
 
@@ -94,6 +98,7 @@ export async function sendShopReviewRequestEmail(order: ShopOrder) {
       <p>We'd love a quick note on how everything looked — reply to this email with a photo if you like.</p>
       <p><a href="${origin}">Visit ${config.brand.appName}</a></p>
     `,
+    storeId: order.storeId,
   });
 }
 
@@ -108,6 +113,7 @@ export async function sendShopAbandonedCheckoutEmail(order: ShopOrder) {
       <p><a href="${origin}/shop/cart">Return to your cart</a></p>
       <p style="font-size:12px;color:#666">You asked to hear about offers and reminders. Unsubscribe by replying STOP.</p>
     `,
+    storeId: order.storeId,
   });
 }
 
@@ -132,6 +138,7 @@ export async function sendShopOrderCancelledEmail(
       ${refundNote}
       <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
     `,
+    storeId: order.storeId,
   });
 }
 
@@ -152,5 +159,6 @@ export async function sendShopRefundEmail(order: ShopOrder, amountPence: number)
       <p>It may take 5–10 working days to appear on your statement.</p>
       <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
     `,
+    storeId: order.storeId,
   });
 }

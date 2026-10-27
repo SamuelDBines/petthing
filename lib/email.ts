@@ -1,39 +1,11 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import { AI_GENERATED_LABEL, APP_NAME, DIGITAL_SUPPLY_CONSENT_LABEL, siteUrl } from "@/config/brand";
-import { localDataPath } from "@/lib/localPaths";
+import { APP_NAME, AI_GENERATED_LABEL, DIGITAL_SUPPLY_CONSENT_LABEL, siteUrl } from "@/config/brand";
+import { sendEmail as deliverEmail } from "@/lib/email/send";
+import type { EmailMessage } from "@/lib/email/types";
 
-type Message = {
-  to: string;
-  subject: string;
-  html: string;
-  attachments?: { filename: string; content: Buffer }[];
-};
+export type { EmailMessage } from "@/lib/email/types";
 
-export async function sendEmail(message: Message) {
-  const dir = localDataPath("outbox");
-  await mkdir(dir, { recursive: true });
-  const filename = `${Date.now()}-${message.to.replace(/[^a-z0-9@._-]/gi, "_")}.html`;
-  await writeFile(path.join(dir, filename), `<!-- ${message.subject} -->\n${message.html}`);
-  console.log(`[email] ${message.to} — ${message.subject}`);
-
-  if (!process.env.RESEND_API_KEY) return { sent: false as const };
-  const from = process.env.EMAIL_FROM;
-  if (!from) throw new Error("EMAIL_FROM is required when RESEND_API_KEY is set");
-  const { Resend } = await import("resend");
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { error } = await resend.emails.send({
-    from,
-    to: message.to,
-    subject: message.subject,
-    html: message.html,
-    attachments: message.attachments?.map((a) => ({
-      filename: a.filename,
-      content: a.content,
-    })),
-  });
-  if (error) throw new Error(error.message);
-  return { sent: true as const };
+export async function sendEmail(message: EmailMessage) {
+  return deliverEmail(message);
 }
 
 export async function alertAdmin(subject: string, html: string, storeId?: string) {
@@ -48,7 +20,7 @@ export async function alertAdmin(subject: string, html: string, storeId?: string
     console.log(`[admin alert] ${prefix}: ${subject}`);
     return;
   }
-  await sendEmail({ to, subject: `${prefix}: ${subject}`, html });
+  await sendEmail({ to, subject: `${prefix}: ${subject}`, html, storeId });
 }
 
 export function resultsEmail(resultsUrl: string) {

@@ -18,7 +18,7 @@ Opens **Admin → Integration health** (`/admin/health`) after deploy for a live
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (live keys for production) |
 | Pawtraitry AI | `FAL_KEY` |
 | Print partners | `PRODIGI_API_KEY`, `PRINTFUL_API_KEY` (Jinglefold stocking), `PRODIGI_ENV=live` when ready |
-| Email | `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_EMAIL` |
+| Email (SES) | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SES_REGION` (default `eu-west-2`), `EMAIL_FROM`, `ADMIN_EMAIL`, optional `EMAIL_REPLY_TO`, `SES_CONFIGURATION_SET` |
 | Google admin | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET` (or `ADMIN_PASSWORD_LOGIN` for dev only) |
 | Storage | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (or local blobs in dev) |
 | Go Dropship | `GODROPSHIP_ORDERS_EMAIL` — **no supplier API**; cron emails CSV batches |
@@ -59,7 +59,9 @@ npm run migrate:content
 npm run seed
 ```
 
-Apply migrations through **`0014_dedupe_wildframe_store.sql`** (merges legacy `wildframe` into `fixmonger`).
+Apply migrations through the latest in `db/migrations/` (includes wildframe → fixmonger merge, SES bounce suppressions in `0017_email_suppressions.sql`).
+
+Configure **SES** domain identity for `EMAIL_FROM`, SNS bounce/complaint topics → HTTPS `https://<canonical-host>/api/webhooks/ses`.
 
 On Kubernetes, run `k8s/deploy/migrate-job.yaml` to completion before rolling `k8s/deploy/web-deployment.yaml`.
 

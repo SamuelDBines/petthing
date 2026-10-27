@@ -1,3 +1,5 @@
+import { emailProviderId, sesCredentialsConfigured } from "@/lib/email/config";
+import { fetchSesHealth } from "@/lib/email/ses-health";
 import { envPresent } from "@/lib/go-live/requirements";
 import { APP_CRON_JOBS, cronAuthStatus } from "@/lib/integrations/cron-jobs";
 
@@ -20,6 +22,37 @@ function stripeMode() {
 function prodigiMode() {
   if (!envPresent("PRODIGI_API_KEY")) return "missing" as const;
   return process.env.PRODIGI_ENV === "live" ? ("connected" as const) : ("test_mode" as const);
+}
+
+function emailRows(): IntegrationHealthRow[] {
+  const rows: IntegrationHealthRow[] = [];
+  const provider = emailProviderId();
+  if (provider === "ses") {
+    rows.push({
+      id: "email_ses",
+      label: "Amazon SES",
+      status:
+        sesCredentialsConfigured() && envPresent("EMAIL_FROM") ? "connected" : "missing",
+      detail: "Loading sandbox / domain status…",
+    });
+  }
+  if (envPresent("RESEND_API_KEY")) {
+    rows.push({
+      id: "resend",
+      label: "Resend (optional)",
+      status: envPresent("EMAIL_FROM") ? "optional_missing" : "missing",
+      detail: provider === "resend" ? "Active provider" : "Set EMAIL_PROVIDER=resend to use",
+    });
+  }
+  if (!rows.length) {
+    rows.push({
+      id: "email",
+      label: "Transactional email",
+      status: "missing",
+      detail: "Set AWS_SES_REGION (or EMAIL_PROVIDER=ses) and EMAIL_FROM",
+    });
+  }
+  return rows;
 }
 
 export function integrationHealth(): IntegrationHealthRow[] {
@@ -58,11 +91,7 @@ export function integrationHealth(): IntegrationHealthRow[] {
       status: envPresent("GODROPSHIP_ORDERS_EMAIL") ? "connected" : "optional_missing",
       detail: "No public API — CSV emailed to supplier inbox",
     },
-    {
-      id: "resend",
-      label: "Resend",
-      status: envPresent("RESEND_API_KEY") && envPresent("EMAIL_FROM") ? "connected" : "missing",
-    },
+    ...emailRows(),
     {
       id: "google",
       label: "Google OAuth",
@@ -103,6 +132,24 @@ export function integrationHealth(): IntegrationHealthRow[] {
       detail: "Social queue iframe in admin",
     },
   ];
+  return rows;
+}
+
+export async function integrationHealthWithEmail(): Promise<IntegrationHealthRow[]> {
+  const rows = integrationHealth();
+  if (emailProviderId() !== "ses") return rows;
+  const ses = await fetchSesHealth();
+  const idx = rows.findIndex((r) => r.id === "email_ses");
+  if (idx < 0) return rows;
+  const base = rows[idx];
+  let status = base.status;
+  if (ses.error) status = "missing";
+  else if (ses.fromIdentityVerified === false) status = "test_mode";
+  rows[idx] = {
+    ...base,
+    status,
+    detail: ses.error ?? ses.detail ?? base.detail,
+  };
   return rows;
 }
 

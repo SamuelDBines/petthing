@@ -106,8 +106,10 @@ Reference photos must be **HTTPS URLs** your host can sign (not localhost).
 
 | Variable | Purpose |
 | --- | --- |
-| `RESEND_API_KEY` | Transactional email |
-| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.co.uk>` after domain verification |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Amazon SES (default mail provider) |
+| `AWS_SES_REGION` | SES region (default `eu-west-2`) |
+| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.co.uk>` after SES domain verification |
+| `RESEND_API_KEY` | Optional if `EMAIL_PROVIDER=resend` |
 
 ### Prodigi (UK print)
 
@@ -135,7 +137,7 @@ Puzzle orders need Stripe (shipping address), a public `NEXT_PUBLIC_APP_URL`, an
 | No `FAL_KEY` | Placeholder images only | Add fal key; use public site URL for uploads |
 | `NEXT_PUBLIC_APP_URL` still localhost | Prodigi/fal cannot fetch assets | Set to production HTTPS URL |
 | `PRODIGI_ENV=sandbox` | Puzzles not in real production | Set `live` with live API key after QA |
-| No `RESEND_*` | Emails only in `.data/outbox` | Verify domain, set `EMAIL_FROM` |
+| No SES / Resend keys | Emails only in `.data/outbox` | Verify SES domain, set `EMAIL_FROM` |
 | Cron not running | Slow or stuck queue | Plan that allows `vercel.json` schedule or external cron hitting `/api/cron/generate` with `CRON_SECRET` |
 | Domain not registered | DNS, email, Stripe branding | Register `pawtraitry.co.uk` / `.com` and point to host |
 

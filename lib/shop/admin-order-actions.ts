@@ -91,6 +91,7 @@ async function emailGoDropshipBatch(storeId: string, batchId: string, orders: Sh
       subject: `Go Dropship order batch ${batchId.slice(0, 8)} — ${orders.length} orders`,
       html: `<p>Automated export from catalogue shop (${storeId}).</p><p>Orders: ${orders.length}</p>`,
       attachments: [{ filename: `godropship-${batchId.slice(0, 8)}.csv`, content: Buffer.from(csv, "utf8") }],
+      storeId,
     });
   } else {
     await alertAdmin(
