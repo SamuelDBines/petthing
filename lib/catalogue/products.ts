@@ -23,10 +23,27 @@ export function listCatalogueOverrides(storeId?: string) {
   return storeId ? dbOverrides.filter((p) => p.storeId === storeId) : [...dbOverrides];
 }
 
+/** DB rows may exist from early migrations; code seed is source of truth for merchandising copy. */
+export function mergeSeedWithOverride(seed: CatalogueProduct, override: CatalogueProduct): CatalogueProduct {
+  const useOverrideImages = override.images?.length && (!seed.images?.length || seed.images.every((u) => u.includes("placeholder")));
+  return {
+    ...seed,
+    stock: override.stock ?? seed.stock,
+    active: override.active,
+    costPence: override.costPence > 0 ? override.costPence : seed.costPence,
+    images: useOverrideImages ? override.images : seed.images,
+    imageMeta: seed.imageMeta?.length ? seed.imageMeta : override.imageMeta,
+    variants: override.variants?.length ? override.variants : seed.variants,
+  };
+}
+
 export function mergeCatalogueProducts(storeId: string, seed: CatalogueProduct[], overrides: CatalogueProduct[]) {
   const byId = new Map<string, CatalogueProduct>();
   for (const product of seed) byId.set(product.id, product);
-  for (const product of overrides.filter((p) => p.storeId === storeId)) byId.set(product.id, product);
+  for (const product of overrides.filter((p) => p.storeId === storeId)) {
+    const seeded = byId.get(product.id);
+    byId.set(product.id, seeded ? mergeSeedWithOverride(seeded, product) : product);
+  }
   return [...byId.values()];
 }
 

@@ -5,7 +5,7 @@
  *
  * Usage: node scripts/ingest-godropship-products.mjs
  */
-import { mkdir, readFile, writeFile, copyFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 
@@ -17,15 +17,25 @@ const MANIFEST_PATH = path.join(ROOT, "config/catalogue/product-images.manifest.
 
 const SKIP_SKUS = new Set(["HB-76661", "GEM-76737"]);
 
+/** Tile SKUs per kit (order preserved; duplicates = multiple tiles). */
+const KIT_TILES = {
+  "FX-KIT-CAR": ["CAR-46787", "AB6701"],
+  "FX-KIT-DOOR": ["HOM-76459", "CAR-46787"],
+  "FX-KIT-GARDEN": ["HOM-56098", "HOM-55115", "HOM-55115"],
+  "XM-KIT-TREE": ["GEM-76745", "GEM-76752", "HOM-55255"],
+};
+
+const CANVAS = 1200;
+const PAD = 36;
+const BADGE_H = 72;
+
 async function toWebp(srcPath, destPath, width, height) {
   await mkdir(path.dirname(destPath), { recursive: true });
   const pipeline = sharp(srcPath).rotate();
   const meta = await pipeline.metadata();
   const w = width ?? meta.width ?? 1254;
   const h = height ?? meta.height ?? 1254;
-  await pipeline
-    .webp({ quality: 82, effort: 4 })
-    .toFile(destPath);
+  await pipeline.webp({ quality: 82, effort: 4 }).toFile(destPath);
   const outMeta = await sharp(destPath).metadata();
   return {
     width: outMeta.width ?? w,
@@ -39,69 +49,107 @@ function galleryPath(store, sku, index) {
   return `/stores/products/${store}/${sku}-${index + 1}.webp`;
 }
 
-async function firstComponentWebp(store, sku, bySku) {
-  const entry = bySku.get(sku);
-  if (!entry?.images?.length) return null;
-  const rel = entry.images[0].file;
-  const src = path.join(SRC_ROOT, rel);
-  const dest = path.join(OUT_ROOT, store, `${sku}-component.webp`);
+function componentImagePath(store, sku) {
+  const webp = path.join(OUT_ROOT, store, `${sku}.webp`);
+  return webp;
+}
+
+async function loadComponentTile(store, sku) {
+  const webp = componentImagePath(store, sku);
   try {
-    await toWebp(src, dest);
-    return dest;
+    await sharp(webp).metadata();
+    return webp;
   } catch {
-    return null;
+    const entry = (await readManifestProducts()).find((p) => p.sku === sku);
+    const rel = entry?.images?.[0]?.file;
+    if (!rel) return null;
+    const src = path.join(SRC_ROOT, rel);
+    await toWebp(src, webp);
+    return webp;
   }
 }
 
-async function buildBundleComposite(store, sku, components, bySku) {
-  const tiles = [];
-  for (const comp of components) {
-    const p = await firstComponentWebp(store, comp, bySku);
-    if (p) tiles.push(p);
+let manifestProductsCache;
+async function readManifestProducts() {
+  if (!manifestProductsCache) {
+    const raw = JSON.parse(await readFile(SRC_MANIFEST, "utf8"));
+    manifestProductsCache = raw.products;
   }
-  if (!tiles.length) return null;
+  return manifestProductsCache;
+}
 
-  const size = 1200;
-  const cols = tiles.length >= 3 ? 3 : tiles.length;
-  const rows = Math.ceil(tiles.length / cols);
-  const cell = Math.floor(size / cols);
-  const composites = [];
-  for (let i = 0; i < tiles.length; i++) {
-    const tileBuf = await sharp(tiles[i])
-      .resize(cell - 24, cell - 24, { fit: "contain", background: { r: 255, g: 253, b: 248, alpha: 1 } })
+function gridForCount(n) {
+  if (n <= 2) return { cols: 2, rows: 1 };
+  if (n === 3) return { cols: 3, rows: 1 };
+  return { cols: 2, rows: 2 };
+}
+
+function kitBadgeSvg(itemCount) {
+  return Buffer.from(`
+<svg width="${CANVAS}" height="${BADGE_H}" xmlns="http://www.w3.org/2000/svg">
+  <rect x="${CANVAS - 248}" y="16" width="220" height="40" rx="20" fill="#1a2e1f" opacity="0.92"/>
+  <text x="${CANVAS - 138}" y="42" text-anchor="middle" font-family="system-ui,sans-serif" font-size="15" font-weight="600" fill="#fff8f0">Kit: ${itemCount} items</text>
+</svg>`);
+}
+
+async function buildBundleComposite(store, sku, components, bySku) {
+  const tiles = KIT_TILES[sku] ?? components ?? [];
+  const paths = [];
+  for (const comp of tiles) {
+    const p = await loadComponentTile(store, comp);
+    if (p) paths.push(p);
+  }
+  if (!paths.length) return null;
+
+  const itemCount = tiles.length;
+  const { cols, rows } = gridForCount(paths.length);
+  const contentTop = BADGE_H;
+  const contentH = CANVAS - contentTop;
+  const cellW = Math.floor(CANVAS / cols);
+  const cellH = Math.floor(contentH / rows);
+
+  const composites = [{ input: await sharp(kitBadgeSvg(itemCount)).png().toBuffer(), top: 0, left: 0 }];
+
+  for (let i = 0; i < paths.length; i++) {
+    const innerW = cellW - PAD * 2;
+    const innerH = cellH - PAD * 2;
+    const tileBuf = await sharp(paths[i])
+      .resize(innerW, innerH, {
+        fit: "contain",
+        background: { r: 247, g: 244, b: 238, alpha: 1 },
+      })
       .toBuffer();
     const col = i % cols;
     const row = Math.floor(i / cols);
     composites.push({
       input: tileBuf,
-      left: col * cell + 12,
-      top: row * cell + 12,
+      left: col * cellW + PAD,
+      top: contentTop + row * cellH + PAD,
     });
   }
-  const height = rows * cell;
+
   const buf = await sharp({
     create: {
-      width: size,
-      height,
+      width: CANVAS,
+      height: CANVAS,
       channels: 4,
-      background: { r: 247, g: 244, b: 238, alpha: 1 },
+      background: { r: 245, g: 242, b: 236, alpha: 1 },
     },
   })
     .composite(composites)
-    .webp({ quality: 85 })
+    .webp({ quality: 86 })
     .toBuffer();
 
   const rel = galleryPath(store, sku, 0);
   const dest = path.join(ROOT, "public", rel);
   await mkdir(path.dirname(dest), { recursive: true });
   await writeFile(dest, buf);
-  const meta = await sharp(buf).metadata();
   return {
     path: rel,
-    width: meta.width ?? size,
-    height: meta.height ?? height,
+    width: CANVAS,
+    height: CANVAS,
     bytes: buf.length,
-    alt: `${sku} bundle — includes ${components.join(", ")}`,
+    alt: `${sku} bundle — ${itemCount} items`,
   };
 }
 
@@ -109,13 +157,13 @@ async function ingestProduct(store, product, bySku) {
   const { sku, name, images, bundle, components } = product;
   if (SKIP_SKUS.has(sku)) return null;
 
-  if (bundle && components?.length) {
+  if (bundle && (components?.length || KIT_TILES[sku])) {
     const main = await buildBundleComposite(store, sku, components, bySku);
     if (!main) return null;
     return {
       main,
       gallery: [main],
-      source: `bundle:${components.join("+")}`,
+      source: `bundle:${(KIT_TILES[sku] ?? components).join("+")}`,
     };
   }
 
@@ -163,12 +211,22 @@ async function main() {
     }
   }
 
-  for (const product of raw.products) {
-    if (SKIP_SKUS.has(product.sku)) continue;
+  const nonBundles = raw.products.filter((p) => !p.bundle && !SKIP_SKUS.has(p.sku));
+  const bundles = raw.products.filter((p) => p.bundle && !SKIP_SKUS.has(p.sku));
+
+  for (const product of nonBundles) {
     for (const store of product.stores ?? []) {
       const entry = await ingestProduct(store, product, bySku);
       if (entry) manifest[`${store}:${product.sku}`] = entry;
       console.log(store, product.sku, entry ? "ok" : "skip");
+    }
+  }
+
+  for (const product of bundles) {
+    for (const store of product.stores ?? []) {
+      const entry = await ingestProduct(store, product, bySku);
+      if (entry) manifest[`${store}:${product.sku}`] = entry;
+      console.log(store, product.sku, entry ? "bundle" : "skip");
     }
   }
 

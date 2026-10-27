@@ -52,7 +52,8 @@ function baubleSvg(cx, cy, r, accent) {
   </defs>
   <ellipse cx="${cx}" cy="${cy + r + 18}" rx="${r * 0.85}" ry="16" fill="#000" opacity="0.12"/>
   <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#sphere)"/>
-  <ellipse cx="${cx - r * 0.25}" cy="${cy - r * 0.35}" rx="${r * 0.35}" ry="${r * 0.22}" fill="#fff" opacity="0.55"/>
+  <ellipse cx="${cx - r * 0.28}" cy="${cy - r * 0.38}" rx="${r * 0.42}" ry="${r * 0.26}" fill="#fff" opacity="0.62"/>
+  <ellipse cx="${cx + r * 0.2}" cy="${cy + r * 0.25}" rx="${r * 0.5}" ry="${r * 0.35}" fill="#000" opacity="0.08"/>
   <rect x="${cx - 22}" y="${cy - r - 28}" width="44" height="22" rx="6" fill="url(#cap)"/>
   <rect x="${cx - 6}" y="${cy - r - 40}" width="12" height="14" rx="3" fill="#b8963e"/>
 </svg>`);

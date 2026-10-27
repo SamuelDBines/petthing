@@ -417,63 +417,6 @@
     ],
     "source": "https://www.godropship.co.uk/50m-500led-solar-fairy-lights-with-stake-solar-panel-multicolor-garden-string-lights-waterproof-christmas-decoration-for-patio-yard-party"
   },
-  "fixmonger:FX-KIT-CAR": {
-    "main": {
-      "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
-      "width": 1200,
-      "height": 600,
-      "bytes": 127358,
-      "alt": "FX-KIT-CAR bundle — includes CAR-46787, AB6701"
-    },
-    "gallery": [
-      {
-        "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
-        "width": 1200,
-        "height": 600,
-        "bytes": 127358,
-        "alt": "FX-KIT-CAR bundle — includes CAR-46787, AB6701"
-      }
-    ],
-    "source": "bundle:CAR-46787+AB6701"
-  },
-  "fixmonger:FX-KIT-DOOR": {
-    "main": {
-      "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
-      "width": 1200,
-      "height": 600,
-      "bytes": 95692,
-      "alt": "FX-KIT-DOOR bundle — includes HOM-76459, CAR-46787"
-    },
-    "gallery": [
-      {
-        "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
-        "width": 1200,
-        "height": 600,
-        "bytes": 95692,
-        "alt": "FX-KIT-DOOR bundle — includes HOM-76459, CAR-46787"
-      }
-    ],
-    "source": "bundle:HOM-76459+CAR-46787"
-  },
-  "fixmonger:FX-KIT-GARDEN": {
-    "main": {
-      "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
-      "width": 1200,
-      "height": 600,
-      "bytes": 25874,
-      "alt": "FX-KIT-GARDEN bundle — includes HOM-56098, HOM-55115"
-    },
-    "gallery": [
-      {
-        "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
-        "width": 1200,
-        "height": 600,
-        "bytes": 25874,
-        "alt": "FX-KIT-GARDEN bundle — includes HOM-56098, HOM-55115"
-      }
-    ],
-    "source": "bundle:HOM-56098+HOM-55115"
-  },
   "jinglefold:GEM-76735": {
     "main": {
       "path": "/stores/products/jinglefold/GEM-76735.webp",
@@ -1220,21 +1163,78 @@
     ],
     "source": "https://www.godropship.co.uk/30pcs-christmas-cards-5-designs-3d-fold-out-xmas-greeting-cards-kids-party"
   },
+  "fixmonger:FX-KIT-CAR": {
+    "main": {
+      "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
+      "width": 1200,
+      "height": 1200,
+      "bytes": 109494,
+      "alt": "FX-KIT-CAR bundle — 2 items"
+    },
+    "gallery": [
+      {
+        "path": "/stores/products/fixmonger/FX-KIT-CAR.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 109494,
+        "alt": "FX-KIT-CAR bundle — 2 items"
+      }
+    ],
+    "source": "bundle:CAR-46787+AB6701"
+  },
+  "fixmonger:FX-KIT-DOOR": {
+    "main": {
+      "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
+      "width": 1200,
+      "height": 1200,
+      "bytes": 84990,
+      "alt": "FX-KIT-DOOR bundle — 2 items"
+    },
+    "gallery": [
+      {
+        "path": "/stores/products/fixmonger/FX-KIT-DOOR.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 84990,
+        "alt": "FX-KIT-DOOR bundle — 2 items"
+      }
+    ],
+    "source": "bundle:HOM-76459+CAR-46787"
+  },
+  "fixmonger:FX-KIT-GARDEN": {
+    "main": {
+      "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
+      "width": 1200,
+      "height": 1200,
+      "bytes": 23978,
+      "alt": "FX-KIT-GARDEN bundle — 3 items"
+    },
+    "gallery": [
+      {
+        "path": "/stores/products/fixmonger/FX-KIT-GARDEN.webp",
+        "width": 1200,
+        "height": 1200,
+        "bytes": 23978,
+        "alt": "FX-KIT-GARDEN bundle — 3 items"
+      }
+    ],
+    "source": "bundle:HOM-56098+HOM-55115+HOM-55115"
+  },
   "jinglefold:XM-KIT-TREE": {
     "main": {
       "path": "/stores/products/jinglefold/XM-KIT-TREE.webp",
       "width": 1200,
-      "height": 400,
-      "bytes": 52024,
-      "alt": "XM-KIT-TREE bundle — includes GEM-76745, GEM-76752, HOM-55255"
+      "height": 1200,
+      "bytes": 46580,
+      "alt": "XM-KIT-TREE bundle — 3 items"
     },
     "gallery": [
       {
         "path": "/stores/products/jinglefold/XM-KIT-TREE.webp",
         "width": 1200,
-        "height": 400,
-        "bytes": 52024,
-        "alt": "XM-KIT-TREE bundle — includes GEM-76745, GEM-76752, HOM-55255"
+        "height": 1200,
+        "bytes": 46580,
+        "alt": "XM-KIT-TREE bundle — 3 items"
       }
     ],
     "source": "bundle:GEM-76745+GEM-76752+HOM-55255"
