@@ -17,7 +17,8 @@
     "test:e2e": "playwright test --grep-invert @stripe",
     "test:e2e:stripe": "E2E_STRIPE=1 playwright test --grep @stripe",
     "test:e2e:all": "playwright test",
-    "validate:go-live": "tsx scripts/validate-go-live.ts"
+    "validate:go-live": "tsx scripts/validate-go-live.ts",
+    "test:e2e:prod-404": "playwright test e2e/shop-404-status.spec.ts --config=playwright.prod.config.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.0.0",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { canonicalAdminOrigin, isCanonicalAdminHost } from "@/lib/admin/canonical";
+import { catalogueProductSlugExists } from "@/lib/catalogue/slug-index";
 import { resolveStoreIdFromHost } from "@/lib/tenant/resolve";
 
 export function middleware(request: NextRequest) {
@@ -30,6 +31,14 @@ export function middleware(request: NextRequest) {
     const fromCookie = resolveStoreIdFromHost(host, cookieStore);
     if (fromCookie) storeId = fromCookie;
   }
+  const shopMatch = pathname.match(/^\/shop\/([^/]+)\/?$/);
+  if (shopMatch) {
+    const slug = decodeURIComponent(shopMatch[1]);
+    if (!catalogueProductSlugExists(storeId, slug)) {
+      return new NextResponse("Not found", { status: 404 });
+    }
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-store-id", storeId);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
