@@ -59,7 +59,9 @@ npm run migrate:content
 npm run seed
 ```
 
-Apply `0013_shop_order_lifecycle.sql` for abandoned-checkout and shipped/delivered timestamps.
+Apply migrations through **`0014_dedupe_wildframe_store.sql`** (merges legacy `wildframe` into `fixmonger`).
+
+On Kubernetes, run `k8s/deploy/migrate-job.yaml` to completion before rolling `k8s/deploy/web-deployment.yaml`.
 
 ## Stripe webhooks
 
