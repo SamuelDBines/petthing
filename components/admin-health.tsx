@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 
 type Row = { id: string; label: string; status: string; detail?: string };
+type CronRow = { id: string; path: string; schedule: string; description: string; auth: string };
 
 export function AdminHealthPanel() {
   const [integrations, setIntegrations] = useState<Row[]>([]);
+  const [crons, setCrons] = useState<CronRow[]>([]);
   const [missing, setMissing] = useState<{ scope: string; key: string; description: string }[]>([]);
 
   useEffect(() => {
@@ -13,6 +15,7 @@ export function AdminHealthPanel() {
       .then((r) => r.json())
       .then((data) => {
         setIntegrations(data.integrations ?? []);
+        setCrons(data.crons ?? []);
         setMissing(data.goLive?.missing ?? []);
       })
       .catch(() => undefined);
@@ -30,6 +33,19 @@ export function AdminHealthPanel() {
                 {row.status}
                 {row.detail ? ` — ${row.detail}` : ""}
               </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h2 className="text-lg font-medium text-cream">Scheduled jobs</h2>
+        <p className="mt-1 text-sm text-muted">Bearer auth via CRON_SECRET. Kubernetes: k8s/cronjob/app-operations.yaml</p>
+        <ul className="mt-4 divide-y divide-line rounded-2xl border border-line">
+          {crons.map((job) => (
+            <li key={job.id} className="px-4 py-3 text-sm">
+              <p className="text-cream">{job.id}</p>
+              <p className="text-muted">{job.schedule} · {job.path}</p>
+              <p className="text-muted">{job.description} · auth {job.auth}</p>
             </li>
           ))}
         </ul>

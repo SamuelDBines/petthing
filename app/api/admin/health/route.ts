@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/adminAuth";
-import { integrationHealth } from "@/lib/integrations/health";
+import { cronJobHealth, integrationHealth } from "@/lib/integrations/health";
 import { validateGoLive } from "@/lib/go-live/requirements";
 import { jsonError } from "@/lib/http";
 
@@ -8,6 +8,7 @@ export async function GET() {
   const goLive = validateGoLive();
   return Response.json({
     integrations: integrationHealth(),
+    crons: cronJobHealth(),
     goLive,
   });
 }

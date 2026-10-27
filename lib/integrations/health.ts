@@ -1,4 +1,5 @@
 import { envPresent } from "@/lib/go-live/requirements";
+import { APP_CRON_JOBS, cronAuthStatus } from "@/lib/integrations/cron-jobs";
 
 export type IntegrationStatus = "connected" | "missing" | "test_mode" | "optional_missing";
 
@@ -87,8 +88,29 @@ export function integrationHealth(): IntegrationHealthRow[] {
     {
       id: "cron",
       label: "Cron auth",
-      status: envPresent("CRON_SECRET") ? "connected" : "missing",
+      status: cronAuthStatus(),
+      detail: `${APP_CRON_JOBS.length} HTTP jobs (see /admin/health)`,
+    },
+    {
+      id: "stripe_webhook",
+      label: "Stripe webhook",
+      status: envPresent("STRIPE_WEBHOOK_SECRET") ? "connected" : "missing",
+    },
+    {
+      id: "content_worker",
+      label: "Content worker",
+      status: envPresent("CONTENT_WORKER_SECRET") ? "connected" : "optional_missing",
+      detail: "Social queue iframe in admin",
     },
   ];
   return rows;
+}
+
+export function cronJobHealth() {
+  const auth = cronAuthStatus();
+  return APP_CRON_JOBS.map((job) => ({
+    ...job,
+    auth,
+    k8sManifest: "k8s/cronjob/app-operations.yaml",
+  }));
 }
