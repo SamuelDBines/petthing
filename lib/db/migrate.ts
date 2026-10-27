@@ -2,9 +2,15 @@ import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { openDatabase } from "@/lib/db/client";
 
+export type ApplyMigrationsOptions = {
+  /** If set, do not apply this file or any later migration (for upgrade-path tests). */
+  stopBefore?: string;
+};
+
 export async function applyMigrations(
   connectionString: string,
   migrationsDir = path.join(process.cwd(), "db", "migrations"),
+  options?: ApplyMigrationsOptions,
 ) {
   const sql = openDatabase(connectionString, 1);
   const applied: string[] = [];
@@ -18,6 +24,7 @@ export async function applyMigrations(
     `;
     const files = (await readdir(migrationsDir)).filter((file) => file.endsWith(".sql")).sort();
     for (const file of files) {
+      if (options?.stopBefore && file >= options.stopBefore) break;
       const rows = await sql<{ id: string }[]>`select id from schema_migrations where id = ${file}`;
       if (rows.length) {
         skipped.push(file);

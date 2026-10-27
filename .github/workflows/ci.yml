@@ -45,6 +45,15 @@ jobs:
       - run: npx playwright install chromium --with-deps
       - run: npm run test:e2e
 
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Next.js app image
+        run: docker build -t pawtraitry-app:ci .
+      - name: Build content-worker image
+        run: docker build -t pawtraitry-content-worker:ci ./content-worker
+
   content-worker:
     runs-on: ubuntu-latest
     defaults:
@@ -56,4 +65,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pytest -q
+      - run: python -m pytest -q

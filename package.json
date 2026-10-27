@@ -19,7 +19,7 @@
     "test:e2e:all": "playwright test"
   },
   "dependencies": {
-    "@sentry/nextjs": "^9.47.2",
+    "@sentry/nextjs": "^10.0.0",
     "@supabase/supabase-js": "^2.118.0",
     "browser-image-compression": "^2.0.2",
     "drizzle-orm": "^0.45.4",
