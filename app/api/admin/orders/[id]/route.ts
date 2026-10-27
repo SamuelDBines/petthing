@@ -3,13 +3,15 @@ import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
 import { deliverOrder, regenerateStyle, runQueue } from "@/lib/generation";
+import { submitJinglefoldPhysicalOrder } from "@/lib/jinglefold/fulfillment";
+import { withTransientRetries } from "@/lib/transientErrors";
 import { jsonError, parseBody } from "@/lib/http";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 
 const schema = z.object({
-  action: z.enum(["approve", "regenerate", "refund", "resend"]),
+  action: z.enum(["approve", "regenerate", "refund", "resend", "resubmit_partner"]),
   styleId: z.string().optional(),
 });
 
@@ -33,6 +35,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await runQueue();
   }
   if (parsed.data.action === "refund") await refundOrder(id);
+  if (parsed.data.action === "resubmit_partner") {
+    if (!order.productMeta?.personalised) return jsonError("Not a personalised physical order.");
+    try {
+      await withTransientRetries(() => submitJinglefoldPhysicalOrder(order));
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Partner submit failed", 400);
+    }
+  }
   if (parsed.data.action === "resend") {
     if (order.status !== "delivered") return jsonError("Send the email after the order is delivered.");
     const config = await loadStoreConfig(order.storeId);

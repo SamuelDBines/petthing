@@ -67,6 +67,7 @@ export type ShopOrderStatus =
   | "submitted_to_supplier"
   | "shipped"
   | "delivered"
+  | "cancelled"
   | "refunded";
 
 export type ShopOrderLine = {

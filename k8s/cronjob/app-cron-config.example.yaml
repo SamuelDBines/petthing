@@ -1,0 +1,19 @@
+# Example ConfigMap + Secret for app-operations CronJobs.
+# kubectl apply -f k8s/cronjob/app-cron-config.example.yaml  (edit values first)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-cron-config
+  namespace: production
+data:
+  APP_BASE_URL: "https://pawtraitry.co.uk"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-cron
+  namespace: production
+type: Opaque
+stringData:
+  secret: "replace-with-CRON_SECRET"

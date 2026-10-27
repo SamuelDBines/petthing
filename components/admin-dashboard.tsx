@@ -5,6 +5,7 @@ import { formatGbp } from "@/config/pricing";
 import { THEMES } from "@/config/themes";
 import { orderPipelineStatus, printSummary } from "@/lib/adminDisplay";
 import type { ShopOrder } from "@/lib/catalogue/types";
+import { AdminShopOrderPanel } from "@/components/admin-shop-order-panel";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 import type { Order, PrintOrder } from "@/lib/domain";
 
@@ -261,17 +262,6 @@ export function AdminDashboard({
     });
     const body = await response.json();
     if (!response.ok) setError(body.error || "Action failed");
-    await load();
-  }
-
-  async function actShop(id: string, action: "refund_full" | "refund_partial", amountPence?: number) {
-    const response = await fetch(`/api/admin/shop-orders/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, amountPence }),
-    });
-    const body = await response.json();
-    if (!response.ok) setError(body.error || "Refund failed");
     await load();
   }
 
@@ -561,6 +551,9 @@ export function AdminDashboard({
                       </select>
                       <button className="block" type="button" onClick={() => act(order.id, "regenerate", styleId[order.id] || order.styleIds[0])}>Regenerate style</button>
                       <button className="block" type="button" onClick={() => act(order.id, "resend")}>Resend email</button>
+                      {order.productMeta?.personalised && !order.partnerFulfillment?.externalOrderId ? (
+                        <button className="block" type="button" onClick={() => act(order.id, "resubmit_partner")}>Resubmit Prodigi/Printful</button>
+                      ) : null}
                       <button className="block" type="button" onClick={() => act(order.id, "refund")}>Refund</button>
                       {order.status === "delivered" ? <a className="block" href={`/results/${order.resultsToken}`}>Gallery</a> : null}
                     </td>
@@ -581,13 +574,19 @@ export function AdminDashboard({
                       {showStoreColumn ? <td className="py-2">{storeLabel(order.storeId)}</td> : null}
                       <td className="py-2">{new Date(order.createdAt).toLocaleString("en-GB")}</td>
                       <td>{order.email}</td>
-                      <td>{order.status}{order.trackingNumber ? <span className="block text-cream/60">Track: {order.trackingNumber}</span> : null}</td>
+                      <td>
+                        {order.status}
+                        {order.fulfillmentError ? <span className="block text-red-300">{order.fulfillmentError}</span> : null}
+                        {order.trackingNumber ? <span className="block text-cream/60">Track: {order.trackingNumber}</span> : null}
+                      </td>
                       <td>{order.lines.map((l) => `${l.name}×${l.quantity}`).join(", ")}</td>
                       <td>{formatGbp(order.amountPence)}{(order.amountRefundedPence ?? 0) > 0 ? <span className="block text-cream/60">Refunded {formatGbp(order.amountRefundedPence ?? 0)}</span> : null}</td>
-                      <td className="py-2 space-y-1">
-                        {order.status !== "refunded" && order.status !== "pending_payment" ? (
-                          <button type="button" className="block text-sm" onClick={() => actShop(order.id, "refund_full")}>Full refund</button>
-                        ) : null}
+                      <td className="py-2">
+                        <AdminShopOrderPanel
+                          order={order}
+                          onError={(message) => setError(message)}
+                          onUpdated={() => load()}
+                        />
                       </td>
                     </tr>
                   ))}
