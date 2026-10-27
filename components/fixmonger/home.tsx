@@ -16,7 +16,7 @@ import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 
 const FAQ: [string, string][] = [
   ["Where do you ship from?", "Ready-made items ship from our UK dropship partner — typically 3–5 working days."],
-  ["When is delivery free?", `Free UK delivery on orders over ${formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.`],
+  ["When is delivery free?", `Free UK delivery on orders of ${formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)} or more.`],
   ["Can I return something?", "Unused items in original packaging — see Returns & refunds for details."],
   ["Are bundle savings real?", "Compare-at prices are the sum of parts — no invented was prices."],
 ];
@@ -38,8 +38,8 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
           <p className="text-sm font-semibold uppercase tracking-widest text-pumpkin">Fixmonger</p>
           <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Cheap fixes for proper British weather.</h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
-            Frost covers, draught curtains, and shed essentials — no electric, no nonsense. Free UK delivery over{" "}
-            {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)}.
+            Frost covers, draught curtains, and shed essentials — no electric, no nonsense. Free UK delivery on orders of{" "}
+            {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)} or more.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="#door" className="min-h-12 rounded-full bg-pumpkin px-6 text-sm font-semibold text-white inline-flex items-center">

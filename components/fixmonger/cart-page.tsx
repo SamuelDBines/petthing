@@ -85,7 +85,7 @@ export function FixmongerCartPage({
             {shippingPence > 0 ? (
               <>
                 <br />
-                <span>Free delivery over {formatGbp(freeOver)}</span>
+                <span>Free delivery on orders of {formatGbp(freeOver)} or more</span>
               </>
             ) : null}
           </p>

@@ -45,8 +45,8 @@ export function JinglefoldHome({ decor }: { decor: StorefrontCatalogueProduct[] 
           <p className="text-sm font-semibold uppercase tracking-widest text-gold">Jinglefold</p>
           <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Personalised Christmas, folded into your home.</h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
-            Upload a photo for ornaments and stockings, or shop ready-made UK decor. Free delivery over{" "}
-            {formatGbp(JINGLEFOLD_DELIVERY.freeDeliveryOverPence)}.
+            Upload a photo for ornaments and stockings, or shop ready-made UK decor. Free delivery on orders of{" "}
+            {formatGbp(JINGLEFOLD_DELIVERY.freeDeliveryOverPence)} or more.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="#personalised" className="inline-flex min-h-12 items-center rounded-full bg-pumpkin px-6 text-sm font-semibold text-white">
