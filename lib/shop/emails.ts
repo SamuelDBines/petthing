@@ -111,20 +111,35 @@ export async function sendShopAbandonedCheckoutEmail(order: ShopOrder) {
   });
 }
 
-export async function sendShopOrderCancelledEmail(order: ShopOrder, refunded: boolean) {
+export async function sendShopOrderCancelledEmail(
+  order: ShopOrder,
+  refunded: boolean,
+  options?: { supplierCancelRequested?: boolean },
+) {
   const { config } = await storeMailContext(order.storeId);
   const refundNote = refunded
     ? "<p>Any payment taken has been refunded to your original payment method.</p>"
-    : "<p>No payment was taken for this order.</p>";
+    : refundableNote(order);
+  const supplierNote = options?.supplierCancelRequested
+    ? `<p>Your order had already been sent to our supplier. We have requested that they cancel fulfilment. If you still receive a parcel, please contact <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a>.</p>`
+    : "";
   await sendEmail({
     to: order.email,
     subject: `Order cancelled — ${config.brand.appName}`,
     html: `
       <p>Your ${config.brand.appName} order has been cancelled.</p>
+      ${supplierNote}
       ${refundNote}
       <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
     `,
   });
+}
+
+function refundableNote(order: ShopOrder) {
+  if (order.paidAt && (order.amountRefundedPence ?? 0) < order.amountPence) {
+    return "<p>Your payment is being refunded separately — watch for a refund confirmation email.</p>";
+  }
+  return "<p>No payment was taken for this order.</p>";
 }
 
 export async function sendShopRefundEmail(order: ShopOrder, amountPence: number) {

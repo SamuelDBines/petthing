@@ -29,6 +29,9 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     dispatchedEmailSentAt: row.dispatched_email_sent_at
       ? new Date(row.dispatched_email_sent_at as string).toISOString()
       : null,
+    supplierCancelRequestedAt: row.supplier_cancel_requested_at
+      ? new Date(row.supplier_cancel_requested_at as string).toISOString()
+      : null,
     createdAt: new Date(row.created_at as string).toISOString(),
     paidAt: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
   };
@@ -78,6 +81,7 @@ export const shopDbMethods = {
         delivered_at = ${next.deliveredAt ?? null},
         fulfillment_error = ${next.fulfillmentError ?? null},
         dispatched_email_sent_at = ${next.dispatchedEmailSentAt ?? null},
+        supplier_cancel_requested_at = ${next.supplierCancelRequestedAt ?? null},
         paid_at = ${next.paidAt}
       where id = ${id}::uuid
     `;

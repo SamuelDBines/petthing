@@ -68,7 +68,9 @@ test("0010 migration applies on DB stopped at 0009 (staging upgrade path)", { sk
       await sql.end({ timeout: 5 });
     }
 
-    const second = await applyMigrations(testUrl);
+    const second = await applyMigrations(testUrl, undefined, {
+      stopBefore: "0011_production_fulfillment_gpsr.sql",
+    });
     assert.ok(second.applied.includes(stopBefore));
 
     const sql2 = postgres(testUrl, { max: 1 });

@@ -82,6 +82,9 @@ export function AdminShopOrderPanel({
           {order.supplierBatchId ? (
             <p className="text-cream/60">Supplier batch: {order.supplierBatchId.slice(0, 8)}</p>
           ) : null}
+          {order.supplierCancelRequestedAt ? (
+            <p className="text-amber-200">Cancel requested from supplier — chase Go Dropship</p>
+          ) : null}
           {order.shippedAt ? <p className="text-cream/60">Shipped {new Date(order.shippedAt).toLocaleString("en-GB")}</p> : null}
           {order.deliveredAt ? <p className="text-cream/60">Delivered {new Date(order.deliveredAt).toLocaleString("en-GB")}</p> : null}
 
@@ -120,21 +123,37 @@ export function AdminShopOrderPanel({
                 Resubmit to Go Dropship
               </button>
             ) : null}
-            {order.status !== "refunded" && order.status !== "cancelled" && order.status !== "shipped" && order.status !== "delivered" ? (
+            {order.status !== "refunded" && order.status !== "cancelled" && order.status !== "delivered" ? (
               <button
                 type="button"
                 className="block"
                 onClick={() => {
-                  const refund = order.status === "paid";
+                  const paidLike =
+                    order.status === "paid" ||
+                    order.status === "submitted_to_supplier" ||
+                    order.status === "shipped";
+                  const supplierNote =
+                    order.status === "submitted_to_supplier" || order.supplierBatchId
+                      ? " We will flag a supplier cancellation request."
+                      : "";
+                  const shippedNote =
+                    order.status === "shipped"
+                      ? " This order has already shipped — only cancel if you accept return logistics."
+                      : "";
                   const ok = window.confirm(
-                    refund
-                      ? "Cancel this order and refund the customer?"
-                      : "Cancel this unpaid checkout?",
+                    order.status === "pending_payment"
+                      ? "Cancel this unpaid checkout?"
+                      : `Cancel and refund this order?${supplierNote}${shippedNote}`,
                   );
-                  if (ok) void post({ action: "cancel", refund });
+                  if (!ok) return;
+                  void post({
+                    action: "cancel",
+                    refund: order.status !== "pending_payment",
+                    confirmShippedCancel: order.status === "shipped",
+                  });
                 }}
               >
-                Cancel{order.status === "paid" ? " + refund" : ""}
+                Cancel{order.status === "pending_payment" ? "" : " + refund"}
               </button>
             ) : null}
             {order.status !== "refunded" && order.status !== "pending_payment" ? (

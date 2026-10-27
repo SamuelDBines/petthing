@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
-import { cancelShopOrder, canEditShopShipping } from "../lib/shop/admin-order-actions";
+import {
+  cancelShopOrder,
+  canEditShopShipping,
+  shopOrderRefundablePence,
+} from "../lib/shop/admin-order-actions";
 
 test("canEditShopShipping allows paid and submitted", () => {
   assert.equal(canEditShopShipping({ status: "paid" } as never), true);
@@ -9,7 +13,7 @@ test("canEditShopShipping allows paid and submitted", () => {
   assert.equal(canEditShopShipping({ status: "shipped" } as never), false);
 });
 
-test("cancelShopOrder rejects shipped orders", async () => {
+test("cancelShopOrder rejects shipped orders without confirm flag", async () => {
   const { getStore } = await import("../lib/store");
   const store = getStore();
   const id = randomUUID();
@@ -28,7 +32,45 @@ test("cancelShopOrder rejects shipped orders", async () => {
     createdAt: new Date().toISOString(),
     paidAt: new Date().toISOString(),
   });
-  await assert.rejects(() => cancelShopOrder(id), /Cannot cancel after dispatch/);
+  await assert.rejects(() => cancelShopOrder(id), /confirmShippedCancel/);
+});
+
+test("shopOrderRefundablePence includes submitted_to_supplier", () => {
+  const pence = shopOrderRefundablePence({
+    status: "submitted_to_supplier",
+    paidAt: new Date().toISOString(),
+    amountPence: 2500,
+    amountRefundedPence: 0,
+  } as never);
+  assert.equal(pence, 2500);
+});
+
+test("cancelShopOrder refunds submitted_to_supplier and flags supplier cancel", async () => {
+  const { getStore } = await import("../lib/store");
+  const store = getStore();
+  const id = randomUUID();
+  const batchId = randomUUID();
+  await store.createShopOrder({
+    id,
+    storeId: "fixmonger",
+    email: "submitted-cancel@example.com",
+    status: "submitted_to_supplier",
+    lines: [],
+    shipping: null,
+    amountPence: 3200,
+    shippingPence: 0,
+    stripeCheckoutSessionId: "sess_test",
+    stripePaymentIntentId: "demo_test_intent",
+    trackingNumber: null,
+    supplierBatchId: batchId,
+    createdAt: new Date().toISOString(),
+    paidAt: new Date().toISOString(),
+  });
+  const updated = await cancelShopOrder(id);
+  assert.ok(updated);
+  assert.equal(updated.status, "refunded");
+  assert.equal(updated.amountRefundedPence, 3200);
+  assert.ok(updated.supplierCancelRequestedAt);
 });
 
 test("cancelShopOrder cancels pending checkout without refund", async () => {

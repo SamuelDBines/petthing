@@ -107,6 +107,7 @@ export type ShopOrder = {
   deliveredAt?: string | null;
   fulfillmentError?: string | null;
   dispatchedEmailSentAt?: string | null;
+  supplierCancelRequestedAt?: string | null;
   createdAt: string;
   paidAt: string | null;
 };

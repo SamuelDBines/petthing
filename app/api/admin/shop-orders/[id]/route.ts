@@ -23,6 +23,7 @@ const postSchema = z.object({
   ]),
   amountPence: z.number().int().positive().optional(),
   refund: z.boolean().optional(),
+  confirmShippedCancel: z.boolean().optional(),
   emailKind: z
     .enum(["confirmation", "submitted", "dispatched", "delivered", "review"])
     .optional(),
@@ -59,7 +60,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (!parsed.data.amountPence) return jsonError("amountPence required for partial refund.");
       await refundShopOrder(id, parsed.data.amountPence);
     } else if (parsed.data.action === "cancel") {
-      await cancelShopOrder(id, { refund: parsed.data.refund ?? true });
+      await cancelShopOrder(id, {
+        refund: parsed.data.refund ?? true,
+        confirmShippedCancel: parsed.data.confirmShippedCancel ?? false,
+      });
     } else if (parsed.data.action === "resubmit") {
       await resubmitShopOrder(id);
     } else if (parsed.data.action === "resend_email") {

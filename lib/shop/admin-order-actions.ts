@@ -22,27 +22,64 @@ export type ShopCustomerEmailKind =
   | "delivered"
   | "review";
 
-export async function cancelShopOrder(orderId: string, options?: { refund?: boolean }) {
+export function shopOrderRefundablePence(order: ShopOrder) {
+  if (!order.paidAt || order.status === "pending_payment") return 0;
+  if (order.status === "refunded" || order.status === "cancelled") return 0;
+  return Math.max(0, order.amountPence - (order.amountRefundedPence ?? 0));
+}
+
+export function shopOrderNeedsSupplierCancelRequest(order: ShopOrder) {
+  return (
+    order.status === "submitted_to_supplier" ||
+    order.status === "shipped" ||
+    Boolean(order.supplierBatchId)
+  );
+}
+
+export async function cancelShopOrder(
+  orderId: string,
+  options?: { refund?: boolean; confirmShippedCancel?: boolean },
+) {
   const store = getStore();
   const order = await store.getShopOrder(orderId);
   if (!order) throw new Error("Shop order not found");
   if (order.status === "refunded" || order.status === "cancelled") {
     throw new Error("Order is already closed");
   }
-  if (order.status === "shipped" || order.status === "delivered") {
-    throw new Error("Cannot cancel after dispatch — issue a refund instead");
+  if (order.status === "delivered") {
+    throw new Error("Cannot cancel a delivered order — issue a refund instead");
   }
+  if (order.status === "shipped" && !options?.confirmShippedCancel) {
+    throw new Error("Order has shipped — pass confirmShippedCancel to cancel and refund");
+  }
+
   const shouldRefund = options?.refund ?? true;
+  const refundable = shopOrderRefundablePence(order);
+  const supplierCancel = shopOrderNeedsSupplierCancelRequest(order);
+  const now = new Date().toISOString();
+
   let refunded = false;
-  if (order.status === "paid" && shouldRefund) {
-    await refundShopOrder(orderId);
+  let updated = order;
+
+  if (shouldRefund && refundable > 0) {
+    updated = (await refundShopOrder(orderId)) ?? updated;
     refunded = true;
-    const fresh = await store.getShopOrder(orderId);
-    if (fresh) await sendShopOrderCancelledEmail(fresh, true);
-    return fresh;
   }
-  const updated = await store.updateShopOrder(orderId, { status: "cancelled", fulfillmentError: null });
-  await sendShopOrderCancelledEmail(updated, refunded);
+
+  const patch: Partial<ShopOrder> = { fulfillmentError: null };
+  if (supplierCancel) patch.supplierCancelRequestedAt = now;
+  if (updated.status !== "refunded") patch.status = "cancelled";
+
+  updated = await store.updateShopOrder(orderId, patch);
+
+  await sendShopOrderCancelledEmail(updated, refunded, { supplierCancelRequested: supplierCancel });
+  if (supplierCancel) {
+    await alertAdmin(
+      "Supplier cancellation requested",
+      `<p>Shop order <code>${orderId}</code> was cancelled after supplier submission. Request cancellation from Go Dropship (batch ${order.supplierBatchId ?? "unknown"}).</p>`,
+      order.storeId,
+    );
+  }
   return updated;
 }
 

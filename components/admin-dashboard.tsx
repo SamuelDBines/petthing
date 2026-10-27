@@ -577,6 +577,9 @@ export function AdminDashboard({
                       <td>
                         {order.status}
                         {order.fulfillmentError ? <span className="block text-red-300">{order.fulfillmentError}</span> : null}
+                        {order.supplierCancelRequestedAt ? (
+                          <span className="block text-amber-200">Supplier cancel requested</span>
+                        ) : null}
                         {order.trackingNumber ? <span className="block text-cream/60">Track: {order.trackingNumber}</span> : null}
                       </td>
                       <td>{order.lines.map((l) => `${l.name}×${l.quantity}`).join(", ")}</td>
