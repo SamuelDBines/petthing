@@ -15,6 +15,6 @@ function activeSlugSet(storeId: string): Set<string> | null {
 /** Edge-safe catalogue PDP slug check (seed truth; DB overrides may differ until revalidate). */
 export function catalogueProductSlugExists(storeId: string, slug: string) {
   const set = activeSlugSet(storeId);
-  if (!set) return true;
+  if (!set) return false;
   return set.has(slug);
 }

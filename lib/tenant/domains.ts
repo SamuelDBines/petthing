@@ -49,12 +49,13 @@ export function resolveStoreIdFromHostList(
   storeQuery?: string | null,
   dbRows?: { id: string; domains: string[] }[],
 ) {
-  if (process.env.NODE_ENV !== "production" && storeQuery) {
+  const hostname = normalizeHost(host);
+  const localhostHost = hostname === "localhost" || hostname === "127.0.0.1";
+  if (storeQuery && (process.env.NODE_ENV !== "production" || localhostHost)) {
     const query = storeQuery.trim() === "wildframe" ? "fixmonger" : storeQuery.trim();
     const fromQuery = builtinStore(query);
     if (fromQuery) return fromQuery.id;
   }
-  const hostname = normalizeHost(host);
   const candidates = BUILTIN_STORES.map((store) => {
     const rowDomains = dbRows?.find((row) => row.id === store.id)?.domains ?? [];
     return { id: store.id, domains: domainsForStore(store.id, rowDomains) };

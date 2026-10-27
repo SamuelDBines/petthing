@@ -51,5 +51,6 @@ test("cancelShopOrder cancels pending checkout without refund", async () => {
     paidAt: null,
   });
   const updated = await cancelShopOrder(id, { refund: false });
+  assert.ok(updated);
   assert.equal(updated.status, "cancelled");
 });
