@@ -103,6 +103,8 @@ def api_list_queue(
                 "media_path": i.media_path,
                 "created_at": i.created_at.isoformat() if i.created_at else None,
                 "platform_payloads": i.platform_payloads,
+                "store_id": i.store_id,
+                "metadata": i.metadata_ or {},
             }
             for i in items
         ]

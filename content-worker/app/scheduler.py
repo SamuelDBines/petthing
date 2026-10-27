@@ -43,7 +43,7 @@ def start_scheduler(settings: Settings) -> AsyncIOScheduler | None:
         init_db()
         db = SessionLocal()
         try:
-            for store_id in ("fixmonger", "jinglefold"):
+            for store_id in ("pawtraitry", "fixmonger", "jinglefold"):
                 result = await generate_store_catalog_post(db, settings, store_id)
                 logger.info("Store catalog post: %s", result)
         finally:
@@ -51,6 +51,6 @@ def start_scheduler(settings: Settings) -> AsyncIOScheduler | None:
 
     scheduler.add_job(daily_job, CronTrigger.from_crontab(settings.daily_plan_cron))
     scheduler.add_job(poll_job, CronTrigger.from_crontab(settings.poll_plan_cron))
-    scheduler.add_job(catalog_stores_job, CronTrigger.from_crontab("0 9 * * 1"))
+    scheduler.add_job(catalog_stores_job, CronTrigger.from_crontab(settings.store_promo_cron))
     scheduler.start()
     return scheduler

@@ -13,6 +13,7 @@ from app.db.models import ContentKind, QueueStatus
 from app.queue.service import create_queue_item
 
 STORE_HOOKS = {
+    "pawtraitry": "Custom pet portraits with a human review — digital delivery and UK prints.",
     "fixmonger": "British winter fixes that actually work — frost covers, draught curtains, honest kits.",
     "jinglefold": "Personalised Christmas decor with a preview before you pay — baubles, stockings, tree bundles.",
 }
