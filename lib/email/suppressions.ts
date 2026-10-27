@@ -22,7 +22,7 @@ export async function isEmailSuppressed(email: string) {
 export async function suppressEmail(email: string, reason: string, detail?: string) {
   const key = normalize(email);
   memory.add(key);
-  if (!(await usePostgres())) {
+  if (!postgresEmailSuppressionsEnabled()) {
     const { mkdir, appendFile } = await import("fs/promises");
     const dir = localDataPath("email-suppressions");
     await mkdir(dir, { recursive: true });
