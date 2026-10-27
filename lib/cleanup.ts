@@ -1,4 +1,5 @@
 import { deleteBlob } from "@/lib/blobs";
+import { expireStaleShopCheckouts } from "@/lib/shop/checkout-expiry";
 import { getStore } from "@/lib/store";
 
 const TWO_DAYS = 48 * 60 * 60 * 1000;
@@ -37,5 +38,6 @@ export async function cleanupExpired() {
       touched += 1;
     }
   }
-  return { touched };
+  const shopExpired = await expireStaleShopCheckouts();
+  return { touched, shopExpired };
 }

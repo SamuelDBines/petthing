@@ -21,6 +21,10 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
     await fulfillCheckoutSession(event.data.object);
   }
+  if (event.type === "checkout.session.expired") {
+    const { handleCheckoutSessionExpired } = await import("@/lib/shop/checkout-expiry");
+    await handleCheckoutSessionExpired(event.data.object);
+  }
   if (event.type === "checkout.session.async_payment_failed") {
     await noteFailedPayment(event.data.object);
   }
