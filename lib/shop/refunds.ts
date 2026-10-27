@@ -1,4 +1,5 @@
 import type { ShopOrder } from "@/lib/catalogue/types";
+import { sendShopRefundEmail } from "@/lib/shop/emails";
 import { getStripe } from "@/lib/stripe";
 import { getStore } from "@/lib/store";
 
@@ -30,5 +31,7 @@ export async function refundShopOrder(orderId: string, amountPence?: number) {
     amountRefundedPence: totalRefunded,
     status: full ? "refunded" : order.status,
   });
-  return store.getShopOrder(order.id);
+  const updated = await store.getShopOrder(order.id);
+  if (updated) await sendShopRefundEmail(updated, refundPence);
+  return updated;
 }

@@ -18,6 +18,13 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     amountRefundedPence: Number(row.amount_refunded_pence ?? 0),
     trackingNumber: row.tracking_number ? String(row.tracking_number) : null,
     supplierBatchId: row.supplier_batch_id ? String(row.supplier_batch_id) : null,
+    marketingConsent: Boolean(row.marketing_consent),
+    abandonedReminderSentAt: row.abandoned_reminder_sent_at
+      ? new Date(row.abandoned_reminder_sent_at as string).toISOString()
+      : null,
+    shippedAt: row.shipped_at ? new Date(row.shipped_at as string).toISOString() : null,
+    deliveredAt: row.delivered_at ? new Date(row.delivered_at as string).toISOString() : null,
+    fulfillmentError: row.fulfillment_error ? String(row.fulfillment_error) : null,
     createdAt: new Date(row.created_at as string).toISOString(),
     paidAt: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
   };
@@ -26,12 +33,16 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
 export const shopDbMethods = {
   async createShopOrder(order: ShopOrder) {
     await getSql()`
-      insert into shop_orders (id, store_id, email, status, lines, shipping, amount_pence, shipping_pence, stripe_checkout_session_id, stripe_payment_intent_id, amount_refunded_pence, created_at, paid_at)
+      insert into shop_orders (
+        id, store_id, email, status, lines, shipping, amount_pence, shipping_pence,
+        stripe_checkout_session_id, stripe_payment_intent_id, amount_refunded_pence,
+        marketing_consent, created_at, paid_at
+      )
       values (
         ${order.id}::uuid, ${order.storeId}, ${order.email}, ${order.status}, ${JSON.stringify(order.lines)}::jsonb,
         ${order.shipping ? JSON.stringify(order.shipping) : null}::jsonb,
         ${order.amountPence}, ${order.shippingPence}, ${order.stripeCheckoutSessionId}, ${order.stripePaymentIntentId ?? null},
-        ${order.amountRefundedPence ?? 0}, ${order.createdAt}, ${order.paidAt}
+        ${order.amountRefundedPence ?? 0}, ${order.marketingConsent ?? false}, ${order.createdAt}, ${order.paidAt}
       )
     `;
     return order;
@@ -57,6 +68,11 @@ export const shopDbMethods = {
         amount_refunded_pence = ${next.amountRefundedPence ?? 0},
         tracking_number = ${next.trackingNumber},
         supplier_batch_id = ${next.supplierBatchId},
+        marketing_consent = ${next.marketingConsent ?? false},
+        abandoned_reminder_sent_at = ${next.abandonedReminderSentAt ?? null},
+        shipped_at = ${next.shippedAt ?? null},
+        delivered_at = ${next.deliveredAt ?? null},
+        fulfillment_error = ${next.fulfillmentError ?? null},
         paid_at = ${next.paidAt}
       where id = ${id}::uuid
     `;

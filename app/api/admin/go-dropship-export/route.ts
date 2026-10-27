@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { requireAdminPost } from "@/lib/adminAuth";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { buildGoDropshipCsv } from "@/lib/suppliers/goDropship";
-import { listPaidGoDropshipOrders, notifyShopOrderDispatched } from "@/lib/shop/fulfillment";
+import { listPaidGoDropshipOrders } from "@/lib/shop/fulfillment";
+import { sendShopOrderSubmittedToSupplierEmail } from "@/lib/shop/emails";
 import { jsonError } from "@/lib/http";
 import { getStore } from "@/lib/store";
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   for (const order of orders) {
     await store.updateShopOrder(order.id, { supplierBatchId: batch.id, status: "submitted_to_supplier" });
     const updated = await store.getShopOrder(order.id);
-    if (updated) await notifyShopOrderDispatched(updated);
+    if (updated) await sendShopOrderSubmittedToSupplierEmail(updated);
   }
   return Response.json({ batchId: batch.id, csv, orderCount: orders.length });
 }

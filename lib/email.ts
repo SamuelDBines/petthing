@@ -3,7 +3,12 @@ import path from "path";
 import { AI_GENERATED_LABEL, APP_NAME, DIGITAL_SUPPLY_CONSENT_LABEL, siteUrl } from "@/config/brand";
 import { localDataPath } from "@/lib/localPaths";
 
-type Message = { to: string; subject: string; html: string };
+type Message = {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: { filename: string; content: Buffer }[];
+};
 
 export async function sendEmail(message: Message) {
   const dir = localDataPath("outbox");
@@ -22,6 +27,10 @@ export async function sendEmail(message: Message) {
     to: message.to,
     subject: message.subject,
     html: message.html,
+    attachments: message.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+    })),
   });
   if (error) throw new Error(error.message);
   return { sent: true as const };

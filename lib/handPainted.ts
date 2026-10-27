@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { HAND_PAINTED_DELIVERY_DAYS, isHandPaintedTierId, type HandPaintedStatus } from "@/config/paintings";
 import type { Order } from "@/lib/domain";
 import { signedBlobUrl } from "@/lib/blobs";
+import { alertAdmin, sendEmail } from "@/lib/email";
 import { getStore } from "@/lib/store";
 
 export function handPaintedSizeLabel(tierId: string) {
@@ -67,6 +68,21 @@ export async function createHandPaintedWorkflow(order: Order, brandName: string)
     createdAt: now,
     updatedAt: now,
   });
+
+  const supplierTo = process.env.ARTINBULK_ORDERS_EMAIL?.trim();
+  if (supplierTo) {
+    await sendEmail({
+      to: supplierTo,
+      subject: `Hand-painted order ${order.id.slice(0, 8)} — ${brandName}`,
+      html: `<pre style="white-space:pre-wrap;font-family:system-ui,sans-serif">${draft}</pre>`,
+    });
+  } else {
+    await alertAdmin(
+      "Hand-painted order awaiting supplier email",
+      `<p>Set ARTINBULK_ORDERS_EMAIL to automate supplier hand-off.</p><pre>${draft}</pre>`,
+      order.storeId,
+    );
+  }
 }
 
 export type HandPaintedOrderRow = {

@@ -16,7 +16,8 @@
     "db:setup": "npm run migrate && npm run migrate:content && npm run seed",
     "test:e2e": "playwright test --grep-invert @stripe",
     "test:e2e:stripe": "E2E_STRIPE=1 playwright test --grep @stripe",
-    "test:e2e:all": "playwright test"
+    "test:e2e:all": "playwright test",
+    "validate:go-live": "tsx scripts/validate-go-live.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.0.0",

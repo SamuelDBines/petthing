@@ -2,6 +2,10 @@
   "crons": [
     { "path": "/api/cron/generate", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/cleanup", "schedule": "20 3 * * *" },
-    { "path": "/api/cron/partner-fulfillment", "schedule": "0 */6 * * *" }
+    { "path": "/api/cron/partner-fulfillment", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/shop-fulfillment", "schedule": "15 * * * *" },
+    { "path": "/api/cron/order-watchdog", "schedule": "30 */4 * * *" },
+    { "path": "/api/cron/abandoned-basket", "schedule": "0 */2 * * *" },
+    { "path": "/api/cron/admin-digest", "schedule": "0 7 * * *" }
   ]
 }

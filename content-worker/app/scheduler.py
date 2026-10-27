@@ -10,6 +10,7 @@ from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.planner.daily import generate_pet_of_day
 from app.planner.poll import generate_style_poll
+from app.planner.store_posts import generate_store_catalog_post
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,18 @@ def start_scheduler(settings: Settings) -> AsyncIOScheduler | None:
         finally:
             db.close()
 
+    async def catalog_stores_job() -> None:
+        init_db()
+        db = SessionLocal()
+        try:
+            for store_id in ("fixmonger", "jinglefold"):
+                result = await generate_store_catalog_post(db, settings, store_id)
+                logger.info("Store catalog post: %s", result)
+        finally:
+            db.close()
+
     scheduler.add_job(daily_job, CronTrigger.from_crontab(settings.daily_plan_cron))
     scheduler.add_job(poll_job, CronTrigger.from_crontab(settings.poll_plan_cron))
+    scheduler.add_job(catalog_stores_job, CronTrigger.from_crontab("0 9 * * 1"))
     scheduler.start()
     return scheduler

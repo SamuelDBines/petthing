@@ -20,6 +20,7 @@ import type Stripe from "stripe";
 const schema = z.object({
   email: z.string().email(),
   lines: z.array(z.object({ productId: z.string(), quantity: z.number().int().min(1).max(20) })).min(1),
+  marketingConsent: z.boolean().optional(),
 });
 
 async function openSession(args: {
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
     stripeCheckoutSessionId: null,
     trackingNumber: null,
     supplierBatchId: null,
+    marketingConsent: parsed.data.marketingConsent ?? false,
     createdAt: new Date().toISOString(),
     paidAt: null,
   };

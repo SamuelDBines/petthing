@@ -11,10 +11,13 @@ export const instant = false;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const storeId = await requestStoreId();
+  const config = await loadStoreConfig(storeId);
+  if (config.storeType !== "christmas" && config.storeType !== "catalogue") {
+    return { title: "Not found" };
+  }
   const { slug } = await params;
   const product = await getCatalogueProduct(storeId, slug);
-  if (!product) return {};
-  const config = await loadStoreConfig(storeId);
+  if (!product || !product.active) notFound();
   return {
     title: product.name,
     description: product.benefitLine ?? product.description,

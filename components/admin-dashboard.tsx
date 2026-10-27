@@ -337,6 +337,7 @@ export function AdminDashboard({
           >
             Sign out
           </button>
+          <a className="mt-1 block text-sm text-cream/60 underline" href="/admin/health">Integration health</a>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm" data-testid="admin-store-switcher">

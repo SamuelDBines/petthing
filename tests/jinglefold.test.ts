@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { JINGLEFOLD_BUNDLE_COMPONENTS } from "../config/catalogue/jinglefold-bundles";
 import { JINGLEFOLD_DECOR_PRODUCTS } from "../config/catalogue/jinglefold-seed";
 import { jinglefoldShippingPence } from "../config/jinglefold";
 
@@ -9,6 +10,11 @@ test("Jinglefold decor excludes DROP and solar SKUs", () => {
   assert.equal(skus.includes("EPG-75516"), false);
   assert.equal(skus.includes("HB-76392"), false);
   assert.ok(skus.includes("XM-KIT-TREE"));
+});
+
+test("XM-KIT-TREE bundle includes glitter reindeer SKU", () => {
+  const parts = JINGLEFOLD_BUNDLE_COMPONENTS["XM-KIT-TREE"]?.map((c) => c.supplierSku) ?? [];
+  assert.deepEqual(parts.sort(), ["GEM-76745", "GEM-76752", "GEM-76758"]);
 });
 
 test("Jinglefold shipping free from £30", () => {

@@ -100,6 +100,11 @@ export type ShopOrder = {
   amountRefundedPence?: number;
   trackingNumber: string | null;
   supplierBatchId: string | null;
+  marketingConsent?: boolean;
+  abandonedReminderSentAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  fulfillmentError?: string | null;
   createdAt: string;
   paidAt: string | null;
 };

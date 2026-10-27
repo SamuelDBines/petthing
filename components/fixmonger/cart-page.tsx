@@ -18,6 +18,7 @@ export function FixmongerCartPage({
 }) {
   const [lines, setLines] = useState<ShopCartLine[]>([]);
   const [email, setEmail] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,7 +46,7 @@ export function FixmongerCartPage({
     const response = await fetch("/api/shop/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, lines }),
+      body: JSON.stringify({ email, lines, marketingConsent }),
     });
     const body = await response.json().catch(() => ({}));
     setBusy(false);
@@ -98,6 +99,18 @@ export function FixmongerCartPage({
               onChange={(e) => setEmail(e.target.value)}
               data-testid="fixmonger-checkout-email"
             />
+          </label>
+          <label className="mt-4 flex items-start gap-2 text-sm text-[var(--moss)]">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={marketingConsent}
+              onChange={(e) => setMarketingConsent(e.target.checked)}
+              data-testid="shop-marketing-consent"
+            />
+            <span>
+              Email me about items left in my basket and occasional offers (optional). You can unsubscribe any time.
+            </span>
           </label>
           {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
           <button

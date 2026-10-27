@@ -10,6 +10,7 @@ import { fetchProdigiOrder, submitMerchandiseOrder } from "@/lib/prodigi";
 import { fetchPrintfulOrder, submitPrintfulOrder } from "@/lib/printful";
 import { orderPublicUrls } from "@/lib/generation";
 import { loadStoreConfig } from "@/lib/tenant/context";
+import { withTransientRetries } from "@/lib/transientErrors";
 import { getStore } from "@/lib/store";
 
 export type PartnerFulfillment = {
@@ -54,12 +55,14 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
   try {
     if (product.supplier === "printful") {
       const variantId = printfulVariantForPricingSku(pricingSku);
-      const result = await submitPrintfulOrder({
+      const result = await withTransientRetries(() =>
+        submitPrintfulOrder({
         variantId,
         shipping,
         imageUrl,
         externalId: order.id,
-      });
+      }),
+      );
       partner = {
         provider: "printful",
         externalOrderId: result.printfulOrderId,
@@ -69,14 +72,16 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
     } else {
       const sku = prodigiSkuForPricingSku(pricingSku);
       const copies = pricingSku === "XMAS-PLAS-BAUB-3" ? 3 : 1;
-      const result = await submitMerchandiseOrder({
-        sku,
-        shipping,
-        assetUrl: imageUrl,
-        printArea: PRODIGI_PRINT_AREA,
-        merchantReference: order.id,
-        copies,
-      });
+      const result = await withTransientRetries(() =>
+        submitMerchandiseOrder({
+          sku,
+          shipping,
+          assetUrl: imageUrl,
+          printArea: PRODIGI_PRINT_AREA,
+          merchantReference: order.id,
+          copies,
+        }),
+      );
       partner = {
         provider: "prodigi",
         externalOrderId: result.prodigiOrderId,
