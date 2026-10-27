@@ -31,7 +31,7 @@ Per-store domains and Stripe branding are configured in the admin **Stores** tab
 
 Schedule these with Vercel crons (`vercel.json`) or Kubernetes manifests under `k8s/cronjob/`.
 
-For Kubernetes, create ConfigMap `app-cron-config` with `APP_BASE_URL` (canonical site URL) and Secret `app-cron` with key `secret` = `CRON_SECRET`.
+For Kubernetes, create ConfigMap `app-cron-config` with `APP_BASE_URL` and Secret `app-cron` with key `CRON_SECRET`. Shop-only crons are in `k8s/cronjob/app-operations.yaml` (generate/cleanup/partner jobs stay in the main overlay).
 
 | Job | Path | Purpose |
 |-----|------|---------|

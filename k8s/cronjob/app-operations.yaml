@@ -1,59 +1,6 @@
-# HTTP cron triggers for the Next.js app. Requires CRON_SECRET in secret `app-cron`.
-# Replace APP_BASE_URL with the canonical production URL (e.g. https://pawtraitry.co.uk).
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: cron-generate
-  namespace: production
-spec:
-  schedule: "*/2 * * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: curl
-              image: curlimages/curl:8.5.0
-              envFrom:
-                - configMapRef:
-                    name: app-cron-config
-                - secretRef:
-                    name: app-cron
-              command:
-                - /bin/sh
-                - -ec
-                - |
-                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/generate"
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: cron-cleanup
-  namespace: production
-spec:
-  schedule: "20 3 * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: curl
-              image: curlimages/curl:8.5.0
-              envFrom:
-                - configMapRef:
-                    name: app-cron-config
-                - secretRef:
-                    name: app-cron
-              command:
-                - /bin/sh
-                - -ec
-                - |
-                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/cleanup"
+# Additional HTTP cron triggers (shop ops). Core jobs (generate, cleanup, partner-fulfillment)
+# live in the main deploy overlay — do not duplicate them here.
+# Secret `app-cron` must expose CRON_SECRET (see app-cron-config.example.yaml).
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -108,33 +55,6 @@ spec:
                 - -ec
                 - |
                   curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/order-watchdog"
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: cron-partner-fulfillment
-  namespace: production
-spec:
-  schedule: "0 */6 * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: curl
-              image: curlimages/curl:8.5.0
-              envFrom:
-                - configMapRef:
-                    name: app-cron-config
-                - secretRef:
-                    name: app-cron
-              command:
-                - /bin/sh
-                - -ec
-                - |
-                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/partner-fulfillment"
 ---
 apiVersion: batch/v1
 kind: CronJob

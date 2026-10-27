@@ -16,4 +16,4 @@ metadata:
   namespace: production
 type: Opaque
 stringData:
-  secret: "replace-with-CRON_SECRET"
+  CRON_SECRET: "replace-with-long-random-secret"
