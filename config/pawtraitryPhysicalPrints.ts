@@ -1,5 +1,6 @@
 import { recommendedPence } from "@/config/catalogue/pricing-seed";
 import { pawtraitryPrintPricePence, type PawtraitryPrintId } from "@/config/catalogue/pawtraitry-skus";
+import { cfpmFrameMockupAlt, cfpmFrameMockupSrc, PAWTRAITRY_PHYSICAL_MOCKUPS } from "@/config/pawtraitry-product-mockups";
 import type { PrintProduct } from "@/config/prints";
 
 const CFPM_SHARED = {
@@ -120,7 +121,8 @@ function classicFramedPrints(): PrintProduct[] {
         defaultSku: size.sku,
         copies: 1,
         group: "classic_framed",
-        previewImage: "/examples/pet-after.jpg",
+        previewImage: cfpmFrameMockupSrc(color.id),
+        previewAlt: cfpmFrameMockupAlt(color.id),
         prodigiAttributes: {
           ...CFPM_SHARED,
           color: color.prodigi,
@@ -144,7 +146,8 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
     defaultSku: "GLOBAL-MUG-W",
     copies: 1,
     group: "homeware",
-    previewImage: "/examples/pet-after.jpg",
+    previewImage: PAWTRAITRY_PHYSICAL_MOCKUPS.mug_11oz_white.src,
+    previewAlt: PAWTRAITRY_PHYSICAL_MOCKUPS.mug_11oz_white.alt,
     prodigiAttributes: { color: "white", size: "313ml / 11oz" },
     areas: [{ printArea: "default", composer: "mug_wrap", widthPx: 2670, heightPx: 1110 }],
   },
@@ -157,7 +160,8 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
     defaultSku: "GLOBAL-CUSH-18X18-SUE",
     copies: 1,
     group: "homeware",
-    previewImage: "/examples/pet-after.jpg",
+    previewImage: PAWTRAITRY_PHYSICAL_MOCKUPS.cushion_18_suede.src,
+    previewAlt: PAWTRAITRY_PHYSICAL_MOCKUPS.cushion_18_suede.alt,
     prodigiAttributes: { finish: "fibre", paperType: "Faux Suede", style: "Single-sided" },
     areas: [{ printArea: "default", composer: "cover", widthPx: 2775, heightPx: 2775 }],
   },
@@ -170,7 +174,8 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
     defaultSku: "H-COAST-4PK",
     copies: 1,
     group: "homeware",
-    previewImage: "/examples/pet-after.jpg",
+    previewImage: PAWTRAITRY_PHYSICAL_MOCKUPS.coasters_4pk.src,
+    previewAlt: PAWTRAITRY_PHYSICAL_MOCKUPS.coasters_4pk.alt,
     prodigiAttributes: { style: "4-pack" },
     areas: [{ printArea: "default", composer: "cover", widthPx: 1251, heightPx: 1251 }],
   },
@@ -183,7 +188,8 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
     defaultSku: "GLOBAL-FAP-A2",
     copies: 1,
     group: "poster",
-    previewImage: "/examples/pet-after.jpg",
+    previewImage: PAWTRAITRY_PHYSICAL_MOCKUPS.poster_a2_matte.src,
+    previewAlt: PAWTRAITRY_PHYSICAL_MOCKUPS.poster_a2_matte.alt,
     prodigiAttributes: { paperType: "EMA", size: "a2", substrateWeight: "200gsm" },
     areas: [{ printArea: "default", composer: "cover", widthPx: 4960, heightPx: 7015 }],
   },
@@ -196,7 +202,8 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
     defaultSku: "CLASSIC-GRE-FEDR-A5-BLA",
     copies: 1,
     group: "stationery",
-    previewImage: "/examples/pet-after.jpg",
+    previewImage: PAWTRAITRY_PHYSICAL_MOCKUPS.greeting_card_a5.src,
+    previewAlt: PAWTRAITRY_PHYSICAL_MOCKUPS.greeting_card_a5.alt,
     prodigiAttributes: {
       finish: "matte",
       paperType: "Fine art card",

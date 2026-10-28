@@ -2,6 +2,7 @@ import {
   CLASSIC_FRAMED_UI,
   classicFramedProductId,
 } from "@/config/pawtraitryPhysicalPrints";
+import { cfpmFrameMockupAlt, cfpmFrameMockupSrc } from "@/config/pawtraitry-product-mockups";
 import { GREETING_CARD_PRINT_ID, PRINTS, greetingCardPricePence, getPrint, type PrintProduct } from "@/config/prints";
 import { printAreaTargetPixels } from "@/lib/print-compose";
 import { portraitMeetsPrintMinimum } from "@/lib/print-compose/resolution";
@@ -13,6 +14,7 @@ export type GalleryPrintProductOffer = {
   detail: string;
   pricePence: number;
   previewImage?: string;
+  previewAlt?: string;
   group?: string;
 };
 
@@ -21,6 +23,7 @@ export type GalleryClassicFramedOffer = {
   name: string;
   detail: string;
   previewImage?: string;
+  previewAlt?: string;
   sizes: { key: string; label: string; pricePence: number; productId: string | null }[];
   colors: { id: string; label: string }[];
 };
@@ -53,13 +56,13 @@ export function galleryPrintOffersForPortrait(sourceWidth: number, sourceHeight:
     .filter((row) => row.productId);
 
   if (classicSizes.length) {
-    const sample = getPrint(classicSizes[0]!.productId!);
     offers.push({
       kind: "classic_framed",
       name: "Classic framed print",
       detail:
         "Classic frame with snow-white mount and acrylic glaze. Choose a size and frame colour. UK delivery included.",
-      previewImage: sample.previewImage,
+      previewImage: cfpmFrameMockupSrc(CLASSIC_FRAMED_UI.colors[0]!.id),
+      previewAlt: cfpmFrameMockupAlt(CLASSIC_FRAMED_UI.colors[0]!.id),
       sizes: classicSizes,
       colors: [...CLASSIC_FRAMED_UI.colors],
     });
@@ -75,6 +78,7 @@ export function galleryPrintOffersForPortrait(sourceWidth: number, sourceHeight:
       detail: product.detail,
       pricePence: product.pricePence,
       previewImage: product.previewImage,
+      previewAlt: product.previewAlt,
       group: product.group,
     });
   }

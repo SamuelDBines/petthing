@@ -41,6 +41,7 @@ export type PrintProduct = {
   areas: PrintAreaSpec[];
   group?: string;
   previewImage?: string;
+  previewAlt?: string;
 };
 
 export const PUZZLE_252 = {

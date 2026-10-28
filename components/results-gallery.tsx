@@ -2,8 +2,10 @@
 
 import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { classicFramedProductId } from "@/config/pawtraitryPhysicalPrints";
+import { cfpmFrameMockupAlt, cfpmFrameMockupSrc, PAWTRAITRY_PRODUCT_MOCKUP_SIZE } from "@/config/pawtraitry-product-mockups";
 import type { GalleryPrintOffer } from "@/lib/pawtraitry-gallery-prints";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AI_GENERATED_LABEL, APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
@@ -45,6 +47,19 @@ type Gallery = {
     freeBaubleWithCanvasEnabled?: boolean;
   };
 };
+
+function PrintMockupImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={PAWTRAITRY_PRODUCT_MOCKUP_SIZE.width}
+      height={PAWTRAITRY_PRODUCT_MOCKUP_SIZE.height}
+      className="mb-3 aspect-square w-full rounded-2xl object-cover"
+      sizes="(max-width:768px) 100vw, 480px"
+    />
+  );
+}
 
 export function ResultsGallery({ token }: { token: string }) {
   const [data, setData] = useState<Gallery | null>(null);
@@ -243,6 +258,7 @@ export function ResultsGallery({ token }: { token: string }) {
 
         {classicOffer?.kind === "classic_framed" ? (
           <div className="mt-4 rounded-3xl border border-line p-4">
+            <PrintMockupImage src={cfpmFrameMockupSrc(cfpmColorId)} alt={cfpmFrameMockupAlt(cfpmColorId)} />
             <span className="block text-xl">{classicOffer.name}</span>
             <p className="mt-1 text-sm text-cream/70">{classicOffer.detail}</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -295,7 +311,10 @@ export function ResultsGallery({ token }: { token: string }) {
                 }
               >
                 {product.previewImage ? (
-                  <img src={product.previewImage} alt="" className="mb-3 aspect-[4/3] w-full rounded-2xl object-cover" />
+                  <PrintMockupImage
+                    src={product.previewImage}
+                    alt={product.previewAlt ?? `Pet portrait — ${product.name}`}
+                  />
                 ) : null}
                 <span className="block text-xl">{product.name}</span>
                 <span className="mt-1 block text-sm text-cream/70">{product.detail}</span>
