@@ -37,6 +37,7 @@ export function defaultSecurityHeaders() {
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://connect.facebook.net",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https: https://www.facebook.com",
+        "worker-src 'self' blob:",
         "font-src 'self' data:",
         `connect-src 'self' https://api.stripe.com https://*.ingest.sentry.io ${posthogHost} https://connect.facebook.net https://www.facebook.com`,
         "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.facebook.com",

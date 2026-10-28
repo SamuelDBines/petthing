@@ -25,6 +25,11 @@ test("default security headers allow self in frame-src for admin iframe", () => 
   assert.match(csp, /frame-src 'self'/);
 });
 
+test("default security headers allow blob workers for client-side image compression", () => {
+  const csp = headerValue(defaultSecurityHeaders(), "Content-Security-Policy") ?? "";
+  assert.match(csp, /worker-src 'self' blob:/);
+});
+
 test("default security headers allow Meta pixel (fbevents.js and CAPI)", () => {
   const csp = headerValue(defaultSecurityHeaders(), "Content-Security-Policy") ?? "";
   assert.match(csp, /script-src[^;]*https:\/\/connect\.facebook\.net/);
