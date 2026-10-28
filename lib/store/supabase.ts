@@ -211,6 +211,8 @@ const patchMap: Record<string, string> = {
   queueHalted: "queue_halted",
   haltReason: "halt_reason",
   haltNotifiedOn: "halt_notified_on",
+  falCreditExhaustedSince: "fal_credit_exhausted_since",
+  falCreditAlertSentAt: "fal_credit_alert_sent_at",
 };
 
 function toSnake(patch: object) {
@@ -229,6 +231,8 @@ function settingsFrom(row: Record<string, unknown>): Settings {
     queueHalted: Boolean(row.queue_halted),
     haltReason: (row.halt_reason as string | null) ?? null,
     haltNotifiedOn: (row.halt_notified_on as string | null) ?? null,
+    falCreditExhaustedSince: (row.fal_credit_exhausted_since as string | null) ?? null,
+    falCreditAlertSentAt: (row.fal_credit_alert_sent_at as string | null) ?? null,
   };
 }
 

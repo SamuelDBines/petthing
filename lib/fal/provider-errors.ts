@@ -4,6 +4,8 @@ export const CUSTOMER_MODERATION_RETRY =
 export const CUSTOMER_NSFW_MESSAGE =
   "That photo looks like it includes nudity or sexual content. Please upload a different one.";
 
+import { isFalCreditExhaustedHttp } from "@/lib/fal/credit-exhaustion";
+
 export class FalProviderError extends Error {
   readonly status: number;
   readonly detail: string;
@@ -33,9 +35,7 @@ export function parseFalErrorDetail(text: string) {
 }
 
 export function isFalTopUpOrCreditLock(status: number, detail: string) {
-  if (status === 402) return true;
-  if (status === 403 && /TOP_UP|locked|out of credit|insufficient/i.test(detail)) return true;
-  return false;
+  return isFalCreditExhaustedHttp(status, detail);
 }
 
 type FalIncident = { at: number; status: number; detail: string };

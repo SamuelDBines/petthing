@@ -23,6 +23,8 @@ function toSettings(row: typeof appSettings.$inferSelect): Settings {
     queueHalted: row.queueHalted,
     haltReason: row.haltReason,
     haltNotifiedOn: row.haltNotifiedOn,
+    falCreditExhaustedSince: row.falCreditExhaustedSince ?? null,
+    falCreditAlertSentAt: row.falCreditAlertSentAt ?? null,
   };
 }
 
@@ -140,6 +142,8 @@ export async function updateStoreSettings(storeId: string, patch: Partial<Settin
   if (patch.queueHalted !== undefined) set.queueHalted = patch.queueHalted;
   if (patch.haltReason !== undefined) set.haltReason = patch.haltReason;
   if (patch.haltNotifiedOn !== undefined) set.haltNotifiedOn = patch.haltNotifiedOn;
+  if (patch.falCreditExhaustedSince !== undefined) set.falCreditExhaustedSince = patch.falCreditExhaustedSince;
+  if (patch.falCreditAlertSentAt !== undefined) set.falCreditAlertSentAt = patch.falCreditAlertSentAt;
   const [row] = await tdb().update(appSettings).set(set).where(eq(appSettings.storeId, storeId)).returning();
   if (!row) throw new Error("Settings not found");
   return toSettings(row);

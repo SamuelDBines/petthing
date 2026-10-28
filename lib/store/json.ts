@@ -24,6 +24,8 @@ const defaultSettings = (): Settings => ({
   queueHalted: false,
   haltReason: null,
   haltNotifiedOn: null,
+  falCreditExhaustedSince: null,
+  falCreditAlertSentAt: null,
 });
 
 function emptyDb(): Database {

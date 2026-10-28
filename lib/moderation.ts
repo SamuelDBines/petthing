@@ -6,6 +6,8 @@ import {
   parseFalErrorDetail,
   recordFalProviderIncident,
 } from "@/lib/fal/provider-errors";
+import { isFalCreditExhaustedHttp } from "@/lib/fal/credit-exhaustion";
+import { markFalCreditExhausted } from "@/lib/fal/credit-ops";
 import { usdToGbp } from "@/lib/runtime";
 
 const THRESHOLD = 0.45;
@@ -89,6 +91,10 @@ export async function moderateImage(
   if (!response.ok) {
     const detail = parseFalErrorDetail(await response.text());
     recordFalProviderIncident("nsfw", response.status, detail);
+    if (isFalCreditExhaustedHttp(response.status, detail)) {
+      void markFalCreditExhausted(detail);
+      return failOpenResult();
+    }
     if (isFalProviderHttpStatus(response.status)) {
       return failOpenResult();
     }

@@ -9,6 +9,7 @@ import {
 
 test("mapCheckoutSuccessPhase maps portrait lifecycle", () => {
   assert.equal(mapCheckoutSuccessPhase({ kind: "portrait", status: "refunded" }), "refunded");
+  assert.equal(mapCheckoutSuccessPhase({ kind: "portrait", status: "waiting_for_credit" }), "generating");
   assert.equal(mapCheckoutSuccessPhase({ kind: "portrait", status: "delivered" }), "ready");
   assert.equal(mapCheckoutSuccessPhase({ kind: "portrait", status: "generating" }), "generating");
   assert.equal(

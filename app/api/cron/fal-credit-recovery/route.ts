@@ -1,0 +1,24 @@
+import { runFalCreditRecovery } from "@/lib/fal/credit-ops";
+import { runQueue } from "@/lib/generation";
+import { jsonError } from "@/lib/http";
+import { assertCron } from "@/lib/runtime";
+import { withTransientRetries } from "@/lib/transientErrors";
+
+async function handle(request: Request) {
+  try {
+    assertCron(request);
+  } catch {
+    return jsonError("Unauthorised", 401);
+  }
+  const recovery = await withTransientRetries(() => runFalCreditRecovery());
+  const queue = await withTransientRetries(() => runQueue());
+  return Response.json({ recovery, queue });
+}
+
+export async function GET(request: Request) {
+  return handle(request);
+}
+
+export async function POST(request: Request) {
+  return handle(request);
+}

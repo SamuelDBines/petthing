@@ -10,6 +10,7 @@ export type OrderStatus =
   | "pending_payment"
   | "paid"
   | "generating"
+  | "waiting_for_credit"
   | "review"
   | "delivered"
   | "failed"
@@ -160,6 +161,8 @@ export type Settings = {
   queueHalted: boolean;
   haltReason: string | null;
   haltNotifiedOn: string | null;
+  falCreditExhaustedSince: string | null;
+  falCreditAlertSentAt: string | null;
 };
 
 export type Bucket = "uploads" | "results";

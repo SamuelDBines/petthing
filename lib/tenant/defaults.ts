@@ -142,6 +142,8 @@ export const BUILTIN_STORES: StoreConfig[] = [
       queueHalted: false,
       haltReason: null,
       haltNotifiedOn: null,
+      falCreditExhaustedSince: null,
+      falCreditAlertSentAt: null,
     },
     integrations: {
       maxDailyGenSpendGbp: 25,
@@ -201,6 +203,8 @@ export const BUILTIN_STORES: StoreConfig[] = [
       queueHalted: false,
       haltReason: null,
       haltNotifiedOn: null,
+      falCreditExhaustedSince: null,
+      falCreditAlertSentAt: null,
     },
     integrations: {
       maxDailyGenSpendGbp: 0,
@@ -252,6 +256,8 @@ export const BUILTIN_STORES: StoreConfig[] = [
       queueHalted: false,
       haltReason: null,
       haltNotifiedOn: null,
+      falCreditExhaustedSince: null,
+      falCreditAlertSentAt: null,
     },
     integrations: {
       maxDailyGenSpendGbp: 15,

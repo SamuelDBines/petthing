@@ -1,3 +1,4 @@
+import { falCreditAdminBanner } from "@/lib/fal/credit-ops";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { portraitRevenuePence, shopRevenuePence, formatRevenue } from "@/lib/admin/metrics";
 import { isAdmin } from "@/lib/adminAuth";
@@ -43,7 +44,8 @@ export async function GET() {
     store.listHandPaintedOrders
       ? (await store.listHandPaintedOrders(storeId)).filter((h) => h.status !== "delivered").length
       : 0;
-  const generating = orders.filter((o) => o.status === "generating").length;
+  const generating = orders.filter((o) => o.status === "generating" || o.status === "waiting_for_credit").length;
+  const falCredit = await falCreditAdminBanner();
 
   const scoped = storeId === "all" ? "pawtraitry" : storeId;
   const todaySpendGbp = await store.todaySpend(storeId === "all" ? "all" : scoped);
@@ -87,6 +89,7 @@ export async function GET() {
     paid: await store.countEvents("paid", undefined, storeId),
     paidToday: await store.countEvents("paid", day, storeId),
     queueHalted: (await store.getSettings(scoped)).queueHalted,
+    falCredit,
     storeId,
     fulfilment: {
       portraitReview: reviewCount,

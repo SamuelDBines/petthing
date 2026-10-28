@@ -1,3 +1,4 @@
+import { runFalCreditRecovery } from "@/lib/fal/credit-ops";
 import { runQueue } from "@/lib/generation";
 import { jsonError } from "@/lib/http";
 import { assertCron } from "@/lib/runtime";
@@ -9,8 +10,9 @@ async function handle(request: Request) {
   } catch {
     return jsonError("Unauthorised", 401);
   }
+  const recovery = await withTransientRetries(() => runFalCreditRecovery());
   const result = await withTransientRetries(() => runQueue());
-  return Response.json(result);
+  return Response.json({ recovery, ...result });
 }
 
 export async function GET(request: Request) {

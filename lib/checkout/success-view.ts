@@ -45,7 +45,7 @@ export function mapCheckoutSuccessPhase(input: PhaseInput): CheckoutSuccessPhase
   if (status === "failed") return "failed";
   if (status === "delivered") return "ready";
   if (status === "review") return "review";
-  if (status === "generating" || status === "paid") return "generating";
+  if (status === "generating" || status === "paid" || status === "waiting_for_credit") return "generating";
   if (status === "pending_payment") {
     if (payment === "paid") return "confirming";
     if (payment === "unpaid" && session === "expired") return "expired_unpaid";
@@ -80,7 +80,7 @@ export function checkoutSuccessCopy(phase: CheckoutSuccessPhase, kind: CheckoutS
     case "generating":
       return {
         title: "Payment received — portraits in progress",
-        lead: "Your photos are in the queue. Most orders finish within a few minutes, then we email your private gallery link.",
+        lead: "Your portraits are queued and will be ready soon. Most orders finish within a few minutes, then we email your private gallery link.",
       };
     case "ready":
       return {

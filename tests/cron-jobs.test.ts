@@ -8,6 +8,7 @@ test("APP_CRON_JOBS lists all vercel cron paths", () => {
     "/api/cron/abandoned-basket",
     "/api/cron/admin-digest",
     "/api/cron/cleanup",
+    "/api/cron/fal-credit-recovery",
     "/api/cron/generate",
     "/api/cron/order-watchdog",
     "/api/cron/partner-fulfillment",

@@ -12,7 +12,17 @@ import { moderateImage } from "@/lib/moderation";
 import { londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
 import { mediaSigningBase, storeCanonicalOrigin } from "@/lib/tenant/origin";
 import { isGenerationOutputRetryError } from "@/lib/fal/image-output";
-import { isFalProviderError } from "@/lib/fal/provider-errors";
+import { isFalCreditExhaustedError } from "@/lib/fal/credit-exhaustion";
+import {
+  FAL_CREDIT_JOB_RETRY_MS,
+  clearFalCreditExhaustedState,
+  markFalCreditExhausted,
+  notifyFalCreditRecovered,
+  pauseOrderForFalCredit,
+  probeFalCreditAvailable,
+  resumeWaitingForCreditOrders,
+} from "@/lib/fal/credit-ops";
+import { FalProviderError, isFalProviderError } from "@/lib/fal/provider-errors";
 import { flagOrderPhotoSafetyReview, orderNeedsPhotoSafetyReview } from "@/lib/order-photo-review";
 import { isTransientError } from "@/lib/transientErrors";
 import {
@@ -192,6 +202,7 @@ async function finishIfDone(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order || order.status === "refunded") return;
+  if (order.status === "waiting_for_credit") return;
   if (
     order.status !== "generating" &&
     !(order.status === "delivered" && order.pendingBonusEmail)
@@ -415,6 +426,20 @@ async function processJob(jobId: string) {
       await halt(`Daily generation spend reached £${spent.toFixed(2)} (limit £${maxDailySpendGbp().toFixed(2)}).`, order.storeId);
     }
   } catch (error) {
+    if (isFalCreditExhaustedError(error)) {
+      const detail =
+        error instanceof FalProviderError ? error.detail : error instanceof Error ? error.message : "credit exhausted";
+      await pauseOrderForFalCredit(order.id);
+      await markFalCreditExhausted(detail);
+      await store.updateJob(job.id, {
+        status: "queued",
+        attempts: job.attempts,
+        lastError: "waiting_for_fal_credit",
+        nextRunAt: new Date(Date.now() + FAL_CREDIT_JOB_RETRY_MS).toISOString(),
+        lockedUntil: null,
+      });
+      return;
+    }
     const message = error instanceof Error ? error.message : "Generation failed";
     const outputRetry = isGenerationOutputRetryError(error);
     const transient = isTransientError(error) || isFalProviderError(error);
@@ -477,6 +502,13 @@ async function runQueueInternal(options?: { limit?: number; orderId?: string }) 
   const store = getStore();
   const settings = await store.getSettings();
   if (settings.queueHalted) return { processed: 0, halted: true, reason: settings.haltReason };
+  if (settings.falCreditExhaustedSince && (await probeFalCreditAvailable())) {
+    const resumed = await resumeWaitingForCreditOrders();
+    await clearFalCreditExhaustedState();
+    await notifyFalCreditRecovered(resumed);
+  } else if (settings.falCreditExhaustedSince && !(await probeFalCreditAvailable())) {
+    return { processed: 0, halted: false, falCreditPaused: true, reason: "fal credit exhausted" };
+  }
   if ((await store.todaySpend()) >= maxDailySpendGbp()) {
     await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`, "pawtraitry");
     return { processed: 0, halted: true, reason: "spend cap" };

@@ -34,6 +34,7 @@ type Stats = {
     handPaintedOpen: number;
     generating: number;
   };
+  falCredit?: { active: boolean; waiting: number; slaOverdue: number; since: string | null };
   storeBreakdown?: {
     storeId: string;
     storeLive?: boolean;
@@ -358,6 +359,25 @@ export function AdminDashboard({
         </div>
       </div>
       {error ? <p className="mt-3 text-sm">{error}</p> : null}
+      {stats?.falCredit?.active ? (
+        <div
+          className="mt-4 rounded-2xl border border-gold/50 bg-gold/10 p-4 text-sm"
+          role="status"
+          data-testid="fal-credit-banner"
+        >
+          <p className="font-semibold text-cream">fal.ai credit exhausted</p>
+          <p className="mt-1 text-cream/80">
+            {stats.falCredit.waiting} portrait order(s) waiting for credit
+            {stats.falCredit.slaOverdue > 0 ? ` · ${stats.falCredit.slaOverdue} over 24h` : ""}.
+            Checkout still works — top up fal.ai to resume generation.
+          </p>
+          <p className="mt-2">
+            <a className="underline" href="https://fal.ai/dashboard/billing" target="_blank" rel="noreferrer">
+              fal.ai billing
+            </a>
+          </p>
+        </div>
+      ) : null}
       {stats ? (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">

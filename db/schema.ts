@@ -133,6 +133,8 @@ export const appSettings = pgTable("app_settings", {
   queueHalted: boolean("queue_halted").notNull().default(false),
   haltReason: text("halt_reason"),
   haltNotifiedOn: text("halt_notified_on"),
+  falCreditExhaustedSince: text("fal_credit_exhausted_since"),
+  falCreditAlertSentAt: text("fal_credit_alert_sent_at"),
 });
 
 export const rateBuckets = pgTable("rate_buckets", {

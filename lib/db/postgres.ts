@@ -256,6 +256,8 @@ function toSettings(row: typeof appSettings.$inferSelect): Settings {
     queueHalted: row.queueHalted,
     haltReason: row.haltReason,
     haltNotifiedOn: row.haltNotifiedOn,
+    falCreditExhaustedSince: row.falCreditExhaustedSince ?? null,
+    falCreditAlertSentAt: row.falCreditAlertSentAt ?? null,
   };
 }
 
@@ -266,6 +268,8 @@ const defaultSettings = (): Settings => ({
   queueHalted: false,
   haltReason: null,
   haltNotifiedOn: null,
+  falCreditExhaustedSince: null,
+  falCreditAlertSentAt: null,
 });
 
 export const postgresStore = {
