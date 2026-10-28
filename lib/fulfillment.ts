@@ -7,7 +7,7 @@ import { getTheme } from "@/config/themes";
 import { putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
 import type { Order, Shipping } from "@/lib/domain";
 import { alertAdmin, christmasEmail, sendEmail } from "@/lib/email";
-import { enqueueForOrder, enqueuePlan } from "@/lib/generation";
+import { enqueueForOrder, enqueuePlan, scheduleOrderGeneration } from "@/lib/generation";
 import { submitPrintOrder } from "@/lib/prodigi";
 import { composeCanvasPortrait } from "@/lib/canvasSheet";
 import { isHandPaintedTierId } from "@/config/paintings";
@@ -83,7 +83,9 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
     await createHandPaintedWorkflow(freshAfterPay, config.brand.appName);
   } else {
     const jobs = await store.listJobs(order.id);
+    let kickGeneration = true;
     if (order.storeId === "jinglefold" && order.productMeta?.personalised && jobs.some((j) => j.status === "done")) {
+      kickGeneration = false;
       if (manualReviewEnabled()) {
         await store.updateOrder(order.id, { status: "review", failureReason: null });
         const config = await loadStoreConfig(order.storeId);
@@ -102,6 +104,7 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
       const fresh = await store.getOrder(order.id);
       if (fresh) await enqueueForOrder(fresh);
     }
+    if (kickGeneration) scheduleOrderGeneration(order.id);
   }
   await store.addEvent({
     id: randomUUID(),
@@ -128,6 +131,7 @@ export async function markExtraPaid(orderId: string, styleIds: string[], args: P
     order.id,
     styleIds.map((styleId) => ({ styleId, count: EXTRA_IMAGES_PER_STYLE })),
   );
+  scheduleOrderGeneration(order.id);
 }
 
 function shippingFrom(session: Stripe.Checkout.Session): Shipping | null {

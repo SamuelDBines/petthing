@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { alertAdmin } from "@/lib/email";
 import { fulfillCheckoutSession, noteFailedPayment, noteSeasonCanceled, noteSeasonRenewed } from "@/lib/fulfillment";
+import { kickOrderGeneration } from "@/lib/generation";
 import { jsonError } from "@/lib/http";
 import { getStripe } from "@/lib/stripe";
 
@@ -19,7 +21,17 @@ export async function POST(request: Request) {
   }
 
   if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-    await fulfillCheckoutSession(event.data.object);
+    const session = event.data.object;
+    await fulfillCheckoutSession(session);
+    const kind = session.metadata?.kind;
+    const orderId = session.metadata?.orderId;
+    if ((kind === "portrait" || kind === "season_pass" || kind === "extra_styles") && orderId) {
+      after(() => {
+        void kickOrderGeneration(orderId).catch((error) => {
+          console.error(`[stripe] generation kick failed for ${orderId}`, error);
+        });
+      });
+    }
   }
   if (event.type === "checkout.session.expired") {
     const { handleCheckoutSessionExpired } = await import("@/lib/shop/checkout-expiry");

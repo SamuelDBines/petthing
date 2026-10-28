@@ -334,6 +334,27 @@ export const jsonStore = {
       Object.assign(job, patch, { updatedAt: new Date().toISOString() });
       return structuredClone(job);
     }),
+  claimJobsForOrder: (orderId: string, limit: number) =>
+    withDb((db) => {
+      const now = Date.now();
+      const orders = new Map(db.orders.map((order) => [order.id, order]));
+      const candidates = db.jobs.filter(
+        (job) => job.orderId === orderId && jobIsClaimable(job, orders.get(job.orderId), now),
+      );
+      candidates.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority ? -1 : 1;
+        return a.createdAt.localeCompare(b.createdAt);
+      });
+      const picked = candidates.slice(0, limit);
+      const stamp = new Date().toISOString();
+      const lockedUntil = new Date(now + LOCK_MS).toISOString();
+      for (const job of picked) {
+        job.status = "running";
+        job.updatedAt = stamp;
+        job.lockedUntil = lockedUntil;
+      }
+      return structuredClone(picked);
+    }),
   claimJobs: (limit: number) =>
     withDb((db) => {
       const now = Date.now();

@@ -415,6 +415,71 @@ export const postgresStore = {
     if (!row) throw new Error("Job not found");
     return toJob(row);
   },
+  async claimJobsForOrder(orderId: string, limit: number) {
+    const count = Math.max(1, Math.min(50, Math.floor(limit)));
+    const client = getSql();
+    const rows = await client<{
+      id: string;
+      order_id: string;
+      style_id: string;
+      variant_index: number;
+      status: string;
+      attempts: number;
+      provider_request_id: string | null;
+      provider_meta: Job["providerMeta"] | null;
+      fal_paid_submits: number;
+      last_error: string | null;
+      cost_gbp: string;
+      priority: boolean;
+      locked_until: Date | null;
+      next_run_at: Date | null;
+      created_at: Date;
+      updated_at: Date;
+    }[]>`
+      update jobs as claimed
+      set status = 'running',
+          locked_until = now() + interval '8 minutes',
+          updated_at = now()
+      where claimed.id in (
+        select j.id
+        from jobs j
+        join orders o on o.id = j.order_id
+        where j.order_id = ${orderId}::uuid
+          and o.status not in ('refunded', 'pending_payment')
+          and (
+            (j.status = 'queued' and (j.next_run_at is null or j.next_run_at <= now()))
+            or (
+              j.status in ('submitted', 'running')
+              and coalesce(j.locked_until, j.updated_at + interval '8 minutes') <= now()
+            )
+          )
+        order by j.priority desc, j.created_at asc
+        limit ${count}
+        for update of j skip locked
+      )
+      returning claimed.id, claimed.order_id, claimed.style_id, claimed.variant_index, claimed.status,
+        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.fal_paid_submits, claimed.last_error, claimed.cost_gbp, claimed.priority,
+        claimed.locked_until, claimed.next_run_at, claimed.created_at, claimed.updated_at
+    `;
+    return rows.map((row) => ({
+      id: row.id,
+      orderId: row.order_id,
+      styleId: row.style_id,
+      variantIndex: row.variant_index,
+      status: "running" as const,
+      attempts: row.attempts,
+      providerRequestId: row.provider_request_id,
+      providerMeta: row.provider_meta ?? null,
+      falPaidSubmits: row.fal_paid_submits ?? 0,
+      lastError: row.last_error,
+      costGbp: Number(row.cost_gbp),
+      priority: row.priority,
+      lockedUntil: iso(row.locked_until),
+      nextRunAt: iso(row.next_run_at),
+      createdAt: iso(row.created_at)!,
+      updatedAt: iso(row.updated_at)!,
+    }));
+  },
   async claimJobs(limit: number) {
     const count = Math.max(1, Math.min(50, Math.floor(limit)));
     const client = getSql();

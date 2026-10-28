@@ -4,7 +4,7 @@ import { JINGLEFOLD_PERSONALISED_CONSENT, jinglefoldPersonalisedBySlug } from "@
 import { getTier } from "@/config/pricing";
 import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
-import { enqueueForOrder } from "@/lib/generation";
+import { enqueueForOrder, scheduleOrderGeneration } from "@/lib/generation";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
@@ -114,5 +114,6 @@ export async function PATCH(request: Request) {
   if (!uploads.length) return jsonError("Upload at least one photo first.");
   await store.updateOrder(order.id, { status: "generating" });
   await enqueueForOrder(order);
+  scheduleOrderGeneration(order.id);
   return Response.json({ resultsToken: order.resultsToken, status: "generating" });
 }

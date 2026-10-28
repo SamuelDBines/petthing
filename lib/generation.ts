@@ -19,6 +19,11 @@ import {
   retryDelayMs,
 } from "@/lib/queue";
 import {
+  generationSemaphore,
+  GLOBAL_JOB_CONCURRENCY,
+  ORDER_JOB_CONCURRENCY,
+} from "@/lib/generation/concurrency";
+import {
   countResultImages,
   jobsNeedingResults,
   orderHasFullPortraitSet,
@@ -178,11 +183,17 @@ export async function deliverOrder(orderId: string) {
 
 async function finishIfDone(orderId: string) {
   const store = getStore();
+  const order = await store.getOrder(orderId);
+  if (!order || order.status === "refunded") return;
+  if (
+    order.status !== "generating" &&
+    !(order.status === "delivered" && order.pendingBonusEmail)
+  ) {
+    return;
+  }
   const jobs = await store.listJobs(orderId);
   const settled = (status: Job["status"]) => status === "done" || status === "failed" || status === "dead";
   if (jobs.some((job) => !settled(job.status))) return;
-  const order = await store.getOrder(orderId);
-  if (!order || order.status === "refunded") return;
   const tier = await tierForOrder(order);
   const assets = await store.listAssets(orderId);
   const progress = portraitGenerationProgress(tier, jobs, assets);
@@ -266,17 +277,31 @@ async function finishIfDone(orderId: string) {
   await deliverOrder(orderId);
 }
 
+async function loadJob(jobId: string, orderId?: string) {
+  const store = getStore();
+  const jobs = await store.listJobs(orderId);
+  return jobs.find((item) => item.id === jobId) ?? null;
+}
+
 async function processJob(jobId: string) {
   const store = getStore();
-  const job = (await store.listJobs()).find((item) => item.id === jobId);
+  let job = await loadJob(jobId);
   const order = job ? await store.getOrder(job.orderId) : null;
   if (!job || !order) return;
   const tier = await tierForOrder(order);
   const { mediaBase } = await orderPublicUrls(order);
   const provider = getImageProvider();
   try {
+    job = (await loadJob(jobId, order.id)) ?? job;
     let requestId = job.providerRequestId;
     let queueMeta: { statusUrl: string; responseUrl: string } | null = job.providerMeta ?? null;
+    if (!requestId) {
+      job = (await loadJob(jobId, order.id)) ?? job;
+      if (job.providerRequestId) {
+        requestId = job.providerRequestId;
+        queueMeta = job.providerMeta ?? null;
+      }
+    }
     if (!requestId) {
       const paidSubmits = job.falPaidSubmits ?? 0;
       if (provider.id !== "placeholder" && paidSubmits >= MAX_FAL_PAID_SUBMITS_PER_JOB) {
@@ -383,7 +408,44 @@ async function processJob(jobId: string) {
   await finishIfDone(order.id);
 }
 
-export async function runQueue(limit = process.env.VERCEL ? 3 : 12) {
+async function drainJobWithPolling(jobId: string, orderId: string) {
+  const deadline = Date.now() + INLINE_QUEUE_POLL_MS;
+  while (Date.now() < deadline) {
+    if ((await getStore().todaySpend()) >= maxDailySpendGbp()) break;
+    await processJob(jobId);
+    const fresh = await loadJob(jobId, orderId);
+    if (!fresh || fresh.status === "done" || fresh.status === "dead" || fresh.status === "queued") break;
+    if (fresh.status === "submitted") {
+      const waitUntil = fresh.nextRunAt ? Date.parse(fresh.nextRunAt) : Date.now() + FAL_POLL_INTERVAL_MS;
+      const wait = Math.min(Math.max(0, waitUntil - Date.now()), deadline - Date.now());
+      if (wait > 0) await sleep(wait);
+      continue;
+    }
+    break;
+  }
+}
+
+async function processClaimedJobsParallel(claimed: Job[]) {
+  if (!claimed.length) return;
+  const byOrder = new Map<string, Job[]>();
+  for (const job of claimed) {
+    const list = byOrder.get(job.orderId) ?? [];
+    list.push(job);
+    byOrder.set(job.orderId, list);
+  }
+  await Promise.all(
+    [...byOrder.values()].map(async (jobs) => {
+      for (let offset = 0; offset < jobs.length; offset += ORDER_JOB_CONCURRENCY) {
+        const slice = jobs.slice(offset, offset + ORDER_JOB_CONCURRENCY);
+        await Promise.all(
+          slice.map((job) => generationSemaphore.run(() => drainJobWithPolling(job.id, job.orderId))),
+        );
+      }
+    }),
+  );
+}
+
+async function runQueueInternal(options?: { limit?: number; orderId?: string }) {
   const store = getStore();
   const settings = await store.getSettings();
   if (settings.queueHalted) return { processed: 0, halted: true, reason: settings.haltReason };
@@ -391,24 +453,36 @@ export async function runQueue(limit = process.env.VERCEL ? 3 : 12) {
     await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`, "pawtraitry");
     return { processed: 0, halted: true, reason: "spend cap" };
   }
-  const claimed = await store.claimJobs(limit);
-  for (const job of claimed) {
-    if ((await store.todaySpend()) >= maxDailySpendGbp()) break;
-    const deadline = Date.now() + INLINE_QUEUE_POLL_MS;
-    while (Date.now() < deadline) {
-      await processJob(job.id);
-      const fresh = (await store.listJobs(job.orderId)).find((row) => row.id === job.id);
-      if (!fresh || fresh.status === "done" || fresh.status === "dead" || fresh.status === "queued") break;
-      if (fresh.status === "submitted") {
-        const waitUntil = fresh.nextRunAt ? Date.parse(fresh.nextRunAt) : Date.now() + FAL_POLL_INTERVAL_MS;
-        const wait = Math.min(Math.max(0, waitUntil - Date.now()), deadline - Date.now());
-        if (wait > 0) await sleep(wait);
-        continue;
-      }
-      break;
+  let processed = 0;
+  if (options?.orderId) {
+    for (let round = 0; round < 24; round += 1) {
+      const claimed = await store.claimJobsForOrder(options.orderId, ORDER_JOB_CONCURRENCY);
+      if (!claimed.length) break;
+      processed += claimed.length;
+      await processClaimedJobsParallel(claimed);
     }
+    return { processed, halted: false, reason: null };
   }
-  return { processed: claimed.length, halted: false, reason: null };
+  const limit = options?.limit ?? (process.env.VERCEL ? GLOBAL_JOB_CONCURRENCY : GLOBAL_JOB_CONCURRENCY);
+  const claimed = await store.claimJobs(limit);
+  processed = claimed.length;
+  await processClaimedJobsParallel(claimed);
+  return { processed, halted: false, reason: null };
+}
+
+/** Start generation immediately for one order (parallel fal submits + polling). */
+export async function kickOrderGeneration(orderId: string) {
+  return runQueueInternal({ orderId });
+}
+
+export function scheduleOrderGeneration(orderId: string) {
+  void kickOrderGeneration(orderId).catch((error) => {
+    console.error(`[generation] kick failed for order ${orderId}`, error);
+  });
+}
+
+export async function runQueue(limit = GLOBAL_JOB_CONCURRENCY) {
+  return runQueueInternal({ limit });
 }
 
 export async function regenerateMissingPortraits(orderId: string) {

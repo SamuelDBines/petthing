@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { AnalyticsEvent, Asset, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import { jobIsClaimable } from "@/lib/queue";
 import { londonDay } from "@/lib/runtime";
 
 function client(): SupabaseClient {
@@ -374,6 +375,32 @@ export const supabaseStore = {
       .single();
     assertOk(error);
     return jobFrom(data);
+  },
+  async claimJobsForOrder(orderId: string, limit: number) {
+    const { data: orderRow, error: orderError } = await client().from("orders").select("*").eq("id", orderId).maybeSingle();
+    assertOk(orderError);
+    const order = orderRow ? orderFrom(orderRow) : undefined;
+    const { data, error } = await client()
+      .from("jobs")
+      .select("*")
+      .eq("order_id", orderId)
+      .in("status", ["queued", "submitted", "running"])
+      .order("created_at", { ascending: true })
+      .limit(200);
+    assertOk(error);
+    const now = Date.now();
+    const candidates = (data ?? [])
+      .map((row) => jobFrom(row))
+      .filter((job) => jobIsClaimable(job, order, now));
+    candidates.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority ? -1 : 1;
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+    const picked = candidates.slice(0, limit);
+    for (const job of picked) {
+      await this.updateJob(job.id, { status: "running" });
+    }
+    return picked.map((job) => ({ ...job, status: "running" as const }));
   },
   async claimJobs(limit: number) {
     const { data, error } = await client()
