@@ -1,31 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  MARKETING_CONSENT_KEY,
+  ANALYTICS_CONSENT_KEY,
+  marketingConsentGranted,
+  trackMetaPageView,
+  trackMetaEvent,
+} from "@/lib/meta/client";
 
 type PixelWindow = Window & {
   fbq?: (...args: unknown[]) => void;
   ttq?: { track: (event: string, data?: object) => void; load: (id: string) => void; page: () => void };
   posthog?: { init: (key: string, opts?: object) => void; capture: (event: string, props?: object) => void };
 };
-
-const CONSENT_KEY = "ps_analytics_consent";
-const MARKETING_KEY = "ps_marketing_consent";
-
-function analyticsAllowed() {
-  return localStorage.getItem(CONSENT_KEY) === "analytics";
-}
-
-function marketingAllowed() {
-  return localStorage.getItem(MARKETING_KEY) === "yes";
-}
-
-export function track(name: "ViewContent" | "InitiateCheckout" | "Purchase", value?: number) {
-  if (typeof window === "undefined" || !marketingAllowed()) return;
-  const payload = value == null ? undefined : { value, currency: "GBP" };
-  (window as PixelWindow).fbq?.("track", name, payload);
-  const tiktokName = name === "Purchase" ? "CompletePayment" : name;
-  (window as PixelWindow).ttq?.track(tiktokName, payload);
-}
 
 function inject(id: string, code: string) {
   if (document.getElementById(id)) return;
@@ -35,8 +24,18 @@ function inject(id: string, code: string) {
   document.head.appendChild(script);
 }
 
-function loadOptionalScripts() {
-  if (analyticsAllowed()) {
+function loadMetaPixel(pixelId: string) {
+  if (!/^[0-9]+$/.test(pixelId)) return;
+  inject(
+    `meta-pixel-${pixelId}`,
+    `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${pixelId}');`,
+  );
+  trackMetaPageView();
+}
+
+function loadOptionalScripts(storeId: string, pixelIdProp?: string | null) {
+  const analyticsAllowed = localStorage.getItem(ANALYTICS_CONSENT_KEY) === "analytics";
+  if (analyticsAllowed) {
     const posthog = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (posthog) {
       inject(
@@ -45,15 +44,10 @@ function loadOptionalScripts() {
       );
     }
   }
-  if (!marketingAllowed()) return;
-  const meta = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  if (!marketingConsentGranted()) return;
+  const pixel = pixelIdProp?.trim();
+  if (pixel) loadMetaPixel(pixel);
   const tiktok = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
-  if (meta && /^[0-9]+$/.test(meta)) {
-    inject(
-      "meta-pixel",
-      `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${meta}');fbq('track','PageView');`,
-    );
-  }
   if (tiktok && /^[A-Za-z0-9]+$/.test(tiktok)) {
     inject(
       "tiktok-pixel",
@@ -62,43 +56,69 @@ function loadOptionalScripts() {
   }
 }
 
-export function CookieBanner() {
+export function CookieBanner({ storeId, pixelId }: { storeId: string; pixelId?: string | null }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(CONSENT_KEY)) setVisible(true);
-    loadOptionalScripts();
-  }, []);
+    if (!localStorage.getItem(ANALYTICS_CONSENT_KEY)) setVisible(true);
+    loadOptionalScripts(storeId, pixelId);
+  }, [storeId, pixelId]);
 
-  function save(analytics: "aggregate" | "analytics", marketing: boolean) {
-    localStorage.setItem(CONSENT_KEY, analytics);
-    localStorage.setItem(MARKETING_KEY, marketing ? "yes" : "no");
+  function save(analytics: boolean, marketing: boolean) {
+    localStorage.setItem(ANALYTICS_CONSENT_KEY, analytics ? "analytics" : "aggregate");
+    localStorage.setItem(MARKETING_CONSENT_KEY, marketing ? "yes" : "no");
     setVisible(false);
-    loadOptionalScripts();
+    loadOptionalScripts(storeId, pixelId);
+    window.dispatchEvent(new Event("ps-consent-updated"));
   }
 
   if (!visible) return null;
   return (
-    <div className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-xl rounded-3xl border border-line bg-bark p-4 shadow-2xl sm:inset-x-auto sm:right-4">
+    <div
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-xl rounded-3xl border border-line bg-bark p-4 shadow-2xl sm:inset-x-auto sm:right-4"
+      role="dialog"
+      aria-label="Cookie choices"
+    >
       <p className="text-sm leading-6">
-        We use first-party analytics to understand how the shop is used. With your consent we also store an anonymous
-        visitor id for returning-visitor stats. Optional Meta/TikTok pixels and PostHog replay load only if you accept
-        marketing cookies. Your portrait photos are never used for ads.
+        We use essential cookies to run checkout. With your consent we use first-party analytics to improve the shop, and
+        optional Meta (Facebook/Instagram) measurement cookies if you accept marketing. See our{" "}
+        <Link href="/privacy" className="underline">
+          privacy notice
+        </Link>
+        . Your portrait photos are never used for ads.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <button
-          className="rounded-full bg-pumpkin px-4 py-2 text-sm font-semibold text-ink"
-          onClick={() => save("analytics", true)}
+          type="button"
+          className="min-h-11 flex-1 rounded-full bg-pumpkin px-4 py-2 text-sm font-semibold text-ink"
+          onClick={() => save(true, true)}
         >
-          Accept analytics &amp; marketing
+          Accept all
         </button>
-        <button className="rounded-full border border-line px-4 py-2 text-sm" onClick={() => save("analytics", false)}>
-          Analytics only
+        <button
+          type="button"
+          className="min-h-11 flex-1 rounded-full border border-line px-4 py-2 text-sm font-semibold"
+          onClick={() => save(true, false)}
+        >
+          Reject marketing
         </button>
-        <button className="rounded-full border border-line px-4 py-2 text-sm" onClick={() => save("aggregate", false)}>
+        <button
+          type="button"
+          className="min-h-11 flex-1 rounded-full border border-line px-4 py-2 text-sm"
+          onClick={() => save(false, false)}
+        >
           Essential only
         </button>
       </div>
     </div>
   );
+}
+
+/** @deprecated use trackMetaEvent from @/lib/meta/client */
+export function track(name: "ViewContent" | "AddToCart" | "InitiateCheckout" | "Lead" | "Purchase", value?: number, eventId?: string) {
+  if (typeof window === "undefined" || !marketingConsentGranted()) return;
+  trackMetaEvent(name, value == null ? undefined : { value, currency: "GBP" }, eventId);
+  const payload = value == null ? undefined : { value, currency: "GBP" };
+  const tiktokName = name === "Purchase" ? "CompletePayment" : name;
+  (window as PixelWindow).ttq?.track(tiktokName, payload);
 }

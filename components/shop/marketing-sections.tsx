@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Countdown } from "@/components/countdown";
+import { storedUtm } from "@/components/utm-capture";
+import { marketingConsentGranted, metaCheckoutAttribution, trackMetaEvent } from "@/lib/meta/client";
 
 const TRUST_ITEMS = [
   "UK warehouse fulfilment on ready-made decor",
@@ -77,10 +79,21 @@ export function EmailCapture({ storeName }: { storeName: string }) {
       setError("Please tick the box to hear from us by email.");
       return;
     }
+    const meta = metaCheckoutAttribution();
+    const leadEventId = trackMetaEvent("Lead") ?? meta.purchaseEventId;
     const response = await fetch("/api/marketing/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, marketingConsent: true, source: "newsletter" }),
+      body: JSON.stringify({
+        email,
+        marketingConsent: true,
+        source: "newsletter",
+        utm: storedUtm(),
+        metaLeadEventId: leadEventId,
+        metaMarketingConsent: marketingConsentGranted(),
+        metaFbp: meta.fbp,
+        metaFbc: meta.fbc,
+      }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {

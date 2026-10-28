@@ -1,4 +1,5 @@
 import { stripeLiveKeyOptInEnabled, stripeSecretKeyIsLive } from "@/lib/stripe/live-key";
+import { metaGoLiveWarnings } from "@/lib/meta/config";
 
 export type IntegrationId =
   | "postgres"
@@ -155,4 +156,11 @@ export function validateGoLive(env: NodeJS.ProcessEnv = process.env) {
     });
   }
   return { ok: unique.size === 0, missing: [...unique.values()] };
+}
+
+export function validateGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
+  return metaGoLiveWarnings(env).map((row) => ({
+    scope: row.storeId,
+    message: row.message,
+  }));
 }

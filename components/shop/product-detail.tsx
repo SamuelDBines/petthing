@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatGbp } from "@/config/pricing";
 import { ProductCard } from "@/components/shop/product-card";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 import { addToCart } from "@/lib/cart/storage";
+import { trackMetaEvent } from "@/lib/meta/client";
 
 type Props = {
   product: StorefrontCatalogueProduct;
@@ -20,6 +21,14 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
     : product.images.map((src, i) => ({ src, width: 800, height: 800, alt: `${product.name} ${i + 1}` }));
   const [active, setActive] = useState(0);
   const main = gallery[active] ?? gallery[0];
+
+  useEffect(() => {
+    trackMetaEvent("ViewContent", {
+      value: product.pricePence / 100,
+      currency: "GBP",
+      contentIds: [product.id],
+    });
+  }, [product.id, product.pricePence]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10" data-testid="shop-product-detail">
@@ -69,7 +78,14 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
           <button
             type="button"
             className="mt-6 min-h-12 rounded-full bg-pumpkin px-8 text-sm font-semibold text-white"
-            onClick={() => addToCart(product.id, 1)}
+            onClick={() => {
+              addToCart(product.id, 1);
+              trackMetaEvent("AddToCart", {
+                value: product.pricePence / 100,
+                currency: "GBP",
+                contentIds: [product.id],
+              });
+            }}
           >
             Add to cart
           </button>

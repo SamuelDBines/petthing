@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 import { Fraunces, Outfit } from "next/font/google";
+import { metaDomainVerification, metaPixelId } from "@/lib/meta/config";
+import { MetaAttributionCapture } from "@/components/meta-attribution";
 import { CookieBanner } from "@/components/cookie-banner";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { ShopSiteFooter, ShopSiteHeader } from "@/components/shop/store-chrome";
@@ -28,11 +30,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = h.get("x-forwarded-host") || h.get("host") || "";
   const base = `https://${config.brand.siteDomain}`;
   const noindex = stagingNoindex(host);
+  const domainVerify = metaDomainVerification(config.id, process.env, config.brand);
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || base),
     title: { default: config.brand.appName, template: `%s · ${config.brand.appName}` },
     description: config.brand.tagline,
     robots: noindex ? { index: false, follow: false } : undefined,
+    verification: domainVerify ? { other: { "facebook-domain-verification": domainVerify } } : undefined,
     icons: config.brand.faviconPath ? { icon: config.brand.faviconPath } : undefined,
     openGraph: {
       type: "website",
@@ -53,6 +57,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const config = await loadStoreConfig();
   const cssVars = themeCssVars(config.brand.colors);
+  const pixelId = metaPixelId(config.id, process.env, config.brand);
   return (
     <html
       lang="en-GB"
@@ -75,8 +80,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         )}
         <Suspense fallback={null}>
           <VisitorTracker />
+          <MetaAttributionCapture />
         </Suspense>
-        <CookieBanner />
+        <CookieBanner storeId={config.id} pixelId={pixelId} />
       </body>
     </html>
   );

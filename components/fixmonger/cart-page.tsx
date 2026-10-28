@@ -3,6 +3,10 @@
 import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { track } from "@/components/cookie-banner";
+import { storedUtm } from "@/components/utm-capture";
+import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
+import { metaCheckoutAttribution, stashMetaCheckoutAttribution } from "@/lib/meta/client";
 import { formatGbp } from "@/config/pricing";
 import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
 import { jinglefoldShippingPence, JINGLEFOLD_DELIVERY } from "@/config/jinglefold";
@@ -44,10 +48,20 @@ export function FixmongerCartPage({
   async function checkout() {
     setBusy(true);
     setError("");
+    const meta = metaCheckoutAttribution();
+    const contentIds = rows.map(({ product }) => product.id);
+    stashMetaCheckoutAttribution(meta, contentIds);
+    track("InitiateCheckout", (subtotal + shippingPence) / 100, meta.initiateCheckoutEventId);
     const response = await fetch("/api/shop/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, lines, marketingConsent }),
+      body: JSON.stringify({
+        email,
+        lines,
+        marketingConsent,
+        utm: storedUtm(),
+        ...metaAttributionRequestBody(meta),
+      }),
     });
     const { ok, body } = await parseCheckoutResponse(response);
     setBusy(false);

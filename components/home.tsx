@@ -8,7 +8,7 @@ import { CHRISTMAS_PREORDER_PENCE, formatGbp, SEASON_PASS, TIERS } from "@/confi
 import { THEMES, type ThemeDefinition } from "@/config/themes";
 import { Compare } from "@/components/compare";
 import { Countdown } from "@/components/countdown";
-import { track } from "@/components/cookie-banner";
+import { trackMetaEvent } from "@/lib/meta/client";
 
 const FAQS = [
   ["How fast is it?", "Standard orders are reviewed and emailed as they finish. Priority delivery is an under-two-hour target once payment clears and the queue is moving."],
@@ -30,7 +30,7 @@ export function HomePage() {
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    track("ViewContent");
+    trackMetaEvent("ViewContent", { currency: "GBP", contentIds: ["portrait"] });
     fetch("/api/catalog")
       .then((response) => response.json())
       .then((data) => {

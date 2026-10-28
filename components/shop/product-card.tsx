@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatGbp } from "@/config/pricing";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 import { addToCart } from "@/lib/cart/storage";
+import { trackMetaEvent } from "@/lib/meta/client";
 
 type Props = {
   product: StorefrontCatalogueProduct;
@@ -51,6 +52,7 @@ export function ProductCard({ product, onAdded, compact }: Props) {
               event.preventDefault();
               event.stopPropagation();
               addToCart(product.id, 1);
+              trackMetaEvent("AddToCart", { value: product.pricePence / 100, currency: "GBP", contentIds: [product.id] });
               onAdded?.();
             }}
           >

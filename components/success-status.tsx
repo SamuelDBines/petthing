@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { track } from "@/components/cookie-banner";
+import { readMetaPurchaseForSession, readStashedMetaPurchase } from "@/lib/meta/client";
 import { formatGbp } from "@/config/pricing";
 
 type Status = { kind: string; status: string; resultsPath: string | null; amountPence: number | null };
@@ -22,7 +22,18 @@ export function SuccessStatus() {
       if (stop) return;
       setStatus(body);
       if (body.amountPence && !sessionStorage.getItem(`ps_purchase_${sessionId}`)) {
-        track("Purchase", body.amountPence / 100);
+        readStashedMetaPurchase(sessionId);
+        const meta = readMetaPurchaseForSession(sessionId!);
+        const { trackMetaEvent } = await import("@/lib/meta/client");
+        trackMetaEvent(
+          "Purchase",
+          {
+            value: body.amountPence / 100,
+            currency: "GBP",
+            contentIds: meta?.contentIds,
+          },
+          meta?.purchaseEventId,
+        );
         sessionStorage.setItem(`ps_purchase_${sessionId}`, "1");
       }
     }

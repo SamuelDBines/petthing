@@ -8,6 +8,8 @@ import { formatGbp, SEASON_PASS, TIERS, type TierId } from "@/config/pricing";
 import { SUBJECTS, THEMES, type StyleDefinition, type SubjectType } from "@/config/themes";
 import { track } from "@/components/cookie-banner";
 import { storedUtm } from "@/components/utm-capture";
+import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
+import { metaCheckoutAttribution, stashMetaCheckoutAttribution, trackMetaEvent } from "@/lib/meta/client";
 
 async function prepare(file: File) {
   let blob: Blob = file;
@@ -108,6 +110,7 @@ export function CreateWizard() {
   useEffect(() => {
     if (step !== 4 || previewTracked.current) return;
     previewTracked.current = true;
+    trackMetaEvent("Lead");
     void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
   }, [step]);
 
@@ -147,7 +150,9 @@ export function CreateWizard() {
         const { trackFunnelEvent } = await import("@/components/visitor-tracker");
         trackFunnelEvent("photo_upload");
       }
-      track("InitiateCheckout", order.amountPence / 100);
+      const meta = metaCheckoutAttribution();
+      stashMetaCheckoutAttribution(meta, [tierId, ...styles]);
+      track("InitiateCheckout", order.amountPence / 100, meta.initiateCheckoutEventId);
       const checkout = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,6 +161,7 @@ export function CreateWizard() {
           orderId: order.orderId,
           uploadToken: order.uploadToken,
           analyticsSessionId: (await import("@/components/visitor-tracker")).analyticsSessionId(),
+          ...metaAttributionRequestBody(meta),
         }),
       });
       const { ok, body: session } = await parseCheckoutResponse(checkout);

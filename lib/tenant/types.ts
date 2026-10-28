@@ -43,6 +43,11 @@ export type StoreBrand = {
   ogImagePath?: string;
   faviconPath?: string;
   colors: StoreThemeColors;
+  /** Optional Meta ads config (env META_*_<STORE> overrides). */
+  meta?: {
+    pixelId?: string;
+    domainVerification?: string;
+  };
 };
 
 export type StoreCatalog = {

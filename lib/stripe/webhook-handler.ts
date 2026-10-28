@@ -64,6 +64,12 @@ export async function handleStripeWebhookEvent(
       }
       if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
         await fulfill(session);
+        try {
+          const { sendMetaPurchaseFromCheckoutSession } = await import("@/lib/meta/purchase-from-session");
+          await sendMetaPurchaseFromCheckoutSession(session);
+        } catch (error) {
+          console.error("[meta] Purchase CAPI failed", error);
+        }
         const kind = session.metadata?.kind;
         const orderId = session.metadata?.orderId;
         if ((kind === "portrait" || kind === "season_pass" || kind === "extra_styles") && orderId) {

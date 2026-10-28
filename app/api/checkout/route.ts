@@ -30,14 +30,20 @@ import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
+import { metaAttributionBodySchema, metaContextFromBody } from "@/lib/meta/api-schema";
+import { mergeCheckoutStripeMetadata } from "@/lib/meta/stripe-metadata";
+import { metaAttributionFromRequest } from "@/lib/meta/purchase-from-session";
+import { sendMetaInitiateCheckout } from "@/lib/meta/server-events";
 
 const schema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("portrait"),
-    orderId: z.string().uuid(),
-    uploadToken: z.string().min(10),
-    analyticsSessionId: z.string().uuid().optional(),
-  }),
+  z
+    .object({
+      kind: z.literal("portrait"),
+      orderId: z.string().uuid(),
+      uploadToken: z.string().min(10),
+      analyticsSessionId: z.string().uuid().optional(),
+    })
+    .merge(metaAttributionBodySchema),
   z.object({
     kind: z.literal("extra_styles"),
     token: z.string().min(10),
@@ -147,18 +153,22 @@ export async function POST(request: Request) {
       const existingUrl = await openCheckoutSessionUrl(stripe, order.stripeCheckoutSessionId);
       if (existingUrl) return Response.json({ url: existingUrl });
     }
+    const metaCtx = body.kind === "portrait" ? metaContextFromBody(body) : null;
     const opened = await openSession({
       brand,
       origin,
       kind: pass ? "season" : "portrait",
       email: order.email,
       lineItems: items,
-      metadata: {
-        kind: pass ? "season_pass" : "portrait",
-        orderId: order.id,
-        storeId: order.storeId,
-        visitorSessionId: body.analyticsSessionId ?? "",
-      },
+      metadata: mergeCheckoutStripeMetadata(
+        {
+          kind: pass ? "season_pass" : "portrait",
+          orderId: order.id,
+          storeId: order.storeId,
+          visitorSessionId: body.analyticsSessionId ?? "",
+        },
+        metaCtx,
+      ),
       mode: pass ? "subscription" : "payment",
       successPath: jinglefoldPersonalised
         ? `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`
@@ -193,6 +203,19 @@ export async function POST(request: Request) {
       orderId: order.id,
       createdAt: new Date().toISOString(),
     });
+    if (metaCtx?.marketingConsent) {
+      const reqMeta = metaAttributionFromRequest(request);
+      void sendMetaInitiateCheckout({
+        storeId: order.storeId,
+        email: order.email,
+        valuePence: order.amountPence,
+        contentIds: [order.tierId, ...order.styleIds],
+        ctx: metaCtx,
+        clientIp: reqMeta.clientIp,
+        userAgent: reqMeta.userAgent,
+        eventSourceUrl: origin + (jinglefoldPersonalised ? `/results/${order.resultsToken}` : "/create"),
+      }).catch((error) => console.error("Meta InitiateCheckout", error));
+    }
     return Response.json({ url: opened.url });
   }
 

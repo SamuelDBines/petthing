@@ -1,6 +1,7 @@
-import { validateGoLive, STORE_PROFILES, GLOBAL_REQUIREMENTS } from "../lib/go-live/requirements";
+import { validateGoLive, validateGoLiveWarnings, STORE_PROFILES, GLOBAL_REQUIREMENTS } from "../lib/go-live/requirements";
 
 const result = validateGoLive();
+const warnings = validateGoLiveWarnings();
 
 console.log("Go-live validation\n====================\n");
 if (result.ok) {
@@ -9,6 +10,14 @@ if (result.ok) {
   console.log(`Missing ${result.missing.length} required variable(s):\n`);
   for (const row of result.missing) {
     console.log(`  [${row.scope}] ${row.key} — ${row.description}`);
+  }
+  console.log("");
+}
+
+if (warnings.length) {
+  console.log(`Optional Meta ads warnings (${warnings.length}):\n`);
+  for (const row of warnings) {
+    console.log(`  [${row.scope}] ${row.message}`);
   }
   console.log("");
 }

@@ -17,6 +17,16 @@ function ordersInRange(store: ReturnType<typeof getStore>, storeId: string | "al
   );
 }
 
+function shopOrdersInRange(store: ReturnType<typeof getStore>, storeId: string | "all", from: string, to: string) {
+  if (!store.listShopOrders) return Promise.resolve([]);
+  return store.listShopOrders(storeId === "all" ? "all" : storeId).then((orders) =>
+    orders.filter((order) => {
+      const day = order.createdAt.slice(0, 10);
+      return day >= from && day <= to;
+    }),
+  );
+}
+
 export async function GET(request: Request) {
   if (!(await isAdmin())) return jsonError("Sign in required", 401);
   const url = new URL(request.url);
@@ -30,10 +40,11 @@ export async function GET(request: Request) {
   }
 
   const compare = comparisonRange(range.from, range.to);
-  const [daily, compareDaily, orders, activeNow] = await Promise.all([
+  const [daily, compareDaily, orders, shopOrders, activeNow] = await Promise.all([
     store.getAnalyticsRollups(storeFilter === "all" ? "all" : storeFilter, range.from, range.to, includeExcluded),
     store.getAnalyticsRollups(storeFilter === "all" ? "all" : storeFilter, compare.from, compare.to, includeExcluded),
     ordersInRange(store, storeFilter === "all" ? "all" : storeFilter, range.from, range.to),
+    shopOrdersInRange(store, storeFilter === "all" ? "all" : storeFilter, range.from, range.to),
     store.countActiveVisitors?.(storeFilter === "all" ? "all" : storeFilter, includeExcluded) ?? 0,
   ]);
 
@@ -50,6 +61,7 @@ export async function GET(request: Request) {
     activeNow,
     daily: daily.length ? daily : [{ day: range.from, metrics: emptyRollup() }],
     orders,
+    shopOrders,
     comparison: { from: compare.from, to: compare.to, metrics: comparisonMetrics },
   });
 

@@ -25,6 +25,15 @@ export default async function Page() {
       <p className="mt-3">
         To fulfil orders, provide customer support, prevent fraud, and improve the site. We do not sell your personal data. Fulfillment partners (such as Go Dropship, Prodigi, or print partners) receive only what they need to ship your order.
       </p>
+      <h2 className="mt-8 text-2xl">Cookies and advertising</h2>
+      <p className="mt-3">
+        With your consent, we use Meta (Facebook/Instagram) Pixel and Conversions API to measure ad performance and attribute purchases. Meta may set cookies such as{" "}
+        <code className="text-sm">_fbp</code> and <code className="text-sm">_fbc</code> when you accept marketing cookies. We do not load the pixel or set those cookies until you choose{" "}
+        <strong>Accept all</strong> on the cookie banner. If you reject marketing cookies, we still run essential checkout and security features without Meta tracking.
+      </p>
+      <p className="mt-3">
+        Server-side events are only sent when you have accepted marketing cookies, and include hashed contact details, browser identifiers, and order value in GBP. You can change your choice anytime by clearing site data or using the banner when it reappears.
+      </p>
       <h2 className="mt-8 text-2xl">Your rights</h2>
       <p className="mt-3">
         You may request access, correction, or deletion of your data, and object to marketing. Contact{" "}

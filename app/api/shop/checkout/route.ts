@@ -6,7 +6,11 @@ import { getCatalogueProduct, listCatalogueProducts } from "@/lib/catalogue/prod
 import { shopOrderLinesForProduct } from "@/lib/catalogue/order-lines";
 import type { ShopOrder, ShopOrderLine } from "@/lib/catalogue/types";
 import { formatGbp } from "@/config/pricing";
-import { jsonError, parseBody } from "@/lib/http";
+import { jsonError, parseBody, utmSchema } from "@/lib/http";
+import { metaAttributionBodySchema, metaContextFromBody } from "@/lib/meta/api-schema";
+import { mergeCheckoutStripeMetadata } from "@/lib/meta/stripe-metadata";
+import { metaAttributionFromRequest } from "@/lib/meta/purchase-from-session";
+import { sendMetaInitiateCheckout } from "@/lib/meta/server-events";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, demoCheckoutAllowed, hashIp } from "@/lib/runtime";
 import {
@@ -22,11 +26,14 @@ import { getStripe } from "@/lib/stripe";
 import { markShopOrderPaid } from "@/lib/shop/fulfillment";
 import type Stripe from "stripe";
 
-const schema = z.object({
-  email: z.string().email(),
-  lines: z.array(z.object({ productId: z.string(), quantity: z.number().int().min(1).max(20) })).min(1),
-  marketingConsent: z.boolean().optional(),
-});
+const schema = z
+  .object({
+    email: z.string().email(),
+    lines: z.array(z.object({ productId: z.string(), quantity: z.number().int().min(1).max(20) })).min(1),
+    marketingConsent: z.boolean().optional(),
+    utm: utmSchema.optional(),
+  })
+  .merge(metaAttributionBodySchema);
 
 async function openSession(args: {
   brand: import("@/lib/tenant/types").StoreBrand;
@@ -129,6 +136,7 @@ export async function POST(request: Request) {
     trackingNumber: null,
     supplierBatchId: null,
     marketingConsent: parsed.data.marketingConsent ?? false,
+    utm: parsed.data.utm ?? {},
     createdAt: new Date().toISOString(),
     paidAt: null,
   };
@@ -166,12 +174,13 @@ export async function POST(request: Request) {
       });
     }
   }
+  const metaCtx = metaContextFromBody(parsed.data);
   const opened = await openSession({
     brand: config.brand,
     origin,
     email: shopOrder.email,
     lineItems: stripeItems,
-    metadata: { kind: "shop", shopOrderId: shopOrder.id, storeId },
+    metadata: mergeCheckoutStripeMetadata({ kind: "shop", shopOrderId: shopOrder.id, storeId }, metaCtx),
     idempotencyKey: `shop-${shopOrder.id}`,
     integrationStableKey: shopOrder.id,
     shippingPence,
@@ -202,6 +211,19 @@ export async function POST(request: Request) {
     stripeCheckoutSessionId: opened.sessionId ?? null,
     stripeLivemode: opened.livemode,
   });
+  if (metaCtx?.marketingConsent) {
+    const reqMeta = metaAttributionFromRequest(request);
+    void sendMetaInitiateCheckout({
+      storeId,
+      email: shopOrder.email,
+      valuePence: orderTotalPence,
+      contentIds: pricedLines.map(({ product }) => product.id),
+      ctx: metaCtx,
+      clientIp: reqMeta.clientIp,
+      userAgent: reqMeta.userAgent,
+      eventSourceUrl: `${origin}/shop/cart`,
+    }).catch((error) => console.error("Meta InitiateCheckout", error));
+  }
   return Response.json({
     url: opened.url,
     total: formatGbp(orderTotalPence),

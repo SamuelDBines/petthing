@@ -103,6 +103,7 @@ export type ShopOrder = {
   trackingNumber: string | null;
   supplierBatchId: string | null;
   marketingConsent?: boolean;
+  utm?: Record<string, string>;
   abandonedReminderSentAt?: string | null;
   shippedAt?: string | null;
   deliveredAt?: string | null;

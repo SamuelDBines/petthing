@@ -2,7 +2,7 @@ import type { AnalyticsDashboard, DailyRollupMetrics, FunnelStep, MetricDelta } 
 import type { Order as DomainOrder } from "@/lib/domain";
 import { funnelStepLabel } from "@/lib/analytics/labels";
 import { clampRate, computeFunnelConversions } from "@/lib/analytics/metrics";
-import { attachRevenueToRollups, revenueSummary } from "@/lib/analytics/revenue";
+import { attachRevenueToRollups, attachShopRevenueToRollups, revenueSummary } from "@/lib/analytics/revenue";
 import { emptyRollup, mergeRollups } from "@/lib/analytics/rollup";
 import { isPaidTraffic } from "@/lib/analytics/traffic";
 
@@ -85,9 +85,11 @@ export function buildDashboard(args: {
   activeNow?: number;
   daily: { day: string; metrics: DailyRollupMetrics }[];
   orders?: DomainOrder[];
+  shopOrders?: import("@/lib/catalogue/types").ShopOrder[];
 }): AnalyticsDashboard {
   const merged = mergeRollups(args.daily.map((row) => row.metrics));
   if (args.orders?.length) attachRevenueToRollups(merged, args.orders);
+  if (args.shopOrders?.length) attachShopRevenueToRollups(merged, args.shopOrders);
   const previous = args.comparison?.metrics ?? emptyRollup();
   const funnelRaw = computeFunnelConversions(merged.funnel, FUNNEL_ORDER);
   const funnel = funnelRaw.map((row, index) => {

@@ -21,6 +21,7 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     trackingNumber: row.tracking_number ? String(row.tracking_number) : null,
     supplierBatchId: row.supplier_batch_id ? String(row.supplier_batch_id) : null,
     marketingConsent: Boolean(row.marketing_consent),
+    utm: (row.utm as Record<string, string> | null) ?? {},
     abandonedReminderSentAt: row.abandoned_reminder_sent_at
       ? new Date(row.abandoned_reminder_sent_at as string).toISOString()
       : null,
@@ -44,13 +45,14 @@ export const shopDbMethods = {
       insert into shop_orders (
         id, store_id, email, status, lines, shipping, amount_pence, shipping_pence,
         stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, amount_refunded_pence,
-        marketing_consent, created_at, paid_at
+        marketing_consent, utm, created_at, paid_at
       )
       values (
         ${order.id}::uuid, ${order.storeId}, ${order.email}, ${order.status}, ${JSON.stringify(order.lines)}::jsonb,
         ${order.shipping ? JSON.stringify(order.shipping) : null}::jsonb,
         ${order.amountPence}, ${order.shippingPence}, ${order.stripeCheckoutSessionId}, ${order.stripePaymentIntentId ?? null},
-        ${order.stripeLivemode ?? null}, ${order.amountRefundedPence ?? 0}, ${order.marketingConsent ?? false}, ${order.createdAt}, ${order.paidAt}
+        ${order.stripeLivemode ?? null}, ${order.amountRefundedPence ?? 0}, ${order.marketingConsent ?? false},
+        ${JSON.stringify(order.utm ?? {})}::jsonb, ${order.createdAt}, ${order.paidAt}
       )
     `;
     return order;
@@ -78,6 +80,7 @@ export const shopDbMethods = {
         tracking_number = ${next.trackingNumber},
         supplier_batch_id = ${next.supplierBatchId},
         marketing_consent = ${next.marketingConsent ?? false},
+        utm = ${JSON.stringify(next.utm ?? {})}::jsonb,
         abandoned_reminder_sent_at = ${next.abandonedReminderSentAt ?? null},
         shipped_at = ${next.shippedAt ?? null},
         delivered_at = ${next.deliveredAt ?? null},
