@@ -1,6 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { REFERRAL_PREFIX } from "@/config/brand";
 import { resolveClientIpFromHeaders } from "@/lib/runtime/client-ip";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
+import { metaCapiToken, metaPixelId } from "@/lib/meta/config";
 import { prodigiApiKey } from "@/lib/prodigi/config";
 
 export function appUrl() {
@@ -43,7 +45,19 @@ export function demoCheckoutAllowed() {
   return process.env.ALLOW_DEMO_CHECKOUT !== "false";
 }
 
+export function metaIntegrationFlags(env: NodeJS.ProcessEnv = process.env) {
+  let metaPixel = false;
+  let metaCapi = false;
+  for (const store of BUILTIN_STORES) {
+    const host = store.brand.siteDomain.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+    if (metaPixelId(store.id, host, env, store.brand)) metaPixel = true;
+    if (metaCapiToken(store.id, host, env)) metaCapi = true;
+  }
+  return { metaPixel, metaCapi };
+}
+
 export function integrations() {
+  const meta = metaIntegrationFlags();
   return {
     postgres: Boolean(process.env.DATABASE_URL),
     supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
@@ -54,7 +68,8 @@ export function integrations() {
       Boolean((process.env.AWS_SES_REGION || process.env.AWS_ACCESS_KEY_ID) && process.env.EMAIL_FROM) ||
       Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
     prodigi: Boolean(prodigiApiKey()),
-    metaPixel: Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID),
+    metaPixel: meta.metaPixel,
+    metaCapi: meta.metaCapi,
     tiktokPixel: Boolean(process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID),
     manualReview: manualReviewEnabled(),
     demoCheckout: demoCheckoutAllowed(),

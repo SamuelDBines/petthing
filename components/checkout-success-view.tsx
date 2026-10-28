@@ -99,6 +99,15 @@ export function CheckoutSuccessView({
           <h1 className="display mt-2 text-4xl leading-tight sm:text-5xl">{copy.title}</h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">{copy.lead}</p>
 
+          {phase === "refunded" || phase === "expired_unpaid" ? (
+            <Link
+              href="/create"
+              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-pumpkin px-8 text-base font-semibold text-ink"
+            >
+              Start a new portrait
+            </Link>
+          ) : null}
+
           {payload?.progress ? <ProgressRing progress={payload.progress} /> : null}
 
           {payload && (payload.packageName || payload.orderRef) ? (

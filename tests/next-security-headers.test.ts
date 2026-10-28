@@ -25,6 +25,15 @@ test("default security headers allow self in frame-src for admin iframe", () => 
   assert.match(csp, /frame-src 'self'/);
 });
 
+test("default security headers allow Meta pixel (fbevents.js and CAPI)", () => {
+  const csp = headerValue(defaultSecurityHeaders(), "Content-Security-Policy") ?? "";
+  assert.match(csp, /script-src[^;]*https:\/\/connect\.facebook\.net/);
+  assert.match(csp, /connect-src[^;]*https:\/\/connect\.facebook\.net/);
+  assert.match(csp, /connect-src[^;]*https:\/\/www\.facebook\.com/);
+  assert.match(csp, /frame-src[^;]*https:\/\/www\.facebook\.com/);
+  assert.match(csp, /img-src[^;]*https:\/\/www\.facebook\.com/);
+});
+
 test("content worker headers are frameable same-origin only", () => {
   const headers = contentWorkerSecurityHeaders();
   assert.equal(headerValue(headers, "X-Robots-Tag"), undefined);
