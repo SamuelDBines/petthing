@@ -17,6 +17,8 @@ export type PrintProduct = {
   widthIn?: number;
   heightIn?: number;
   prodigiPrintArea?: string;
+  /** Prodigi v4 order/quote item attributes (e.g. wrap, color). */
+  prodigiAttributes?: Record<string, string>;
   areas: { printArea: string; sheet: PrintSheet }[];
 };
 
@@ -43,7 +45,7 @@ const PUZZLE_PRINTS: PrintProduct[] = [
     defaultSku: "JIGSAW-PUZZLE-252",
     copies: 1,
     areas: [
-      { printArea: "default", sheet: "board" },
+      { printArea: "jigsaw", sheet: "board" },
       { printArea: "lid", sheet: "lid" },
     ],
   },

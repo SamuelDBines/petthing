@@ -14,6 +14,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 12,
     heightIn: 16,
     prodigiPrintArea: "default",
+    prodigiAttributes: { wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -27,6 +28,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 12,
     heightIn: 16,
     prodigiPrintArea: "default",
+    prodigiAttributes: { wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -40,6 +42,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 16,
     heightIn: 20,
     prodigiPrintArea: "default",
+    prodigiAttributes: { wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -53,6 +56,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 24,
     heightIn: 32,
     prodigiPrintArea: "default",
+    prodigiAttributes: { wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -66,6 +70,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 16,
     heightIn: 20,
     prodigiPrintArea: "default",
+    prodigiAttributes: { color: "black" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -79,6 +84,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 20,
     heightIn: 30,
     prodigiPrintArea: "default",
+    prodigiAttributes: { color: "black" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
 ];

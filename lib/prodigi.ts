@@ -1,6 +1,7 @@
 import { printSku, type PrintProduct } from "@/config/prints";
 import type { Shipping } from "@/lib/domain";
 import { prodigiApiKeyForStore, prodigiUsesLiveApi, type ProdigiRuntimeOpts } from "@/lib/prodigi/config";
+import { buildProdigiOrderLineItem, buildProdigiQuoteLineItem } from "@/lib/prodigi/print-payload";
 
 function prodigiOpts(args: { storeId: string; stripeLivemode?: boolean | null; host?: string }): ProdigiRuntimeOpts {
   return { stripeLivemode: args.stripeLivemode, host: args.host };
@@ -65,13 +66,13 @@ export async function quotePrintShipping(args: {
   const opts = prodigiOpts({ storeId });
   const unavailable = prodigiUnavailableMessage(storeId, opts);
   if (unavailable) throw new Error(unavailable);
-  const sku = printSku(args.product);
+  const lineItem = buildProdigiQuoteLineItem(args.product, args.items ?? 1);
   const response = await prodigi(storeId, "/quotes", opts, {
     method: "POST",
     body: JSON.stringify({
       shippingMethod: "Standard",
       destinationCountryCode: args.countryCode,
-      items: [{ sku, copies: args.items ?? 1 }],
+      items: [lineItem],
     }),
   });
   const payload = (await response.json().catch(() => ({}))) as {
@@ -193,13 +194,11 @@ export async function submitPrintOrder(args: {
       },
     },
     items: [
-      {
-        sku,
-        copies: args.product.copies,
-        sizing: "fillPrintArea",
+      buildProdigiOrderLineItem({
+        product: args.product,
+        assets: args.assets,
         merchantReference: args.merchantReference,
-        assets: args.assets.map((asset) => ({ printArea: asset.printArea, url: asset.url })),
-      },
+      }),
     ],
   };
 
