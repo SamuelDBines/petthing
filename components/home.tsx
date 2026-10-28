@@ -8,6 +8,7 @@ import { CHRISTMAS_PREORDER_PENCE, formatGbp, SEASON_PASS, TIERS } from "@/confi
 import { THEMES, type ThemeDefinition } from "@/config/themes";
 import { Compare } from "@/components/compare";
 import { Countdown } from "@/components/countdown";
+import { PawtraitryHomeGiftsSection } from "@/components/pawtraitry-home-gifts-section";
 import { trackMetaEvent } from "@/lib/meta/client";
 
 const FAQS = [
@@ -18,6 +19,10 @@ const FAQS = [
   ["Who can see the pictures?", "Only you, via a private link. We don’t publish a gallery. Share buttons use a watermarked preview."],
   ["When are files deleted?", "One-off photos go 7 days after delivery. A season pass keeps them for up to a year so the next season can use them. Finished portraits go after 30 days."],
   ["Do you print?", "Yes. When your gallery is ready you can order UK-posted prints and gifts. Puzzles, canvas, classic frames, mugs, and more. From the same portraits."],
+  [
+    "Can I get my portrait on a mug or canvas?",
+    "Yes. After your portraits are ready, your gallery lists mugs, cushions, coasters, framed prints, canvas, puzzles, and cards. Pick a style, choose the portrait, and checkout with a UK shipping address. Delivery is included in the print prices.",
+  ],
   ["Is this only for one season?", "No. We run themed collections through the year. Pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
   ["Are the portraits real photos?", "No. They are AI-generated art styled from your uploads. We label them clearly on your gallery and in emails."],
   ["What is the season pass?", "A yearly plan for a family or group. You get a Classic set each season, starting with the one that’s open. One-off orders stay available for pets, couples, and a single season."],
@@ -112,6 +117,8 @@ export function HomePage() {
           ))}
         </div>
       </section>
+
+      <PawtraitryHomeGiftsSection />
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 pb-16">
         <h2 className="text-4xl">Order {theme.name} once</h2>

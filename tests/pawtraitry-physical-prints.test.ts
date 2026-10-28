@@ -50,6 +50,16 @@ test("physical print config points at product mockups", () => {
   assert.equal(framed?.previewImage, "/products/pawtraitry/framed-white.jpg");
 });
 
+test("homepage gift tiles use seed pricing", () => {
+  const { pawtraitryHomeGiftTiles, pawtraitryHomeGiftPriceLabel } = require("../config/pawtraitry-home-gifts") as typeof import("../config/pawtraitry-home-gifts");
+  const tiles = pawtraitryHomeGiftTiles();
+  assert.equal(tiles.length, 6);
+  const framed = tiles.find((t) => t.name.includes("framed"));
+  assert.equal(framed?.pricePence, 7999);
+  assert.equal(pawtraitryHomeGiftPriceLabel(framed!), "from £79.99");
+  assert.equal(tiles.find((t) => t.name.includes("mug"))?.pricePence, 1999);
+});
+
 test("compose cover and mug wrap produce jpeg buffers", async () => {
   const sample = readFileSync("public/examples/pet-after.jpg");
   const cover = await composeCoverPortrait({ buffer: sample, width: 400, height: 600 });
