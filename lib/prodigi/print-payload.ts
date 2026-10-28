@@ -1,3 +1,4 @@
+import { prodigiItemAttributes } from "@/config/prodigi-print-attributes";
 import { printSku, type PrintProduct } from "@/config/prints";
 
 export type ProdigiQuoteLineItem = {
@@ -22,8 +23,16 @@ export type ProdigiProductDetails = {
   printAreas: string[];
 };
 
-export function prodigiItemAttributes(product: PrintProduct): Record<string, string> {
-  return { ...(product.prodigiAttributes ?? {}) };
+export function singleValueAttributesFromDetails(details: ProdigiProductDetails): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, allowed] of Object.entries(details.attributes)) {
+    if (allowed.length === 1) out[name] = allowed[0]!;
+  }
+  return out;
+}
+
+export function isMultiValueProdigiAttribute(allowed: string[]) {
+  return allowed.length > 1;
 }
 
 export function buildProdigiQuoteLineItem(product: PrintProduct, copies = product.copies): ProdigiQuoteLineItem {
@@ -74,13 +83,32 @@ export function parseProdigiProductDetails(payload: unknown): ProdigiProductDeta
   return { sku, attributes, printAreas };
 }
 
+export function validateStaticImplicitAgainstProductDetails(
+  defaultSku: string,
+  resolvedSku: string,
+  details: ProdigiProductDetails,
+  staticImplicit: Record<string, string>,
+): string[] {
+  const errors: string[] = [];
+  const apiSingle = singleValueAttributesFromDetails(details);
+  for (const [name, expected] of Object.entries(apiSingle)) {
+    const actual = staticImplicit[name];
+    if (actual !== expected) {
+      errors.push(
+        `${defaultSku}: static implicit ${name} is ${JSON.stringify(actual ?? null)} but Prodigi expects ${JSON.stringify(expected)} — update config/prodigi-print-attributes.ts`,
+      );
+    }
+  }
+  return errors;
+}
+
 export function validateProdigiLineItemAgainstProduct(
   item: ProdigiQuoteLineItem,
   details: ProdigiProductDetails,
 ): string[] {
   const errors: string[] = [];
   for (const [name, allowed] of Object.entries(details.attributes)) {
-    if (!allowed.length) continue;
+    if (!allowed.length || !isMultiValueProdigiAttribute(allowed)) continue;
     const value = item.attributes[name];
     if (!value) {
       errors.push(`${details.sku}: missing required attribute ${name} (validValues: ${allowed.join(", ")})`);

@@ -6,10 +6,12 @@
  * Uses the same quote line-item shape as lib/prodigi.ts (attributes + print areas).
  */
 import { PRINTS } from "@/config/prints";
+import { prodigiStaticImplicitAttributes } from "@/config/prodigi-print-attributes";
 import {
   buildProdigiQuoteLineItem,
   parseProdigiProductDetails,
   validateProdigiLineItemAgainstProduct,
+  validateStaticImplicitAgainstProductDetails,
 } from "@/lib/prodigi/print-payload";
 
 const DEFAULT_BASE = "https://api.sandbox.prodigi.com/v4.0";
@@ -90,6 +92,12 @@ async function main() {
       failures.push(`${product.id} (${item.sku}): could not parse product details`);
       continue;
     }
+    failures.push(...validateStaticImplicitAgainstProductDetails(
+      product.defaultSku,
+      item.sku,
+      details,
+      prodigiStaticImplicitAttributes(item.sku, product.defaultSku),
+    ));
     failures.push(...validateProdigiLineItemAgainstProduct(item, details));
 
     const { response: quoteResponse, body: quoteBody } = await prodigiQuote(key, base, item);

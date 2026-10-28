@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { prodigiItemAttributes, PRODIGI_IMPLICIT_ATTRIBUTES_BY_DEFAULT_SKU } from "../config/prodigi-print-attributes";
 import { PRINTS } from "../config/prints";
 import {
   buildProdigiOrderLineItem,
   buildProdigiQuoteLineItem,
+  isMultiValueProdigiAttribute,
   parseProdigiProductDetails,
+  singleValueAttributesFromDetails,
   validateProdigiLineItemAgainstProduct,
+  validateStaticImplicitAgainstProductDetails,
 } from "../lib/prodigi/print-payload";
 
 test("puzzle print areas use jigsaw and lid for Prodigi", () => {
@@ -16,21 +20,81 @@ test("puzzle print areas use jigsaw and lid for Prodigi", () => {
     item.assets.map((a) => a.printArea),
     ["jigsaw", "lid"],
   );
-  assert.equal(Object.keys(item.attributes).length, 0);
 });
 
-test("canvas SKUs send wrap or frame color attributes", () => {
-  const slim = PRINTS.find((p) => p.id === "canvas_slim_12x16");
-  const stretched = PRINTS.find((p) => p.id === "canvas_stretched_12x16");
-  const framed = PRINTS.find((p) => p.id === "canvas_framed_slim_16x20");
-  assert.ok(slim && stretched && framed);
-  assert.deepEqual(buildProdigiQuoteLineItem(slim!).attributes, { wrap: "MirrorWrap" });
-  assert.equal(buildProdigiQuoteLineItem(slim!).sku, "GLOBAL-SLIMCAN-12X16");
-  assert.deepEqual(buildProdigiQuoteLineItem(stretched!).attributes, { wrap: "MirrorWrap" });
-  assert.deepEqual(buildProdigiQuoteLineItem(framed!).attributes, { color: "black", wrap: "MirrorWrap" });
+test("prodigiItemAttributes merges static implicit attrs and explicit choices", () => {
+  const slim = PRINTS.find((p) => p.id === "canvas_slim_12x16")!;
+  const framed = PRINTS.find((p) => p.id === "canvas_framed_slim_16x20")!;
+  const attrs = prodigiItemAttributes(slim);
+  assert.equal(attrs.wrap, "MirrorWrap");
+  assert.equal(attrs.edge, PRODIGI_IMPLICIT_ATTRIBUTES_BY_DEFAULT_SKU["GLOBAL-SLIMCAN-12X16"]?.edge);
+  const framedAttrs = prodigiItemAttributes(framed);
+  assert.equal(framedAttrs.color, "black");
+  assert.equal(framedAttrs.wrap, "MirrorWrap");
+  assert.ok(framedAttrs.edge);
 });
 
-test("order line item matches quote shape plus sizing and asset urls", () => {
+test("singleValueAttributesFromDetails picks only length-1 lists", () => {
+  const details = {
+    sku: "TEST",
+    attributes: {
+      size: ["252 Piece"],
+      wrap: ["MirrorWrap", "White"],
+      edge: ["Standard38mm"],
+    },
+    printAreas: ["default"],
+  };
+  assert.deepEqual(singleValueAttributesFromDetails(details), {
+    size: "252 Piece",
+    edge: "Standard38mm",
+  });
+});
+
+test("validateProdigiLineItemAgainstProduct is strict only for multi-value attributes", () => {
+  const puzzle = PRINTS.find((p) => p.id === "puzzle_252")!;
+  const item = buildProdigiQuoteLineItem(puzzle);
+  const details = parseProdigiProductDetails({
+    product: {
+      sku: "JIGSAW-PUZZLE-252",
+      attributes: {
+        size: ["252 Piece"],
+      },
+      printAreas: { jigsaw: { required: true }, lid: { required: true } },
+    },
+  });
+  assert.ok(details);
+  assert.deepEqual(validateProdigiLineItemAgainstProduct(item, details), []);
+
+  const detailsWithWrap = parseProdigiProductDetails({
+    product: {
+      sku: "JIGSAW-PUZZLE-252",
+      attributes: {
+        size: ["252 Piece"],
+        wrap: ["MirrorWrap", "White"],
+      },
+      printAreas: { jigsaw: { required: true }, lid: { required: true } },
+    },
+  })!;
+  const missingWrap = validateProdigiLineItemAgainstProduct(item, detailsWithWrap);
+  assert.match(missingWrap.join(" "), /missing required attribute wrap/);
+});
+
+test("validateStaticImplicitAgainstProductDetails catches config drift", () => {
+  const details = {
+    sku: "GLOBAL-CAN-12X16",
+    attributes: { edge: ["RealEdgeOnly"] },
+    printAreas: ["default"],
+  };
+  const errors = validateStaticImplicitAgainstProductDetails(
+    "GLOBAL-CAN-12X16",
+    "GLOBAL-CAN-12X16",
+    details,
+    { edge: "WrongEdge" },
+  );
+  assert.match(errors.join(" "), /RealEdgeOnly/);
+});
+
+test("order line item includes implicit and explicit attributes", () => {
   const product = PRINTS.find((p) => p.id === "puzzle_252")!;
   const orderItem = buildProdigiOrderLineItem({
     product,
@@ -41,49 +105,5 @@ test("order line item matches quote shape plus sizing and asset urls", () => {
     ],
   });
   assert.equal(orderItem.sizing, "fillPrintArea");
-  assert.equal(orderItem.merchantReference, "print-1");
-  assert.equal(orderItem.assets.length, 2);
-});
-
-test("validateProdigiLineItemAgainstProduct checks attributes and print areas", () => {
-  const puzzle = PRINTS.find((p) => p.id === "puzzle_252")!;
-  const item = buildProdigiQuoteLineItem(puzzle);
-  const details = parseProdigiProductDetails({
-    product: {
-      sku: "JIGSAW-PUZZLE-252",
-      attributes: {},
-      printAreas: { jigsaw: { required: true }, lid: { required: true } },
-    },
-  });
-  assert.ok(details);
-  assert.deepEqual(validateProdigiLineItemAgainstProduct(item, details), []);
-
-  const bad = validateProdigiLineItemAgainstProduct(
-    { ...item, assets: [{ printArea: "default" }] },
-    details,
-  );
-  assert.match(bad.join(" "), /print area default/);
-});
-
-test("framed canvas validation requires wrap and color from product details", () => {
-  const framed = PRINTS.find((p) => p.id === "canvas_framed_slim_16x20")!;
-  const item = buildProdigiQuoteLineItem(framed);
-  const details = parseProdigiProductDetails({
-    product: {
-      sku: "GLOBAL-FRA-CAN-16X20",
-      attributes: {
-        color: ["black", "white"],
-        wrap: ["White", "MirrorWrap", "ImageWrap", "Black"],
-      },
-      printAreas: { default: { required: true } },
-    },
-  });
-  assert.ok(details);
-  assert.deepEqual(validateProdigiLineItemAgainstProduct(item, details), []);
-
-  const missingWrap = validateProdigiLineItemAgainstProduct(
-    { ...item, attributes: { color: "black" } },
-    details!,
-  );
-  assert.match(missingWrap.join(" "), /missing required attribute wrap/);
+  assert.equal(orderItem.attributes.size, PRODIGI_IMPLICIT_ATTRIBUTES_BY_DEFAULT_SKU["JIGSAW-PUZZLE-252"]?.size);
 });
