@@ -3,6 +3,7 @@ import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
 import {
+  approvePortraitReplacement,
   deliverOrder,
   regenerateMissingPortraits,
   regeneratePortraitVariant,
@@ -25,6 +26,7 @@ const schema = z.object({
     "regenerate",
     "regenerate_variant",
     "regenerate_missing",
+    "approve_replacement",
     "refund",
     "resend",
     "resubmit_partner",
@@ -57,6 +59,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await deliverOrder(id);
     } catch (error) {
       return jsonError(error instanceof Error ? error.message : "Delivery failed", 400);
+    }
+  }
+  if (parsed.data.action === "approve_replacement") {
+    if (!parsed.data.styleId) return jsonError("Choose a style.");
+    if (parsed.data.variantIndex === undefined) return jsonError("Choose a variant index.");
+    try {
+      await approvePortraitReplacement(store, id, parsed.data.styleId, parsed.data.variantIndex);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Approve failed", 400);
     }
   }
   if (parsed.data.action === "regenerate_missing") {

@@ -24,6 +24,12 @@ export async function GET() {
       const tier = getTier(order.tierId, config.catalog.tiers);
       const [jobs, assets] = await Promise.all([store.listJobs(order.id), store.listAssets(order.id)]);
       const progress = portraitGenerationProgress(tier, jobs, assets);
+      const pendingReplacements = assets
+        .filter((asset) => asset.kind === "result_replacement")
+        .map((asset) => ({
+          styleId: asset.styleId,
+          variantIndex: asset.variantIndex,
+        }));
       return {
         ...order,
         uploadToken: undefined,
@@ -33,6 +39,12 @@ export async function GET() {
           expected: progress.expected,
           complete: progress.complete,
         },
+        portraitJobs: jobs.map((job) => ({
+          styleId: job.styleId,
+          variantIndex: job.variantIndex,
+          status: job.status,
+        })),
+        pendingReplacements,
       };
     }),
   );

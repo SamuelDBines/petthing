@@ -10,9 +10,12 @@ import type { CatalogueProduct } from "@/lib/catalogue/types";
 import type { Order, PrintOrder } from "@/lib/domain";
 import { signInWithGoogle } from "@/app/admin/google-sign-in-action";
 
+type PortraitJobRow = { styleId: string; variantIndex: number; status: string };
 type OrderRow = Order & {
   prints: PrintOrder[];
   portraitProgress?: { generated: number; expected: number; complete: boolean };
+  portraitJobs?: PortraitJobRow[];
+  pendingReplacements?: { styleId: string | null; variantIndex: number | null }[];
 };
 
 type Stats = {
@@ -595,13 +598,18 @@ export function AdminDashboard({
                       </select>
                       <select
                         className="field"
-                        value={variantIndex[order.id] ?? 0}
+                        value={variantIndex[order.id] ?? order.portraitJobs?.[0]?.variantIndex ?? 0}
                         onChange={(event) => setVariantIndex({ ...variantIndex, [order.id]: Number(event.target.value) })}
                         data-testid="admin-regenerate-variant"
                       >
-                        {[0, 1, 2, 3, 4, 5].map((index) => (
-                          <option key={index} value={index}>Variant {index + 1}</option>
-                        ))}
+                        {(order.portraitJobs ?? [])
+                          .filter((job) => job.styleId === (styleId[order.id] || order.styleIds[0]))
+                          .sort((a, b) => a.variantIndex - b.variantIndex)
+                          .map((job) => (
+                            <option key={`${job.styleId}-${job.variantIndex}`} value={job.variantIndex}>
+                              Variant {job.variantIndex + 1}
+                            </option>
+                          ))}
                       </select>
                       <button
                         className="block"
@@ -611,13 +619,46 @@ export function AdminDashboard({
                             order.id,
                             "regenerate_variant",
                             styleId[order.id] || order.styleIds[0],
-                            variantIndex[order.id] ?? 0,
+                            variantIndex[order.id] ??
+                              order.portraitJobs?.find(
+                                (job) => job.styleId === (styleId[order.id] || order.styleIds[0]),
+                              )?.variantIndex ??
+                              0,
                           )
                         }
                         data-testid="regenerate-one-portrait"
                       >
                         Regenerate one image
                       </button>
+                      {(order.pendingReplacements ?? []).some(
+                        (row) =>
+                          row.styleId === (styleId[order.id] || order.styleIds[0]) &&
+                          row.variantIndex ===
+                            (variantIndex[order.id] ??
+                              order.portraitJobs?.find(
+                                (job) => job.styleId === (styleId[order.id] || order.styleIds[0]),
+                              )?.variantIndex),
+                      ) ? (
+                        <button
+                          className="block text-amber-200"
+                          type="button"
+                          onClick={() =>
+                            act(
+                              order.id,
+                              "approve_replacement",
+                              styleId[order.id] || order.styleIds[0],
+                              variantIndex[order.id] ??
+                                order.portraitJobs?.find(
+                                  (job) => job.styleId === (styleId[order.id] || order.styleIds[0]),
+                                )?.variantIndex ??
+                                0,
+                            )
+                          }
+                          data-testid="approve-portrait-replacement"
+                        >
+                          Approve replacement
+                        </button>
+                      ) : null}
                       <button className="block" type="button" onClick={() => act(order.id, "regenerate", styleId[order.id] || order.styleIds[0])}>Regenerate style</button>
                       <button className="block" type="button" onClick={() => act(order.id, "resend")}>Resend email</button>
                       {order.productMeta?.personalised && !order.partnerFulfillment?.externalOrderId ? (

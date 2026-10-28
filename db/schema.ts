@@ -79,6 +79,7 @@ export const jobs = pgTable("jobs", {
   providerRequestId: text("provider_request_id"),
   providerMeta: jsonb("provider_meta").$type<Job["providerMeta"]>(),
   falPaidSubmits: integer("fal_paid_submits").notNull().default(0),
+  regenCount: integer("regen_count").notNull().default(0),
   lastError: text("last_error"),
   costGbp: numeric("cost_gbp", { precision: 12, scale: 4, mode: "number" }).notNull().default(0),
   priority: boolean("priority").notNull().default(false),

@@ -29,6 +29,14 @@ import {
   orderHasFullPortraitSet,
   portraitGenerationProgress,
 } from "@/lib/generation/progress";
+import {
+  approvePortraitReplacement,
+  clearStaleReplacements,
+  deleteSlotAssets,
+  regenJobUpdate,
+} from "@/lib/generation/regen";
+import { falPortraitSeed } from "@/lib/generation/seed";
+
 import { getStore } from "@/lib/store";
 import { watermark } from "@/lib/watermark";
 
@@ -56,11 +64,7 @@ async function tierForOrder(order: Order): Promise<Tier> {
   return getTier(order.tierId, config.catalog.tiers);
 }
 
-function seedFrom(id: string) {
-  let hash = 0;
-  for (const char of id) hash = (hash * 33 + char.charCodeAt(0)) >>> 0;
-  return hash % 1_000_000;
-}
+export { approvePortraitReplacement, falPortraitSeed };
 
 async function halt(reason: string, storeId: string) {
   const store = getStore();
@@ -329,7 +333,7 @@ async function processJob(jobId: string) {
         negativePrompt: negative,
         imageUrls,
         quality: tier.quality,
-        seed: seedFrom(`${job.id}:${job.attempts}:${paidSubmits}`),
+        seed: falPortraitSeed(job),
       });
       if (!submitted.requestId) throw new Error("fal did not accept the generation request");
       requestId = submitted.requestId;
@@ -353,6 +357,8 @@ async function processJob(jobId: string) {
     if (polled.state === "failed") throw new Error(polled.error);
     let cost = polled.costGbp;
     if (polled.costGbp) await store.addSpend(polled.costGbp, order.storeId);
+    const slotJob = (await loadJob(jobId, order.id)) ?? job;
+    if (!slotJob) return;
     for (const image of polled.images) {
       const moderation = await moderateImage(image.bytes, image.contentType);
       if (moderation.costGbp) {
@@ -362,20 +368,38 @@ async function processJob(jobId: string) {
       if (moderation.failOpen) await flagOrderPhotoSafetyReview(order.id);
       if (!moderation.allowed) throw new Error(moderation.customerMessage);
       const extension = image.contentType.includes("png") ? "png" : "jpg";
-      const storagePath = `${order.id}/results/${job.styleId}-${job.variantIndex}.${extension}`;
+      const assetsNow = await store.listAssets(order.id);
+      const liveResult = assetsNow.find(
+        (asset) =>
+          asset.kind === "result" &&
+          asset.styleId === slotJob.styleId &&
+          asset.variantIndex === slotJob.variantIndex,
+      );
+      const pendingReplacement = order.status === "delivered" && Boolean(liveResult);
+      const storagePath = pendingReplacement
+        ? `${order.id}/results/${slotJob.styleId}-${slotJob.variantIndex}-r${slotJob.regenCount ?? 0}.${extension}`
+        : `${order.id}/results/${slotJob.styleId}-${slotJob.variantIndex}.${extension}`;
       await putBlob("results", storagePath, image.bytes, image.contentType);
       await store.addAsset({
         id: randomUUID(),
         orderId: order.id,
-        kind: "result",
-        styleId: job.styleId,
-        variantIndex: job.variantIndex,
+        kind: pendingReplacement ? "result_replacement" : "result",
+        styleId: slotJob.styleId,
+        variantIndex: slotJob.variantIndex,
         storagePath,
         bucket: "results",
         contentType: image.contentType,
         moderation: moderation.skipped ? "skipped" : "passed",
         createdAt: new Date().toISOString(),
       });
+      if (pendingReplacement) {
+        const { origin } = await orderPublicUrls(order);
+        await alertAdmin(
+          "Portrait replacement ready for approval",
+          `<p>${order.email}: ${slotJob.styleId} variant ${slotJob.variantIndex + 1} has a new image in admin (customer gallery unchanged).</p><p><a href="${origin}/admin">Open admin</a></p>`,
+          order.storeId,
+        );
+      }
     }
     const fresh = await store.getOrder(order.id);
     await store.updateOrder(order.id, {
@@ -494,18 +518,11 @@ export async function regenerateMissingPortraits(orderId: string) {
   const missing = jobsNeedingResults(jobs, assets);
   if (!missing.length) throw new Error("All expected portraits already exist");
   for (const row of missing) {
-    await store.updateJob(row.id, {
-      status: "queued",
-      attempts: 0,
-      providerRequestId: null,
-      providerMeta: null,
-      falPaidSubmits: 0,
-      lastError: null,
-      lockedUntil: null,
-      nextRunAt: null,
-    });
+    await store.updateJob(row.id, regenJobUpdate(row));
   }
-  await store.updateOrder(orderId, { status: "generating", failureReason: null });
+  if (order.status !== "delivered") {
+    await store.updateOrder(orderId, { status: "generating", failureReason: null });
+  }
 }
 
 export async function regeneratePortraitVariant(orderId: string, styleId: string, variantIndex: number) {
@@ -518,51 +535,35 @@ export async function regeneratePortraitVariant(orderId: string, styleId: string
   const job = jobs.find((row) => row.styleId === styleId && row.variantIndex === variantIndex);
   if (!job) throw new Error("No generation job for that style and variant");
   const assets = await store.listAssets(orderId);
-  const doomed = assets.filter(
-    (asset) =>
-      asset.styleId === styleId &&
-      asset.variantIndex === variantIndex &&
-      asset.kind !== "upload",
-  );
-  for (const asset of doomed) await deleteBlob(asset.bucket, asset.storagePath);
-  await store.deleteAssets(doomed.map((asset) => asset.id));
-  await store.updateJob(job.id, {
-    status: "queued",
-    attempts: 0,
-    providerRequestId: null,
-    providerMeta: null,
-    falPaidSubmits: 0,
-    lastError: null,
-    lockedUntil: null,
-    nextRunAt: null,
-  });
-  await store.updateOrder(orderId, { status: "generating", failureReason: null });
+  const keepGallery = order.status === "delivered";
+  await clearStaleReplacements(store, assets, styleId, variantIndex);
+  if (!keepGallery) await deleteSlotAssets(store, assets, styleId, variantIndex);
+  await store.updateJob(job.id, regenJobUpdate(job));
+  if (!keepGallery) await store.updateOrder(orderId, { status: "generating", failureReason: null });
 }
 
 export async function regenerateStyle(orderId: string, styleId: string) {
   const store = getStore();
   const theme = getTheme((await store.getOrder(orderId))?.themeId || "");
   if (!theme?.styles.some((style) => style.id === styleId)) throw new Error("That style is not on this theme");
+  const order = await store.getOrder(orderId);
+  const keepGallery = order?.status === "delivered";
   const assets = await store.listAssets(orderId);
-  const doomed = assets.filter((asset) => asset.styleId === styleId && asset.kind !== "upload");
-  for (const asset of doomed) await deleteBlob(asset.bucket, asset.storagePath);
-  await store.deleteAssets(doomed.map((asset) => asset.id));
   const jobs = (await store.listJobs(orderId)).filter((job) => job.styleId === styleId);
   if (!jobs.length) {
     await enqueuePlan(orderId, [{ styleId, count: EXTRA_IMAGES_PER_STYLE }]);
     return;
   }
   for (const job of jobs) {
-    await store.updateJob(job.id, {
-      status: "queued",
-      attempts: 0,
-      providerRequestId: null,
-      providerMeta: null,
-      falPaidSubmits: 0,
-      lastError: null,
-      lockedUntil: null,
-      nextRunAt: null,
-    });
+    await clearStaleReplacements(store, assets, styleId, job.variantIndex);
   }
-  await store.updateOrder(orderId, { status: "generating", failureReason: null });
+  if (!keepGallery) {
+    const doomed = assets.filter((asset) => asset.styleId === styleId && asset.kind !== "upload");
+    for (const asset of doomed) await deleteBlob(asset.bucket, asset.storagePath);
+    await store.deleteAssets(doomed.map((asset) => asset.id));
+  }
+  for (const job of jobs) {
+    await store.updateJob(job.id, regenJobUpdate(job));
+  }
+  if (!keepGallery) await store.updateOrder(orderId, { status: "generating", failureReason: null });
 }

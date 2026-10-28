@@ -193,6 +193,7 @@ function toJob(row: typeof jobs.$inferSelect): Job {
     providerRequestId: row.providerRequestId,
     providerMeta: row.providerMeta ?? null,
     falPaidSubmits: row.falPaidSubmits ?? 0,
+    regenCount: row.regenCount ?? 0,
     lastError: row.lastError,
     costGbp: row.costGbp,
     priority: row.priority,
@@ -381,6 +382,7 @@ export const postgresStore = {
         providerRequestId: job.providerRequestId,
         providerMeta: job.providerMeta ?? null,
         falPaidSubmits: job.falPaidSubmits ?? 0,
+        regenCount: job.regenCount ?? 0,
         lastError: job.lastError,
         costGbp: job.costGbp,
         priority: job.priority,
@@ -404,6 +406,7 @@ export const postgresStore = {
     if (patch.providerRequestId !== undefined) set.providerRequestId = patch.providerRequestId;
     if (patch.providerMeta !== undefined) set.providerMeta = patch.providerMeta;
     if (patch.falPaidSubmits !== undefined) set.falPaidSubmits = patch.falPaidSubmits;
+    if (patch.regenCount !== undefined) set.regenCount = patch.regenCount;
     if (patch.lastError !== undefined) set.lastError = patch.lastError;
     if (patch.costGbp !== undefined) set.costGbp = patch.costGbp;
     if (patch.priority !== undefined) set.priority = patch.priority;
@@ -428,6 +431,7 @@ export const postgresStore = {
       provider_request_id: string | null;
       provider_meta: Job["providerMeta"] | null;
       fal_paid_submits: number;
+      regen_count: number;
       last_error: string | null;
       cost_gbp: string;
       priority: boolean;
@@ -458,7 +462,7 @@ export const postgresStore = {
         for update of j skip locked
       )
       returning claimed.id, claimed.order_id, claimed.style_id, claimed.variant_index, claimed.status,
-        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.fal_paid_submits, claimed.last_error, claimed.cost_gbp, claimed.priority,
+        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.fal_paid_submits, claimed.regen_count, claimed.last_error, claimed.cost_gbp, claimed.priority,
         claimed.locked_until, claimed.next_run_at, claimed.created_at, claimed.updated_at
     `;
     return rows.map((row) => ({
@@ -471,6 +475,7 @@ export const postgresStore = {
       providerRequestId: row.provider_request_id,
       providerMeta: row.provider_meta ?? null,
       falPaidSubmits: row.fal_paid_submits ?? 0,
+      regenCount: row.regen_count ?? 0,
       lastError: row.last_error,
       costGbp: Number(row.cost_gbp),
       priority: row.priority,
@@ -493,6 +498,7 @@ export const postgresStore = {
       provider_request_id: string | null;
       provider_meta: Job["providerMeta"] | null;
       fal_paid_submits: number;
+      regen_count: number;
       last_error: string | null;
       cost_gbp: string;
       priority: boolean;
@@ -522,7 +528,7 @@ export const postgresStore = {
         for update of j skip locked
       )
       returning claimed.id, claimed.order_id, claimed.style_id, claimed.variant_index, claimed.status,
-        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.fal_paid_submits, claimed.last_error, claimed.cost_gbp, claimed.priority,
+        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.fal_paid_submits, claimed.regen_count, claimed.last_error, claimed.cost_gbp, claimed.priority,
         claimed.locked_until, claimed.next_run_at, claimed.created_at, claimed.updated_at
     `;
     return rows.map((row) => ({
@@ -535,6 +541,7 @@ export const postgresStore = {
       providerRequestId: row.provider_request_id,
       providerMeta: row.provider_meta ?? null,
       falPaidSubmits: row.fal_paid_submits ?? 0,
+      regenCount: row.regen_count ?? 0,
       lastError: row.last_error,
       costGbp: Number(row.cost_gbp),
       priority: row.priority,

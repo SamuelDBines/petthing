@@ -75,7 +75,7 @@ export type Order = {
 export type Asset = {
   id: string;
   orderId: string;
-  kind: "upload" | "result" | "preview";
+  kind: "upload" | "result" | "result_replacement" | "preview";
   styleId: string | null;
   variantIndex: number | null;
   storagePath: string;
@@ -97,6 +97,7 @@ export type Job = {
   providerRequestId: string | null;
   providerMeta?: { statusUrl: string; responseUrl: string } | null;
   falPaidSubmits?: number;
+  regenCount?: number;
   lastError: string | null;
   costGbp: number;
   priority: boolean;
