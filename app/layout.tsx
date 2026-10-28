@@ -11,6 +11,7 @@ import { UtmCapture } from "@/components/utm-capture";
 import { VisitorTracker } from "@/components/visitor-tracker";
 import { headers } from "next/headers";
 import { loadStoreConfig, themeCssVars } from "@/lib/tenant/context";
+import { pageRobotsNoindex } from "@/lib/seo/page-robots";
 import "./globals.css";
 
 /** Store theme is chosen per request hostname — must not be statically prerendered. */
@@ -20,8 +21,7 @@ const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 
 function stagingNoindex(host: string) {
-  if (process.env.STAGING_NOINDEX === "1") return true;
-  return host.includes("bishop-co-tech.co.uk") || host.includes("dropship.store.");
+  return pageRobotsNoindex(host);
 }
 
 export async function generateMetadata(): Promise<Metadata> {

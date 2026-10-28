@@ -4,22 +4,22 @@ import { JINGLEFOLD_DELIVERY, JINGLEFOLD_PERSONALISED_PRODUCTS } from "@/config/
 import { TIERS } from "@/config/pricing";
 import type { BrandedEmailPayload } from "@/lib/email/templates/render";
 import type { BrandedEmailKind, EmailStoreId } from "@/lib/email/templates/constants";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
+import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 
-const STORE_ORIGIN: Record<EmailStoreId, string> = {
-  pawtraitry: "https://pawtraitry.com",
-  fixmonger: "https://fixmonger.co.uk",
-  jinglefold: "https://jinglefold.co.uk",
-};
+function sampleOrigin(storeId: EmailStoreId) {
+  const config = BUILTIN_STORES.find((s) => s.id === storeId)!;
+  return storeCanonicalOrigin(storeId, config.brand, config.domains);
+}
 
 function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
-  const origin = STORE_ORIGIN[storeId];
   const shared = {
     firstName: "Sam",
     carrier: "Royal Mail",
     trackingNumber: "AB123456789GB",
     trackingUrl: "https://www.royalmail.com/track-your-item",
-    cartUrl: `${origin}/shop/cart`,
-    unsubscribeUrl: `${origin}/api/marketing/unsubscribe?token=demo`,
+    cartUrl: "/shop/cart",
+    unsubscribeUrl: "/api/marketing/unsubscribe?token=demo",
   };
 
   if (storeId === "pawtraitry") {
@@ -29,7 +29,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
       ...shared,
       orderRef: "PT-DEMO01",
       hasPhysicalItems: false,
-      galleryUrl: `${origin}/results/sample-token`,
+      galleryUrl: "/results/sample-token",
       subtotalPence: unit,
       shippingPence: 0,
       totalPence: unit,
@@ -38,7 +38,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
           name: `${tier.name} digital portrait`,
           quantity: 1,
           unitPricePence: unit,
-          imageUrl: `${origin}/logo.svg`,
+          imageUrl: "/logo.svg",
         },
       ],
     };
@@ -59,7 +59,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
           name: FIXMONGER_COPY[sku].name,
           quantity: 1,
           unitPricePence: unit,
-          imageUrl: `${origin}/stores/products/fixmonger/HOM-76459.webp`,
+          imageUrl: "/stores/products/fixmonger/HOM-76459.webp",
         },
       ],
     };
@@ -80,7 +80,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
         name: product.name,
         quantity: 1,
         unitPricePence: unit,
-        imageUrl: `${origin}/stores/jinglefold/hero.jpg`,
+        imageUrl: "/stores/jinglefold/hero.jpg",
       },
     ],
   };
@@ -91,8 +91,13 @@ export function samplePayload(storeId: EmailStoreId, kind: BrandedEmailKind): Br
   if (kind === "portrait_ready") {
     return {
       ...base,
-      galleryUrl: base.galleryUrl ?? `${STORE_ORIGIN[storeId]}/results/sample-token`,
+      galleryUrl: base.galleryUrl ?? "/results/sample-token",
     };
   }
   return base;
+}
+
+/** Exposed for tests — canonical email base URL for sample store. */
+export function sampleEmailOrigin(storeId: EmailStoreId) {
+  return sampleOrigin(storeId);
 }

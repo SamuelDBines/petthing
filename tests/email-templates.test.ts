@@ -28,6 +28,12 @@ test("each branded template renders HTML and text with company footer", async ()
     if (storeId === "pawtraitry" && kind === "order_confirmation") {
       assert.ok(rendered.html.includes("private gallery"));
       assert.equal(rendered.html.includes("when your order ships"), false);
+      assert.equal(rendered.html.includes("Free UK delivery"), false);
+      assert.equal(rendered.html.includes(">Shipping<"), false);
+      const galleryHref = rendered.html.match(/href="([^"]*\/results\/sample-token)"/)?.[1];
+      const helpHref = rendered.html.match(/href="([^"]*\/support)"/)?.[1];
+      assert.ok(galleryHref && helpHref);
+      assert.equal(new URL(galleryHref!).origin, new URL(helpHref!).origin);
     }
     if (storeId === "fixmonger" && kind === "order_confirmation") {
       assert.ok(rendered.html.includes("FM-DEMO01"));

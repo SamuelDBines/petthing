@@ -3,7 +3,7 @@ import type { BrandedEmailKind, EmailStoreId } from "@/lib/email/templates/const
 import { MARKETING_EMAIL_KINDS } from "@/lib/email/templates/constants";
 import { renderBrandedEmailHtml, renderBrandedEmailText, type EmailLayoutOptions } from "@/lib/email/templates/layout";
 import { loadStoreConfig } from "@/lib/tenant/context";
-import { storeCanonicalOrigin } from "@/lib/tenant/origin";
+import { storeCanonicalOrigin, storePublicUrl } from "@/lib/tenant/origin";
 
 export type OrderLineView = {
   name: string;
@@ -45,11 +45,12 @@ export async function renderBrandedEmail(
 ): Promise<RenderedBrandedEmail> {
   const config = await loadStoreConfig(storeId);
   const origin = storeCanonicalOrigin(storeId, config.brand, config.domains);
+  const resolved = resolvePayloadUrls(origin, payload);
   const marketing = MARKETING_EMAIL_KINDS.includes(kind);
   const fromRole = marketing ? "hello" : "orders";
-  const unsubscribeUrl = marketing ? payload.unsubscribeUrl ?? `${origin}/api/marketing/unsubscribe?email=placeholder` : undefined;
+  const unsubscribeUrl = marketing ? resolved.unsubscribeUrl ?? `${origin}/api/marketing/unsubscribe?email=placeholder` : undefined;
 
-  const built = buildContent(storeId, kind, config.brand.appName, origin, payload);
+  const built = buildContent(storeId, kind, config.brand.appName, origin, resolved);
   const layoutOpts: EmailLayoutOptions = {
     brand: config.brand,
     origin,
@@ -67,6 +68,19 @@ export async function renderBrandedEmail(
     preheader: built.preheader,
     fromRole,
     listUnsubscribe: unsubscribeUrl,
+  };
+}
+
+function resolvePayloadUrls(origin: string, payload: BrandedEmailPayload): BrandedEmailPayload {
+  return {
+    ...payload,
+    galleryUrl: payload.galleryUrl ? storePublicUrl(origin, payload.galleryUrl) : undefined,
+    cartUrl: payload.cartUrl ? storePublicUrl(origin, payload.cartUrl) : undefined,
+    unsubscribeUrl: payload.unsubscribeUrl ? storePublicUrl(origin, payload.unsubscribeUrl) : undefined,
+    lines: payload.lines?.map((line) => ({
+      ...line,
+      imageUrl: line.imageUrl ? storePublicUrl(origin, line.imageUrl) : undefined,
+    })),
   };
 }
 
@@ -174,11 +188,13 @@ function orderTable(payload: BrandedEmailPayload) {
     })
     .join("");
   const shipping =
-    payload.shippingPence === 0
-      ? "Free UK delivery"
-      : payload.shippingPence != null
-        ? formatGbp(payload.shippingPence)
-        : "";
+    payload.hasPhysicalItems === false
+      ? ""
+      : payload.shippingPence === 0
+        ? "Free UK delivery"
+        : payload.shippingPence != null
+          ? formatGbp(payload.shippingPence)
+          : "";
   const totals =
     payload.totalPence != null
       ? `<tr><td colspan="2" style="padding:16px 0 0 0;font-size:15px;line-height:22px;">

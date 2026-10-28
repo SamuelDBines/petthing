@@ -90,7 +90,41 @@ test("storeCanonicalOrigin uses store site domain instead of global app URL", ()
       line: "#000",
     },
   };
-  const origin = storeCanonicalOrigin("fixmonger", brand, ["fixmonger.dropship.store.bishop-co-tech.co.uk"]);
+  const origin = storeCanonicalOrigin("fixmonger", brand, [
+    "fixmonger.co.uk",
+    "fixmonger.dropship.store.bishop-co-tech.co.uk",
+  ]);
   assert.equal(origin, "https://fixmonger.dropship.store.bishop-co-tech.co.uk");
+  env.NEXT_PUBLIC_APP_URL = prevUrl;
+});
+
+test("storeCanonicalOrigin prefers pawtraitry.com over shared staging URL for pawtraitry emails", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const prevUrl = env.NEXT_PUBLIC_APP_URL;
+  env.NEXT_PUBLIC_APP_URL = "https://dropship.store.bishop-co-tech.co.uk";
+  const brand = {
+    appName: "Pawtraitry",
+    tagline: "",
+    siteDomain: "pawtraitry.com",
+    supportEmail: "hello@pawtraitry.com",
+    legalTradingName: "Pawtraitry",
+    footerTradingDisclosure: "",
+    emailFromName: "Pawtraitry",
+    stripeStatementDescriptor: "PAWTRAITRY",
+    referralPrefix: "PAW",
+    logoPath: "/logo.svg",
+    colors: {
+      ink: "#000",
+      cream: "#fff",
+      pumpkin: "#000",
+      gold: "#000",
+      moss: "#000",
+      muted: "#333",
+      bark: "#000",
+      line: "#000",
+    },
+  };
+  const origin = storeCanonicalOrigin("pawtraitry", brand, ["pawtraitry.com", "dropship.store.bishop-co-tech.co.uk"]);
+  assert.equal(origin, "https://dropship.store.bishop-co-tech.co.uk");
   env.NEXT_PUBLIC_APP_URL = prevUrl;
 });
