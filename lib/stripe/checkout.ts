@@ -56,7 +56,7 @@ export async function createCheckoutSession(args: {
   sessionParams: Stripe.Checkout.SessionCreateParams;
   idempotencyKey: string;
   logoUrl?: string;
-}): Promise<{ url: string; sessionId: string }> {
+}): Promise<{ url: string; sessionId: string; livemode: boolean }> {
   const session = await args.stripe.checkout.sessions.create(
     checkoutSessionForStore(
       args.brand,
@@ -69,5 +69,5 @@ export async function createCheckoutSession(args: {
     { idempotencyKey: args.idempotencyKey },
   );
   if (!session.url) throw new Error("Stripe did not return a checkout URL.");
-  return { url: session.url, sessionId: session.id };
+  return { url: session.url, sessionId: session.id, livemode: Boolean(session.livemode) };
 }

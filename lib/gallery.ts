@@ -16,7 +16,8 @@ export async function galleryForToken(token: string, base?: string) {
 
   const config = await loadStoreConfig(order.storeId);
   const extraTiers = config.catalog.tiers;
-  const theme = getTheme(order.themeId);
+  const theme =
+    config.themes?.find((item) => item.id === order.themeId) ?? getTheme(order.themeId);
   const tier = getTier(order.tierId, extraTiers);
   const assets = await store.listAssets(order.id);
   const resultAssets = assets.filter((item) => item.kind === "result");
@@ -51,6 +52,7 @@ export async function galleryForToken(token: string, base?: string) {
   return {
     ready: true as const,
     storeId: order.storeId,
+    brandName: config.brand.appName,
     previewCheckout: jinglefoldPreview,
     order: {
       id: order.id,

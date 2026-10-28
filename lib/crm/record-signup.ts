@@ -14,10 +14,14 @@ export async function recordEmailSignup(args: {
   excludedFromMetrics?: boolean;
 }) {
   if (!args.email?.includes("@")) return;
-  const store = getStore();
-  if ("recordEmailSignup" in store && typeof store.recordEmailSignup === "function") {
-    await (store as { recordEmailSignup: (a: typeof args) => Promise<void> }).recordEmailSignup(args);
-    return;
+  try {
+    const store = getStore();
+    if ("recordEmailSignup" in store && typeof store.recordEmailSignup === "function") {
+      await (store as { recordEmailSignup: (a: typeof args) => Promise<void> }).recordEmailSignup(args);
+      return;
+    }
+    await insertEmailSignup(args);
+  } catch (error) {
+    console.error("[crm] recordEmailSignup failed (non-blocking)", error);
   }
-  await insertEmailSignup(args);
 }

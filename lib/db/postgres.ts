@@ -49,6 +49,7 @@ function toOrder(row: typeof orders.$inferSelect): Order {
     status: row.status as Order["status"],
     stripeCheckoutSessionId: row.stripeCheckoutSessionId,
     stripePaymentIntentId: row.stripePaymentIntentId,
+    stripeLivemode: row.stripeLivemode ?? null,
     amountPence: row.amountPence,
     priority: row.priority,
     consentAt: iso(row.consentAt) ?? "",
@@ -94,6 +95,7 @@ function orderValues(order: Order): typeof orders.$inferInsert {
     status: order.status,
     stripeCheckoutSessionId: order.stripeCheckoutSessionId,
     stripePaymentIntentId: order.stripePaymentIntentId,
+    stripeLivemode: order.stripeLivemode ?? null,
     amountPence: order.amountPence,
     priority: order.priority,
     consentAt: at(order.consentAt),
@@ -136,6 +138,7 @@ function orderSet(patch: Partial<Order>): Partial<typeof orders.$inferInsert> {
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.stripeCheckoutSessionId !== undefined) set.stripeCheckoutSessionId = patch.stripeCheckoutSessionId;
   if (patch.stripePaymentIntentId !== undefined) set.stripePaymentIntentId = patch.stripePaymentIntentId;
+  if (patch.stripeLivemode !== undefined) set.stripeLivemode = patch.stripeLivemode;
   if (patch.amountPence !== undefined) set.amountPence = patch.amountPence;
   if (patch.priority !== undefined) set.priority = patch.priority;
   if (patch.consentAt !== undefined) set.consentAt = at(patch.consentAt);

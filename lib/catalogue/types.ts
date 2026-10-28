@@ -98,6 +98,7 @@ export type ShopOrder = {
   shippingPence: number;
   stripeCheckoutSessionId: string | null;
   stripePaymentIntentId?: string | null;
+  stripeLivemode?: boolean | null;
   amountRefundedPence?: number;
   trackingNumber: string | null;
   supplierBatchId: string | null;

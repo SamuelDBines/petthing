@@ -311,7 +311,7 @@ export function AdminDashboard({
 
   const conversion = stats && stats.createStarts ? Math.round((stats.paid / stats.createStarts) * 100) : 0;
   const reviewCount = stats?.fulfilment?.portraitReview ?? orders.filter((order) => order.status === "review").length;
-  const contentUrl = sales ? `${sales.contentWorkerUrl}?token=${encodeURIComponent(sales.contentWorkerToken)}` : "";
+  const contentUrl = sales?.contentWorkerUrl ?? "";
   const showStoreColumn = adminStore === "all";
   const filteredPortraitOrders = orders.filter(
     (order) => orderStoreFilter === "all" || order.storeId === orderStoreFilter,

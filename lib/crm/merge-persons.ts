@@ -334,5 +334,7 @@ export function signupSparkline(signups: EmailSignupRow[], includeExcluded = fal
 }
 
 export function hashIpForDisplay(ip: string) {
+  if (/^[a-f0-9]{64}$/i.test(ip)) return ip.slice(0, 12);
+  if (ip === "unknown" || ip === "local") return ip;
   return createHash("sha256").update(`admin-audit:${ip}`).digest("hex").slice(0, 12);
 }

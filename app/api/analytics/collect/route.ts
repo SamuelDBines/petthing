@@ -50,6 +50,13 @@ function excludeCookie(request: Request) {
   return /(?:^|;\s*)ps_analytics_exclude=1(?:;|$)/.test(cookie);
 }
 
+function normalizeAnalyticsPath(path: string) {
+  if (path.startsWith("/admin")) return "/admin";
+  if (/^\/results\/[^/]+/.test(path)) return "/results/:token";
+  if (/^\/share\/[^/]+/.test(path)) return "/share/:token";
+  return path;
+}
+
 export async function POST(request: Request) {
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
@@ -59,7 +66,8 @@ export async function POST(request: Request) {
   const limits = rateLimits();
   const limit = await store.hitRateLimit(`analytics:${hashIp(clientIp(request))}`, limits.analyticsPerMinute, 60 * 1000);
   if (!limit.ok) return Response.json({ ok: true });
-  const result = await store.collectAnalytics(storeId, parsed.data, {
+  const payload = { ...parsed.data, path: normalizeAnalyticsPath(parsed.data.path) };
+  const result = await store.collectAnalytics(storeId, payload, {
     countryCode: countryFromRequest(request),
     ip: clientIp(request),
     userAgent: parsed.data.userAgent ?? request.headers.get("user-agent"),

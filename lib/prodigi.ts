@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
 import { printSku, type PrintProduct } from "@/config/prints";
 import type { Shipping } from "@/lib/domain";
+import { prodigiApiKey } from "@/lib/prodigi/config";
 
 export function prodigiMocked() {
-  return !process.env.PRODIGI_API_KEY?.trim();
+  return !prodigiApiKey();
 }
 
 function baseUrl() {
@@ -12,7 +13,7 @@ function baseUrl() {
 }
 
 async function prodigi(path: string, init?: RequestInit) {
-  const key = process.env.PRODIGI_API_KEY;
+  const key = prodigiApiKey();
   if (!key) throw new Error("PRODIGI_API_KEY is not set");
   const response = await fetch(`${baseUrl()}${path}`, {
     ...init,

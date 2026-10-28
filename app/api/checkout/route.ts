@@ -93,7 +93,7 @@ async function openSession(args: {
         ...(args.collectShipping ? { shipping_address_collection: { allowed_countries: ["GB"] } } : {}),
       },
     });
-    return { demo: false as const, url: session.url, sessionId: session.sessionId };
+    return { demo: false as const, url: session.url, sessionId: session.sessionId, livemode: session.livemode };
   } catch (error) {
     return stripeCheckoutErrorResponse(error);
   }
@@ -182,7 +182,10 @@ export async function POST(request: Request) {
       });
       return Response.json({ url: `${origin}/checkout/success?session_id=${sessionId}` });
     }
-    await store.updateOrder(order.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
+    await store.updateOrder(order.id, {
+      stripeCheckoutSessionId: opened.sessionId ?? null,
+      stripeLivemode: opened.livemode,
+    });
     await store.addEvent({
       id: randomUUID(),
       storeId: order.storeId,

@@ -2,6 +2,7 @@ import { recentFalHealthDetail, recentFalHealthDetailFromMemory } from "@/lib/fa
 import { emailProviderId, sesCredentialsConfigured } from "@/lib/email/config";
 import { fetchSesHealth } from "@/lib/email/ses-health";
 import { envPresent } from "@/lib/go-live/requirements";
+import { prodigiApiKey } from "@/lib/prodigi/config";
 import { APP_CRON_JOBS, cronAuthStatus } from "@/lib/integrations/cron-jobs";
 
 export type IntegrationStatus = "connected" | "missing" | "test_mode" | "optional_missing";
@@ -21,7 +22,7 @@ function stripeMode() {
 }
 
 function prodigiMode() {
-  if (!envPresent("PRODIGI_API_KEY")) return "missing" as const;
+  if (!prodigiApiKey()) return "missing" as const;
   return process.env.PRODIGI_ENV === "live" ? ("connected" as const) : ("test_mode" as const);
 }
 

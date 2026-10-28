@@ -2,6 +2,7 @@ import { BUILTIN_STORES, builtinStore } from "@/lib/tenant/defaults";
 import { resolveStoreIdFromHostList } from "@/lib/tenant/domains";
 import type { StoreConfig } from "@/lib/tenant/types";
 import { domainsForStore } from "@/lib/tenant/domains";
+import { supportEmailForStore } from "@/lib/tenant/support-email";
 
 export function resolveStoreIdFromHost(
   host: string,
@@ -39,6 +40,10 @@ export function configFromRow(id: string, config: Partial<StoreConfig> | null, d
     ...merged,
     storeType: merged.storeType ?? builtin.storeType,
     domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]),
+    brand: {
+      ...merged.brand,
+      supportEmail: supportEmailForStore(id, merged.brand.supportEmail),
+    },
   };
 }
 

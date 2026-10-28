@@ -19,7 +19,7 @@ export function resolveStoreScope(storeArg: string) {
 
 function isDemoStripeId(id: string | null | undefined) {
   if (!id) return true;
-  return id.startsWith("demo_") || id.startsWith("cs_test_") || id.startsWith("pi_test_");
+  return id.startsWith("demo_");
 }
 
 export async function findLiveStripeOrders(storeIds: string[]) {
@@ -28,36 +28,33 @@ export async function findLiveStripeOrders(storeIds: string[]) {
   const hits: { id: string; table: string; stripeId: string }[] = [];
   for (const storeId of storeIds) {
     const portraitRows = await sql`
-      select id, stripe_checkout_session_id, stripe_payment_intent_id, payments
-      from orders where store_id = ${storeId}
+      select id, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode
+      from orders
+      where store_id = ${storeId} and stripe_livemode = true
     `;
     for (const row of portraitRows as unknown as {
       id: string;
       stripe_checkout_session_id: string | null;
       stripe_payment_intent_id: string | null;
-      payments: { paymentIntentId?: string | null; sessionId?: string }[];
     }[]) {
-      const ids = [
-        row.stripe_checkout_session_id,
-        row.stripe_payment_intent_id,
-        ...(row.payments ?? []).map((payment) => payment.paymentIntentId ?? payment.sessionId),
-      ].filter(Boolean) as string[];
-      if (ids.some((id) => !isDemoStripeId(id) && !id.includes("test"))) {
-        hits.push({ id: row.id, table: "orders", stripeId: ids.find((id) => !isDemoStripeId(id))! });
+      const stripeId = row.stripe_payment_intent_id || row.stripe_checkout_session_id;
+      if (stripeId && !isDemoStripeId(stripeId)) {
+        hits.push({ id: row.id, table: "orders", stripeId });
       }
     }
     const shopRows = await sql`
-      select id, stripe_checkout_session_id, stripe_payment_intent_id
-      from shop_orders where store_id = ${storeId}
+      select id, stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode
+      from shop_orders
+      where store_id = ${storeId} and stripe_livemode = true
     `;
     for (const row of shopRows as unknown as {
       id: string;
       stripe_checkout_session_id: string | null;
       stripe_payment_intent_id: string | null;
     }[]) {
-      const ids = [row.stripe_checkout_session_id, row.stripe_payment_intent_id].filter(Boolean) as string[];
-      if (ids.some((id) => !isDemoStripeId(id) && !id.includes("test"))) {
-        hits.push({ id: row.id, table: "shop_orders", stripeId: ids.find((id) => !isDemoStripeId(id))! });
+      const stripeId = row.stripe_payment_intent_id || row.stripe_checkout_session_id;
+      if (stripeId && !isDemoStripeId(stripeId)) {
+        hits.push({ id: row.id, table: "shop_orders", stripeId });
       }
     }
   }
@@ -86,7 +83,7 @@ async function countForStore(storeId: string) {
   await scalar("events", sql`select id from events where store_id = ${storeId}`);
   await scalar(
     "hand_painted_orders",
-    sql`select h.id from hand_painted_orders h join orders o on o.id = h.order_id where o.store_id = ${storeId}`,
+    sql`select h.order_id from hand_painted_orders h join orders o on o.id = h.order_id where o.store_id = ${storeId}`,
   );
   return counts;
 }

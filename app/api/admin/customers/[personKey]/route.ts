@@ -14,7 +14,7 @@ const actionSchema = z.object({
 export async function GET(_request: Request, context: { params: Promise<{ personKey: string }> }) {
   if (!(await isAdmin())) return jsonError("Sign in required", 401);
   const { personKey } = await context.params;
-  const email = emailFromPersonKey(personKey);
+  const email = emailFromPersonKey(decodeURIComponent(personKey));
   const storeFilter = await adminStoreFilter();
   const detail = await loadPersonDetail(email, storeFilter === "all" ? "all" : storeFilter);
   if (!detail) return jsonError("Person not found", 404);
@@ -26,7 +26,7 @@ export async function POST(request: Request, context: { params: Promise<{ person
   const parsed = parseBody(actionSchema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const { personKey } = await context.params;
-  const email = emailFromPersonKey(personKey);
+  const email = emailFromPersonKey(decodeURIComponent(personKey));
   if (parsed.data.action === "unsubscribe") {
     await unsubscribeEmail(email);
     await suppressEmail(email, "admin_unsubscribe", "Admin CRM unsubscribe");

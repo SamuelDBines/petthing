@@ -161,7 +161,15 @@ export function AdminShopOrderPanel({
               </button>
             ) : null}
             {order.status !== "refunded" && order.status !== "pending_payment" ? (
-              <button type="button" className="block" onClick={() => void post({ action: "refund_full" })}>
+              <button
+                type="button"
+                className="block"
+                onClick={() => {
+                  const amount = formatGbp(order.amountPence - (order.amountRefundedPence ?? 0));
+                  if (!window.confirm(`Issue a full refund of ${amount}?`)) return;
+                  void post({ action: "refund_full" });
+                }}
+              >
                 Full refund ({formatGbp(order.amountPence - (order.amountRefundedPence ?? 0))})
               </button>
             ) : null}

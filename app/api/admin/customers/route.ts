@@ -29,7 +29,8 @@ export async function GET(request: Request) {
     return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
   });
   const adminLogins = (await adminAuditDbMethods.listAdminLoginEvents(50)).map((row) => ({
-    ...row,
+    email: row.email,
+    createdAt: row.createdAt,
     ipHash: hashIpForDisplay(row.ip),
   }));
   return Response.json({

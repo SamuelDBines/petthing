@@ -1,12 +1,13 @@
-import { randomUUID } from "crypto";
 import { getSql } from "@/lib/db/client";
 import type { AdminLoginEvent } from "@/lib/admin/audit";
+import { hashIp } from "@/lib/runtime";
 
 export const adminAuditDbMethods = {
   async recordAdminLogin(email: string, ip: string) {
+    const stored = ip === "unknown" || ip === "local" ? ip : hashIp(ip);
     await getSql()`
       insert into admin_login_events (email, ip)
-      values (${email}, ${ip})
+      values (${email}, ${stored})
     `;
   },
   async listAdminLoginEvents(limit = 20): Promise<AdminLoginEvent[]> {

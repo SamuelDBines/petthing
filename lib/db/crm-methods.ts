@@ -35,10 +35,11 @@ export async function insertEmailSignup(args: {
   excludedFromMetrics?: boolean;
 }) {
   if (!process.env.DATABASE_URL) return null;
+  const sql = getSql();
   const email = normalizeEmail(args.email);
-  const now = new Date();
   const id = randomUUID();
-  await getSql()`
+  const consentAt = args.marketingConsent ? sql`now()` : null;
+  await sql`
     insert into email_signups (
       id, store_id, email, source, name, marketing_consent, marketing_consent_at,
       utm_source, utm_medium, utm_campaign, referrer, visitor_session_id, excluded_from_metrics, created_at
@@ -49,14 +50,14 @@ export async function insertEmailSignup(args: {
       ${args.source},
       ${args.name ?? null},
       ${Boolean(args.marketingConsent)},
-      ${args.marketingConsent ? now : null},
+      ${consentAt},
       ${args.utm?.utm_source ?? null},
       ${args.utm?.utm_medium ?? null},
       ${args.utm?.utm_campaign ?? null},
       ${args.referrer ?? null},
       ${args.visitorSessionId ?? null},
       ${Boolean(args.excludedFromMetrics)},
-      ${now}
+      now()
     )
   `;
   return id;
@@ -93,4 +94,12 @@ export async function listSuppressedEmails() {
   if (!process.env.DATABASE_URL) return new Set<string>();
   const rows = await getSql()`select email from email_suppressions`;
   return new Set(rows.map((row) => normalizeEmail(String((row as { email: string }).email))));
+}
+
+/** @internal test helper */
+export function signupInsertTimestampParams(marketingConsent: boolean) {
+  return {
+    marketingConsentAt: marketingConsent ? "now()" : null,
+    createdAt: "now()",
+  };
 }

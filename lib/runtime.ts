@@ -1,5 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { REFERRAL_PREFIX } from "@/config/brand";
+import { resolveClientIpFromHeaders } from "@/lib/runtime/client-ip";
+import { prodigiApiKey } from "@/lib/prodigi/config";
 
 export function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -50,7 +52,7 @@ export function integrations() {
     email: Boolean(
       (process.env.AWS_SES_REGION || process.env.AWS_ACCESS_KEY_ID) && process.env.EMAIL_FROM,
     ) || Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
-    prodigi: Boolean(process.env.PRODIGI_API_KEY),
+    prodigi: Boolean(prodigiApiKey()),
     metaPixel: Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID),
     tiktokPixel: Boolean(process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID),
     manualReview: manualReviewEnabled(),
@@ -90,8 +92,7 @@ export function londonDay(date = new Date()) {
 }
 
 export function clientIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "local";
+  return resolveClientIpFromHeaders(request.headers);
 }
 
 export function hashIp(ip: string) {

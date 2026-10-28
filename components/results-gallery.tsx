@@ -12,6 +12,7 @@ type Gallery = {
   ready: boolean;
   status?: string;
   storeId?: string;
+  brandName?: string;
   previewCheckout?: boolean;
   order?: {
     id?: string;
@@ -146,6 +147,7 @@ export function ResultsGallery({ token }: { token: string }) {
     );
   }
 
+  const brand = data.brandName ?? APP_NAME;
   const styleChoices = data.offers.extra.bonusImages
     ? data.images.map((image) => ({ id: image.styleId || image.id, name: image.styleName }))
     : data.offers.extra.remaining;
@@ -169,8 +171,8 @@ export function ResultsGallery({ token }: { token: string }) {
       <div className="mt-4 flex flex-wrap gap-2">
         <a className="rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink" href={`/api/results/${token}/zip`}>Download ZIP</a>
         <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.clipboard.writeText(shareUrl())}>Copy preview link</button>
-        <a className="rounded-full border border-line px-4 py-3" href={`https://wa.me/?text=${encodeURIComponent(`${APP_NAME} portraits`)}`} onClick={(event) => { event.preventDefault(); window.open(`https://wa.me/?text=${encodeURIComponent(`${APP_NAME} ${shareUrl()}`)}`, "_blank"); }}>WhatsApp</a>
-        <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.share?.({ title: APP_NAME, url: shareUrl() })}>Share</button>
+        <a className="rounded-full border border-line px-4 py-3" href={`https://wa.me/?text=${encodeURIComponent(`${brand} portraits`)}`} onClick={(event) => { event.preventDefault(); window.open(`https://wa.me/?text=${encodeURIComponent(`${brand} ${shareUrl()}`)}`, "_blank"); }}>WhatsApp</a>
+        <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.share?.({ title: brand, url: shareUrl() })}>Share</button>
       </div>
       <p className="mt-3 text-sm text-cream/60">Share buttons use a watermarked preview. The ZIP is the full set.</p>
 

@@ -1,45 +1,56 @@
 import Link from "next/link";
-import { APP_NAME, SUPPORT_EMAIL } from "@/config/brand";
+import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
+import { legalCopyForStore, legalWhoWeAre } from "@/lib/legal/store-legal";
 
 export const metadata = { title: "Returns & refunds" };
 
-export default function Page() {
+export default async function Page() {
+  const storeId = await requestStoreId();
+  const config = await loadStoreConfig(storeId);
+  const copy = legalCopyForStore(config);
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 leading-8">
       <h1 className="text-4xl">Returns &amp; refunds</h1>
+      <p className="mt-4 text-sm text-cream/60">Last updated: 28 October 2026</p>
+      <p className="mt-6">{legalWhoWeAre(copy)}</p>
 
-      <h2 className="mt-8 text-2xl">Digital portraits</h2>
-      <p className="mt-3">
-        When you buy digital portraits you agree at checkout to immediate supply by email and download link, and you acknowledge that you lose your 14-day right to cancel under the Consumer Contracts Regulations 2013 (regulation 37) once delivery begins.
-      </p>
-      <p className="mt-3">
-        That does not affect your rights if the digital content is faulty or not as described. If a portrait does not reasonably resemble your pet (or other subject) from the photos you supplied, email{" "}
-        <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> and we will regenerate the affected style free of charge. If you are still unhappy after a reasonable regenerate, we will refund the portrait payment.
-      </p>
+      {copy.productKind === "digital_portraits" ? (
+        <>
+          <h2 className="mt-8 text-2xl">Digital portraits</h2>
+          <p className="mt-3">
+            You agree to immediate supply of digital content at checkout and lose the 14-day cancellation right once download or email delivery begins. If a portrait is faulty or not as described, contact us within 30 days at{" "}
+            <a href={`mailto:${copy.supportEmail}`}>{copy.supportEmail}</a> and we will repair, replace, or refund as appropriate under consumer law.
+          </p>
+          <h2 className="mt-8 text-2xl">Printed add-ons</h2>
+          <p className="mt-3">
+            Printed puzzles and similar goods made to your specification are exempt from the usual 14-day cancellation right once production starts. Faulty print goods are refunded or replaced.
+          </p>
+        </>
+      ) : (
+        <>
+          <h2 className="mt-8 text-2xl">14-day cancellation (Consumer Contracts Regulations)</h2>
+          <p className="mt-3">
+            For physical goods you may cancel within 14 days starting the day after delivery, without giving a reason. Email{" "}
+            <a href={`mailto:${copy.supportEmail}`}>{copy.supportEmail}</a> with your order number. Return items within 14 days of telling us, unused and in resaleable condition with original packaging where reasonable. We refund within 14 days of receiving the goods (or evidence of return postage).
+          </p>
+          {copy.personalisedExempt ? (
+            <h2 className="mt-8 text-2xl">Personalised items</h2>
+          ) : null}
+          {copy.personalisedExempt ? (
+            <p className="mt-3">
+              Personalised Jinglefold ornaments and Pawtraitry portrait products made to your photos are bespoke. You lose the 14-day cancellation right once production begins, but faulty or misdescribed items are covered by your statutory rights.
+            </p>
+          ) : null}
+          <h2 className="mt-8 text-2xl">Return postage</h2>
+          <p className="mt-3">
+            Unless the item is faulty, you pay return postage. We will confirm the returns address when you contact us.
+          </p>
+        </>
+      )}
 
-      <h2 className="mt-8 text-2xl">Personalised printed goods</h2>
-      <p className="mt-3">
-        Jigsaw puzzles and other printed items are made to your specification (your chosen portrait and shipping details). Under the Consumer Contracts Regulations 2013 (regulation 28), personalised physical goods are exempt from the 14-day cancellation right once production has started.
-      </p>
-      <p className="mt-3">
-        If a printed order arrives damaged, defective, or materially different from what you ordered, contact us within a reasonable time with photos of the issue. We will replace or refund as appropriate under the Consumer Rights Act 2015.
-      </p>
-      <p className="mt-3">
-        Printed orders that have already gone to press cannot be cancelled for change of mind. If you need to change the shipping address before production starts, email us as soon as possible.
-      </p>
-
-      <h2 className="mt-8 text-2xl">Priority delivery</h2>
-      <p className="mt-3">
-        Priority delivery is a queue target of under two hours after payment, not a guarantee if safety review or a provider outage delays work. If we miss it by a full day, ask and we will refund the priority fee.
-      </p>
-
-      <h2 className="mt-8 text-2xl">How refunds are paid</h2>
-      <p className="mt-3">
-        Approved refunds are returned to your original payment method via Stripe. This usually takes 5–10 working days depending on your bank.
-      </p>
-
-      <p className="mt-8 text-sm text-cream/60">
-        {APP_NAME} · See also <Link href="/shipping">shipping</Link> and <Link href="/terms">terms</Link>.
+      <p className="mt-8">
+        Delivery times are on our <Link href="/shipping">shipping</Link> page.
       </p>
     </main>
   );

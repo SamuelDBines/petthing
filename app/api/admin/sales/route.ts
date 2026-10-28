@@ -63,7 +63,7 @@ export async function GET() {
     },
     reviewQueue,
     shopPaidQueue,
-    contentWorkerUrl: process.env.CONTENT_WORKER_PUBLIC_URL || "http://localhost:8080/admin",
-    contentWorkerToken: process.env.CONTENT_WORKER_SECRET || "dev-change-me",
+    contentWorkerUrl: "/api/admin/content-worker/admin",
+    contentWorkerToken: "",
   });
 }

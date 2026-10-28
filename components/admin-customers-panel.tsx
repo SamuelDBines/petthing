@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatGbp } from "@/config/pricing";
 
 type Person = {
@@ -48,6 +48,7 @@ export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
   const [consent, setConsent] = useState("all");
   const [includeExcluded, setIncludeExcluded] = useState(false);
   const [resetCounts, setResetCounts] = useState<Record<string, number> | null>(null);
+  const loadSeq = useRef(0);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -59,14 +60,17 @@ export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
     return params;
   }, [adminStore, q, status, consent, includeExcluded]);
 
-  async function load() {
-    const response = await fetch(`/api/admin/customers?${query.toString()}`);
-    if (!response.ok) return;
-    setData(await response.json());
-  }
-
   useEffect(() => {
-    void load();
+    const seq = ++loadSeq.current;
+    const controller = new AbortController();
+    setData(null);
+    void (async () => {
+      const response = await fetch(`/api/admin/customers?${query.toString()}`, { signal: controller.signal });
+      if (seq !== loadSeq.current) return;
+      if (!response.ok) return;
+      setData(await response.json());
+    })();
+    return () => controller.abort();
   }, [query]);
 
   async function runResetDryRun() {
@@ -130,7 +134,7 @@ export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
               <tbody>
                 {data.people.map((person) => (
                   <tr key={person.personKey} className="border-t border-line">
-                    <td className="py-2"><Link className="underline" href={`/admin/customers/${person.personKey}`}>{person.email}</Link></td>
+                    <td className="py-2"><Link className="underline" href={`/admin/customers/${encodeURIComponent(person.personKey)}`}>{person.email}</Link></td>
                     <td>{person.name ?? "—"}</td>
                     <td>{person.storeIds.join(", ")}</td>
                     <td>{person.firstSeenAt.slice(0, 10)}</td>

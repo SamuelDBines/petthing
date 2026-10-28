@@ -73,7 +73,7 @@ async function openSession(args: {
         ],
       },
     });
-    return { demo: false as const, url: session.url, sessionId: session.sessionId };
+    return { demo: false as const, url: session.url, sessionId: session.sessionId, livemode: session.livemode };
   } catch (error) {
     return stripeCheckoutErrorResponse(error);
   }
@@ -198,7 +198,10 @@ export async function POST(request: Request) {
       shipping: formatGbp(shippingPence),
     });
   }
-  await store.updateShopOrder(shopOrder.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
+  await store.updateShopOrder(shopOrder.id, {
+    stripeCheckoutSessionId: opened.sessionId ?? null,
+    stripeLivemode: opened.livemode,
+  });
   return Response.json({
     url: opened.url,
     total: formatGbp(orderTotalPence),

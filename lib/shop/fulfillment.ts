@@ -29,6 +29,7 @@ export async function markShopOrderPaid(shopOrderId: string, session: Stripe.Che
     shipping,
     stripeCheckoutSessionId: session.id,
     stripePaymentIntentId: paymentIntentId(session),
+    stripeLivemode: Boolean(session.livemode),
     paidAt: new Date().toISOString(),
   });
   await store.addEvent({

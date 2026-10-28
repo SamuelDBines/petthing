@@ -235,6 +235,8 @@ export async function markChristmasPaid(preorderId: string, args: PaidArgs) {
 
 export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
   if (session.payment_status === "unpaid") return;
+  const { persistCheckoutSessionLivemode } = await import("@/lib/stripe/livemode");
+  await persistCheckoutSessionLivemode(session);
   const kind = session.metadata?.kind;
   const args: PaidArgs = {
     sessionId: session.id,

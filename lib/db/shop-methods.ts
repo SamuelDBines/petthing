@@ -16,6 +16,7 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     shippingPence: Number(row.shipping_pence ?? 0),
     stripeCheckoutSessionId: row.stripe_checkout_session_id ? String(row.stripe_checkout_session_id) : null,
     stripePaymentIntentId: row.stripe_payment_intent_id ? String(row.stripe_payment_intent_id) : null,
+    stripeLivemode: row.stripe_livemode == null ? null : Boolean(row.stripe_livemode),
     amountRefundedPence: Number(row.amount_refunded_pence ?? 0),
     trackingNumber: row.tracking_number ? String(row.tracking_number) : null,
     supplierBatchId: row.supplier_batch_id ? String(row.supplier_batch_id) : null,
@@ -42,14 +43,14 @@ export const shopDbMethods = {
     await getSql()`
       insert into shop_orders (
         id, store_id, email, status, lines, shipping, amount_pence, shipping_pence,
-        stripe_checkout_session_id, stripe_payment_intent_id, amount_refunded_pence,
+        stripe_checkout_session_id, stripe_payment_intent_id, stripe_livemode, amount_refunded_pence,
         marketing_consent, created_at, paid_at
       )
       values (
         ${order.id}::uuid, ${order.storeId}, ${order.email}, ${order.status}, ${JSON.stringify(order.lines)}::jsonb,
         ${order.shipping ? JSON.stringify(order.shipping) : null}::jsonb,
         ${order.amountPence}, ${order.shippingPence}, ${order.stripeCheckoutSessionId}, ${order.stripePaymentIntentId ?? null},
-        ${order.amountRefundedPence ?? 0}, ${order.marketingConsent ?? false}, ${order.createdAt}, ${order.paidAt}
+        ${order.stripeLivemode ?? null}, ${order.amountRefundedPence ?? 0}, ${order.marketingConsent ?? false}, ${order.createdAt}, ${order.paidAt}
       )
     `;
     return order;
@@ -72,6 +73,7 @@ export const shopDbMethods = {
         shipping = ${next.shipping ? JSON.stringify(next.shipping) : null}::jsonb,
         stripe_checkout_session_id = ${next.stripeCheckoutSessionId},
         stripe_payment_intent_id = ${next.stripePaymentIntentId ?? null},
+        stripe_livemode = ${next.stripeLivemode ?? null},
         amount_refunded_pence = ${next.amountRefundedPence ?? 0},
         tracking_number = ${next.trackingNumber},
         supplier_batch_id = ${next.supplierBatchId},

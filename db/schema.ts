@@ -26,6 +26,7 @@ export const orders = pgTable("orders", {
   status: text("status").notNull(),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeLivemode: boolean("stripe_livemode"),
   amountPence: integer("amount_pence").notNull(),
   priority: boolean("priority").notNull().default(false),
   consentAt: ts("consent_at"),

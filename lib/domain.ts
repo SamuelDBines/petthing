@@ -28,6 +28,7 @@ export type Order = {
   status: OrderStatus;
   stripeCheckoutSessionId: string | null;
   stripePaymentIntentId: string | null;
+  stripeLivemode?: boolean | null;
   amountPence: number;
   priority: boolean;
   consentAt: string;
