@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { checkoutErrorMessage, parseCheckoutResponse } from "../lib/checkout/client";
 import {
-  checkoutAllowedPaymentMethodTypes,
+  checkoutSessionPaymentMethodParams,
   integrationIdentifier,
   openCheckoutSessionUrl,
   stripeCheckoutErrorResponse,
@@ -59,6 +59,14 @@ test("parseCheckoutResponse handles empty 500 bodies", async () => {
   assert.match(checkoutErrorMessage(parsed.body, parsed.ok), /try again/i);
 });
 
-test("checkout allows card and excludes klarna", () => {
-  assert.deepEqual(checkoutAllowedPaymentMethodTypes(), ["card"]);
+test("checkout session payment params exclude klarna only (not allowed list)", () => {
+  const params = checkoutSessionPaymentMethodParams() as Record<string, unknown>;
+  assert.deepEqual(params.excluded_payment_method_types, ["klarna"]);
+  assert.equal("allowed_payment_method_types" in params, false);
+  assert.equal("payment_method_types" in params, false);
+  assert.equal(
+    ("allowed_payment_method_types" in params || "payment_method_types" in params) &&
+      "excluded_payment_method_types" in params,
+    false,
+  );
 });

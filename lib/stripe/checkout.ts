@@ -10,8 +10,11 @@ export function integrationIdentifier(flow: string, stableKey: string) {
   return `pawtraitry_${flow}_${digest}`;
 }
 
-export function checkoutAllowedPaymentMethodTypes(): Stripe.Checkout.SessionCreateParams["allowed_payment_method_types"] {
-  return ["card"];
+export function checkoutSessionPaymentMethodParams(): Pick<
+  Stripe.Checkout.SessionCreateParams,
+  "excluded_payment_method_types"
+> {
+  return { excluded_payment_method_types: ["klarna"] };
 }
 
 export async function openCheckoutSessionUrl(
@@ -59,8 +62,7 @@ export async function createCheckoutSession(args: {
       args.brand,
       {
         ...args.sessionParams,
-        allowed_payment_method_types: checkoutAllowedPaymentMethodTypes(),
-        excluded_payment_method_types: ["klarna"],
+        ...checkoutSessionPaymentMethodParams(),
       },
       { logoUrl: args.logoUrl },
     ),
