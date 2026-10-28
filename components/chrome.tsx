@@ -10,19 +10,22 @@ export function SiteHeader({ brand }: BrandProps) {
   const logo = brand?.logoPath ?? "/logo.svg";
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="display flex items-center gap-2 text-xl">
-          <Image src={logo} alt="" width={32} height={32} className="rounded-lg" />
-          {name}
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <Link href="/" className="display flex min-w-0 shrink items-center gap-2 text-lg sm:text-xl">
+          <Image src={logo} alt="" width={32} height={32} className="rounded-lg shrink-0" />
+          <span className="truncate">{name}</span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/#pricing" className="hidden sm:inline text-cream/80">
+        <nav className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-xs sm:gap-4 sm:text-sm">
+          <Link href="/#pricing" className="hidden text-cream/80 sm:inline">
             Pricing
           </Link>
-          <Link href="/#pass" className="text-cream/80">
+          <Link href="/#pass" className="hidden text-cream/80 sm:inline">
             Season pass
           </Link>
-          <Link href="/create" className="rounded-full bg-pumpkin px-4 py-2 font-semibold text-ink">
+          <Link
+            href="/create"
+            className="whitespace-nowrap rounded-full bg-pumpkin px-3 py-2 text-xs font-semibold text-ink sm:px-4 sm:text-sm"
+          >
             Create yours
           </Link>
         </nav>
