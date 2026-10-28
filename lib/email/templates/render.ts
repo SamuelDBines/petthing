@@ -25,6 +25,8 @@ export type BrandedEmailPayload = {
   cartUrl?: string;
   firstName?: string;
   unsubscribeUrl?: string;
+  /** When false, order confirmation uses digital delivery copy (no shipping email). Defaults to physical. */
+  hasPhysicalItems?: boolean;
 };
 
 export type RenderedBrandedEmail = {
@@ -77,13 +79,26 @@ function buildContent(
 ) {
   const hi = payload.firstName ? `Hi ${escape(payload.firstName)},` : "Hi there,";
   switch (kind) {
-    case "order_confirmation":
+    case "order_confirmation": {
+      const physical = payload.hasPhysicalItems !== false;
+      const thanks = physical
+        ? `Thanks for shopping with ${appName}. We've received your order.`
+        : `Thanks for your ${appName} order.`;
+      const followUp = physical
+        ? "We'll email you when your order ships."
+        : "We'll email you when your private gallery is ready to view and download.";
+      const cta = physical
+        ? { label: "View your order", href: `${origin}/shop/orders` }
+        : payload.galleryUrl
+          ? { label: "Open your gallery", href: payload.galleryUrl }
+          : { label: `Visit ${appName}`, href: origin };
       return {
         subject: `Your ${appName} order confirmation`,
         preheader: `Order ${payload.orderRef ?? ""} confirmed — we're on it.`,
-        bodyHtml: `${p(hi)}${p(`Thanks for shopping with ${appName}. We've received your order.`)}${orderTable(payload)}${p("We'll email you when your order ships.")}`,
-        cta: { label: "View your order", href: `${origin}/shop/orders` },
+        bodyHtml: `${p(hi)}${p(thanks)}${orderTable(payload)}${p(followUp)}`,
+        cta,
       };
+    }
     case "portrait_ready":
       return {
         subject: `Your ${appName} preview is ready`,
@@ -207,6 +222,7 @@ function escape(value: string) {
 export function shopOrderToPayload(order: import("@/lib/catalogue/types").ShopOrder, origin: string): BrandedEmailPayload {
   return {
     orderRef: order.id.slice(0, 8).toUpperCase(),
+    hasPhysicalItems: true,
     lines: order.lines.map((line) => ({
       name: line.name,
       quantity: line.quantity,

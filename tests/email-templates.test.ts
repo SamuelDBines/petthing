@@ -25,5 +25,13 @@ test("each branded template renders HTML and text with company footer", async ()
     } else {
       assert.equal(rendered.fromRole, "orders");
     }
+    if (storeId === "pawtraitry" && kind === "order_confirmation") {
+      assert.ok(rendered.html.includes("private gallery"));
+      assert.equal(rendered.html.includes("when your order ships"), false);
+    }
+    if (storeId === "fixmonger" && kind === "order_confirmation") {
+      assert.ok(rendered.html.includes("FM-DEMO01"));
+      assert.ok(rendered.html.includes("when your order ships"));
+    }
   }
 });

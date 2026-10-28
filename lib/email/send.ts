@@ -15,36 +15,55 @@ import type { EmailMessage, EmailSendResult } from "@/lib/email/types";
 
 export type { EmailMessage, EmailSendResult } from "@/lib/email/types";
 
-async function writeOutbox(message: EmailMessage, meta?: Record<string, string>) {
+async function writeOutbox(message: EmailMessage, meta: Record<string, string>) {
   const dir = localDataPath("outbox");
   await mkdir(dir, { recursive: true });
   const slug = message.to.replace(/[^a-z0-9@._-]/gi, "_");
-  const filename = `${Date.now()}-${slug}.html`;
-  await writeFile(path.join(dir, filename), `<!-- ${message.subject} -->\n${message.html}`);
-  if (meta && Object.keys(meta).length) {
-    await writeFile(
-      path.join(dir, `${Date.now()}-${slug}.meta.json`),
-      JSON.stringify(meta, null, 2),
-    );
-  }
+  const stamp = Date.now();
+  const base = `${stamp}-${slug}`;
+  await writeFile(path.join(dir, `${base}.html`), `<!-- ${message.subject} -->\n${message.html}`);
+  await writeFile(path.join(dir, `${base}.meta.json`), JSON.stringify(meta, null, 2));
+}
+
+function logEmail(message: EmailMessage, meta: Record<string, string>) {
+  const ids = [
+    meta.relayId ? `relayId=${meta.relayId}` : "",
+    meta.sesMessageId ? `sesMessageId=${meta.sesMessageId}` : "",
+    meta.messageId ? `messageId=${meta.messageId}` : "",
+    meta.outcome ? `outcome=${meta.outcome}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  console.log(`[email] ${message.to} — ${message.subject}${ids ? ` · ${ids}` : ""}`);
 }
 
 export async function sendEmail(message: EmailMessage): Promise<EmailSendResult> {
-  await writeOutbox(message);
-  console.log(`[email] ${message.to} — ${message.subject}`);
+  const meta: Record<string, string> = {
+    provider: emailProviderId(),
+    outcome: "queued",
+  };
 
   if (await isEmailSuppressed(message.to)) {
-    console.log(`[email] suppressed ${message.to}`);
+    meta.outcome = "suppressed";
+    await writeOutbox(message, meta);
+    logEmail(message, meta);
     return { sent: false };
   }
 
   if (isEmailStagingGateActive() && !stagingAllowsRecipient(message.to)) {
-    console.log(`[email] staging gate blocked delivery to ${message.to}`);
+    meta.outcome = "staging_gate";
+    await writeOutbox(message, meta);
+    logEmail(message, meta);
     return { sent: false };
   }
 
   const provider = emailProviderId();
-  if (provider === "none") return { sent: false };
+  if (provider === "none") {
+    meta.outcome = "no_provider";
+    await writeOutbox(message, meta);
+    logEmail(message, meta);
+    return { sent: false };
+  }
 
   const fromRole = message.fromRole ?? "orders";
   const from = await resolveFromAddress(message.storeId, fromRole);
@@ -54,11 +73,12 @@ export async function sendEmail(message: EmailMessage): Promise<EmailSendResult>
 
   if (provider === "relayemail") {
     const result = await sendViaRelayEmail(message, from, replyTo);
-    await writeOutbox(message, {
-      relayId: result.id,
-      sesMessageId: result.sesMessageId ?? "",
-      status: result.status,
-    });
+    meta.outcome = "sent";
+    meta.relayId = result.id;
+    if (result.sesMessageId) meta.sesMessageId = result.sesMessageId;
+    if (result.status) meta.status = result.status;
+    await writeOutbox(message, meta);
+    logEmail(message, meta);
     return {
       sent: true,
       provider: "relayemail",
@@ -71,9 +91,20 @@ export async function sendEmail(message: EmailMessage): Promise<EmailSendResult>
 
   if (provider === "ses") {
     const result = await sendViaSes(message, from, replyTo);
-    return { sent: true, provider: "ses", messageId: result.messageId };
+    meta.outcome = "sent";
+    if (result.messageId) {
+      meta.messageId = result.messageId;
+      meta.sesMessageId = result.messageId;
+    }
+    await writeOutbox(message, meta);
+    logEmail(message, meta);
+    return { sent: true, provider: "ses", messageId: result.messageId, sesMessageId: result.messageId };
   }
 
   const result = await sendViaResend(message, from);
+  meta.outcome = "sent";
+  meta.messageId = result.messageId;
+  await writeOutbox(message, meta);
+  logEmail(message, meta);
   return { sent: true, provider: "resend", messageId: result.messageId };
 }
