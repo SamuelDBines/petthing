@@ -81,9 +81,8 @@ export function PawtraitryCreateBasketStep({
   return (
     <section className="mt-6 pb-36">
       <p className="text-cream/75">
-        Choose your digital pack (required). Add mugs, prints, and gifts in the same checkout. Physical items use your finished
-        portraits: we print from the best match, or you can pick a favourite in your gallery when that option is available. UK
-        delivery is included in each print price.
+        Choose your digital pack (required). Add mugs, prints, and gifts in the same checkout. Physical items are printed from your best
+        finished portrait for this order. UK delivery is included in each print price.
       </p>
       {!stylesOk ? (
         <p className="mt-3 rounded-2xl border border-gold/40 p-3 text-sm">Pick {requiredStyles} style{requiredStyles === 1 ? "" : "s"} on the previous step for {tier.name}.</p>
@@ -219,7 +218,7 @@ export function PawtraitryCreateBasketStep({
 
       <label className="mt-6 flex gap-3 text-sm leading-6">
         <input type="checkbox" checked={priority} onChange={(e) => onPriority(e.target.checked)} />
-        Priority delivery, under 2 hours, {formatGbp(299)}
+        Priority on your digital portraits, under 2 hours target, {formatGbp(299)}
       </label>
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/95 px-4 py-3 backdrop-blur">

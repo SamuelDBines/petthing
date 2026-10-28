@@ -1,10 +1,23 @@
 import { APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
 import type { Order } from "@/lib/domain";
-import { sendEmail } from "@/lib/email";
+import { alertAdmin, sendEmail } from "@/lib/email";
 import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
 import { getStripeForStore, paymentIntentId } from "@/lib/stripe";
 import { getStore } from "@/lib/store";
+
+export async function safeRefundPortraitLineItem(order: Order, amountPence: number, customerReason: string) {
+  try {
+    await refundPortraitLineItem(order, amountPence, customerReason);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Refund failed";
+    await alertAdmin(
+      "Pawtraitry partial refund failed",
+      `<p>${order.email}: ${message}</p><p>${customerReason}</p>`,
+      order.storeId,
+    );
+  }
+}
 
 export async function refundPortraitLineItem(order: Order, amountPence: number, customerReason: string) {
   if (amountPence <= 0) return;

@@ -3,6 +3,7 @@ import { cfpmFrameMockupSrc } from "@/config/pawtraitry-product-mockups";
 import { PRINTS, getPrint, type PrintProduct, type PrintProductId } from "@/config/prints";
 import { CANVAS_PRINTS } from "@/config/canvasPrints";
 import type { Quality, Tier } from "@/config/pricing";
+import { FAL_PRINT_UPSCALE_SCALE } from "@/lib/pawtraitry/print-upscale-config";
 import { productMeetsGuaranteedPortrait } from "@/lib/pawtraitry/print-resolution-client";
 
 export type PawtraitryCreateProductOffer = {
@@ -26,9 +27,35 @@ export function guaranteedPortraitDimensions(quality: Quality) {
   return quality === "hd" ? { width: 1536, height: 2048 } : { width: 768, height: 1024 };
 }
 
+/** Expected size after the single 4x print upscale at fulfilment (stepper gating). */
+export function guaranteedPortraitDimensionsForPhysical(tier: Tier) {
+  const base = guaranteedPortraitDimensions(tier.quality);
+  return {
+    width: base.width * FAL_PRINT_UPSCALE_SCALE,
+    height: base.height * FAL_PRINT_UPSCALE_SCALE,
+  };
+}
+
 export function productAvailableForTier(product: PrintProduct, tier: Tier) {
-  const dims = guaranteedPortraitDimensions(tier.quality);
+  const dims = guaranteedPortraitDimensionsForPhysical(tier);
   return productMeetsGuaranteedPortrait(product, dims.width, dims.height);
+}
+
+export function printProductIdsAvailableForTier(tier: Tier): PrintProductId[] {
+  const ids: PrintProductId[] = [];
+  for (const offer of pawtraitryCreateProductOffers(tier)) {
+    if (offer.id === "classic_framed") {
+      for (const size of offer.framed?.sizes ?? []) {
+        for (const color of offer.framed?.colors ?? []) {
+          const id = classicFramedProductId(size.key, color.id);
+          if (id) ids.push(id);
+        }
+      }
+    } else {
+      ids.push(offer.id as PrintProductId);
+    }
+  }
+  return [...new Set(ids)];
 }
 
 export function pawtraitryCreateProductOffers(tier: Tier): PawtraitryCreateProductOffer[] {

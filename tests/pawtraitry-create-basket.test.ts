@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getPrint } from "../config/prints";
 import { getTier, REFERRAL_DISCOUNT, TIERS, discountedPence } from "../config/pricing";
+import { printProductIdsAvailableForTier } from "../lib/pawtraitry/create-basket-offers";
+import { existingBasketPrintUnits } from "../lib/pawtraitry/basket-fulfillment";
+import { falPrintUpscaleCostGbp } from "../lib/fal/print-upscale";
 import {
   normalizePhysicalBasket,
   orderAmountPence,
@@ -93,4 +96,40 @@ test("normalizePhysicalBasket merges duplicate skus", () => {
     { productId: "mug_11oz_white", quantity: 2 },
   ]);
   assert.deepEqual(lines, [{ productId: "mug_11oz_white", quantity: 3 }]);
+});
+
+test("basket print idempotency skips units already submitted", () => {
+  const count = existingBasketPrintUnits(
+    [
+      {
+        id: "1",
+        orderId: "o",
+        productId: "mug_11oz_white",
+        assetId: "a",
+        stripeCheckoutSessionId: null,
+        stripePaymentIntentId: null,
+        prodigiOrderId: "pg-1",
+        status: "submitted",
+        shipping: null,
+        error: null,
+        createdAt: "",
+      },
+    ],
+    "mug_11oz_white",
+  );
+  assert.equal(count, 1);
+});
+
+test("deluxe tier offers more print products than mini after upscale gating", () => {
+  const mini = printProductIdsAvailableForTier(getTier("mini"));
+  const classic = printProductIdsAvailableForTier(getTier("classic"));
+  const deluxe = printProductIdsAvailableForTier(getTier("deluxe"));
+  assert.ok(classic.length >= mini.length);
+  assert.ok(deluxe.length >= classic.length);
+  assert.ok(mini.includes("mug_11oz_white"));
+});
+
+test("fal print upscale default cost is about six tenths of a penny GBP", () => {
+  assert.ok(falPrintUpscaleCostGbp() > 0);
+  assert.ok(falPrintUpscaleCostGbp() < 0.02);
 });

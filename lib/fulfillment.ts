@@ -226,10 +226,20 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
   }
 }
 
-export async function fulfillPrintToProdigi(print: PrintOrder, order: Order | null | undefined, shipping: Shipping) {
+export async function fulfillPrintToProdigi(
+  print: PrintOrder,
+  order: Order | null | undefined,
+  shipping: Shipping,
+  portraitBytes?: Buffer,
+) {
   const store = getStore();
   const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
-  const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;
+  const portrait =
+    portraitBytes != null
+      ? { bytes: portraitBytes }
+      : asset
+        ? await readBlob(asset.bucket, asset.storagePath)
+        : null;
   if (!portrait) throw new Error("The chosen portrait is missing");
   const product = getPrint(print.productId);
   const assets = [];

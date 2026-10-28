@@ -196,6 +196,13 @@ export async function deliverOrder(orderId: string) {
     galleryUrl: `${origin}/results/${order.resultsToken}`,
     stripeLivemode: order.stripeLivemode,
   });
+  if (order.storeId === "pawtraitry") {
+    const fresh = await store.getOrder(orderId);
+    if (fresh) {
+      const { fulfillPawtraitryCheckoutBasket } = await import("@/lib/pawtraitry/basket-fulfillment");
+      await fulfillPawtraitryCheckoutBasket(fresh);
+    }
+  }
 }
 
 async function finishIfDone(orderId: string) {
@@ -294,11 +301,6 @@ async function finishIfDone(orderId: string) {
     return;
   }
   await deliverOrder(orderId);
-  const delivered = await store.getOrder(orderId);
-  if (delivered?.storeId === "pawtraitry") {
-    const { fulfillPawtraitryCheckoutBasket } = await import("@/lib/pawtraitry/basket-fulfillment");
-    await fulfillPawtraitryCheckoutBasket(delivered);
-  }
 }
 
 async function loadJob(jobId: string, orderId?: string) {

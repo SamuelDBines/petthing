@@ -61,6 +61,15 @@ export type Order = {
     /** Automated NSFW scan failed (fal outage) — manual photo review in admin. */
     photoSafetyReviewRequired?: boolean;
     checkoutBasket?: import("@/lib/pawtraitry/create-basket").PawtraitryCheckoutBasket;
+    /** One 4x fal upscale for checkout-basket print fulfilment. */
+    printUpscale?: {
+      sourceAssetId: string;
+      storagePath: string;
+      width: number;
+      height: number;
+      costGbp: number;
+      completedAt: string;
+    };
   } | null;
   shipping?: Shipping | null;
   partnerFulfillment?: {

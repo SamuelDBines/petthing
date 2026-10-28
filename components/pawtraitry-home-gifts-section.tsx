@@ -12,7 +12,7 @@ export function PawtraitryHomeGiftsSection() {
         Turn your portrait into a gift
       </h2>
       <p className="mt-2 max-w-2xl text-muted">
-        Mugs, cushions, framed prints, and more. Each one uses the portrait you approve in your private gallery.
+        Mugs, cushions, framed prints, and more. Each one is printed from your best finished portrait when your order is ready.
       </p>
       <ul className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         {tiles.map((tile) => (
