@@ -1,9 +1,7 @@
 import { after } from "next/server";
-import { alertAdmin } from "@/lib/email";
-import { fulfillCheckoutSession, noteFailedPayment, noteSeasonCanceled, noteSeasonRenewed } from "@/lib/fulfillment";
-import { kickOrderGeneration } from "@/lib/generation";
 import { jsonError } from "@/lib/http";
 import { getStripe } from "@/lib/stripe";
+import { handleStripeWebhookEvent } from "@/lib/stripe/webhook-handler";
 
 export async function POST(request: Request) {
   const stripe = getStripe();
@@ -20,36 +18,20 @@ export async function POST(request: Request) {
     return jsonError(message, 400);
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-    const session = event.data.object;
-    await fulfillCheckoutSession(session);
-    const kind = session.metadata?.kind;
-    const orderId = session.metadata?.orderId;
-    if ((kind === "portrait" || kind === "season_pass" || kind === "extra_styles") && orderId) {
-      after(() => {
-        void kickOrderGeneration(orderId).catch((error) => {
-          console.error(`[stripe] generation kick failed for ${orderId}`, error);
-        });
-      });
-    }
+  const outcome = await handleStripeWebhookEvent(event, {
+    stripe,
+    after: (fn) => {
+      after(fn);
+    },
+  });
+
+  if (outcome.status === "retry") {
+    const message = outcome.error instanceof Error ? outcome.error.message : "Transient webhook failure";
+    return jsonError(message, 500);
   }
-  if (event.type === "checkout.session.expired") {
-    const { handleCheckoutSessionExpired } = await import("@/lib/shop/checkout-expiry");
-    await handleCheckoutSessionExpired(event.data.object);
-  }
-  if (event.type === "checkout.session.async_payment_failed") {
-    await noteFailedPayment(event.data.object);
-  }
-  if (event.type === "invoice.paid" && event.data.object.billing_reason === "subscription_cycle") {
-    const subscription = event.data.object.parent?.subscription_details?.subscription;
-    const subscriptionId = typeof subscription === "string" ? subscription : subscription?.id;
-    if (subscriptionId) await noteSeasonRenewed(subscriptionId);
-  }
-  if (event.type === "customer.subscription.deleted") {
-    await noteSeasonCanceled(event.data.object.id);
-  }
-  if (event.type === "charge.dispute.created" || event.type === "charge.refunded" || event.type === "radar.early_fraud_warning.created") {
-    await alertAdmin("Stripe needs a look", `<p>${event.type}</p><p>${event.id}</p>`);
-  }
-  return Response.json({ received: true });
+
+  return Response.json({
+    received: true,
+    ignored: outcome.status === "ignored" ? outcome.reason : undefined,
+  });
 }

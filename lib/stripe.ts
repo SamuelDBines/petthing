@@ -1,13 +1,16 @@
 import Stripe from "stripe";
+import { assertStripeSecretKeyAllowed } from "@/lib/stripe/live-key";
 
 let stripeClient: Stripe | null = null;
+
+export function __resetStripeClientForTests() {
+  stripeClient = null;
+}
 
 export function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
   if (!key) return null;
-  if (key.startsWith("sk_live_")) {
-    throw new Error("STRIPE_SECRET_KEY must be a test key (sk_test_ or rk_test_) for local and staging use.");
-  }
+  assertStripeSecretKeyAllowed(key);
   if (!stripeClient) stripeClient = new Stripe(key);
   return stripeClient;
 }

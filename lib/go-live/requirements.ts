@@ -1,3 +1,5 @@
+import { stripeLiveKeyOptInEnabled, stripeSecretKeyIsLive } from "@/lib/stripe/live-key";
+
 export type IntegrationId =
   | "postgres"
   | "stripe"
@@ -37,7 +39,14 @@ export const GLOBAL_REQUIREMENTS: EnvRequirement[] = [
 
 export const INTEGRATION_ENV: Record<IntegrationId, EnvRequirement[]> = {
   postgres: [{ key: "DATABASE_URL", description: "Primary database" }],
-  stripe: [{ key: "STRIPE_SECRET_KEY", description: "Stripe API secret" }],
+  stripe: [
+    { key: "STRIPE_SECRET_KEY", description: "Stripe API secret" },
+    {
+      key: "STRIPE_LIVE_MODE",
+      optional: true,
+      description: "Set true when STRIPE_SECRET_KEY is sk_live_/rk_live_ (required for live keys)",
+    },
+  ],
   stripe_webhook: [{ key: "STRIPE_WEBHOOK_SECRET", description: "Stripe webhook signing" }],
   fal: [{ key: "FAL_KEY", description: "fal.ai image generation" }],
   prodigi: [{ key: "PRODIGI_API_KEY", description: "Prodigi print API" }],
@@ -137,5 +146,13 @@ export function validateGoLive(env: NodeJS.ProcessEnv = process.env) {
   }
   const unique = new Map<string, { scope: string; key: string; description: string }>();
   for (const row of missing) unique.set(`${row.scope}:${row.key}`, row);
+  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (key && stripeSecretKeyIsLive(key) && !stripeLiveKeyOptInEnabled(env)) {
+    unique.set("global:STRIPE_LIVE_MODE", {
+      scope: "global",
+      key: "STRIPE_LIVE_MODE",
+      description: "Must be true when using live Stripe secret keys",
+    });
+  }
   return { ok: unique.size === 0, missing: [...unique.values()] };
 }
