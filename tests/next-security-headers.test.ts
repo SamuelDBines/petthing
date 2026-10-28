@@ -27,6 +27,23 @@ test("default security headers allow self in frame-src for admin iframe", () => 
 
 test("content worker headers are frameable same-origin only", () => {
   const headers = contentWorkerSecurityHeaders();
+  assert.equal(headerValue(headers, "X-Robots-Tag"), undefined);
   assert.equal(headerValue(headers, "X-Frame-Options"), "SAMEORIGIN");
   assert.equal(headerValue(headers, "Content-Security-Policy"), "frame-ancestors 'self'");
+});
+
+test("SITE_NOINDEX adds X-Robots-Tag on all header rules", () => {
+  const prev = process.env.SITE_NOINDEX;
+  process.env.SITE_NOINDEX = "true";
+  try {
+    const rules = nextHeaderRules();
+    assert.equal(rules.length, 2);
+    for (const rule of rules) {
+      assert.equal(headerValue(rule.headers, "X-Robots-Tag"), "noindex, nofollow");
+    }
+    assert.equal(nextHeaderRules({ siteNoindex: false }).every((rule) => !headerValue(rule.headers, "X-Robots-Tag")), true);
+  } finally {
+    if (prev === undefined) delete process.env.SITE_NOINDEX;
+    else process.env.SITE_NOINDEX = prev;
+  }
 });

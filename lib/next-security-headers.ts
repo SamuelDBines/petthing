@@ -2,6 +2,30 @@ const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posth
 
 export const GLOBAL_SECURITY_HEADER_EXCLUDE = "/((?!api/admin/content-worker).*)";
 
+export type NextHeaderRule = { source: string; headers: { key: string; value: string }[] };
+
+export type NextHeaderOptions = {
+  siteNoindex?: boolean;
+};
+
+export function siteNoindexEnabled(options?: NextHeaderOptions) {
+  if (options?.siteNoindex != null) return options.siteNoindex;
+  const raw = process.env.SITE_NOINDEX?.trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "yes";
+}
+
+export function optionalGlobalHeaders(options?: NextHeaderOptions) {
+  const headers: { key: string; value: string }[] = [];
+  if (siteNoindexEnabled(options)) {
+    headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });
+  }
+  return headers;
+}
+
+export function mergeHeaderSets(...groups: { key: string; value: string }[][]) {
+  return groups.flat();
+}
+
 export function defaultSecurityHeaders() {
   return [
     { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -37,10 +61,17 @@ export function contentWorkerSecurityHeaders() {
   ];
 }
 
-export function nextHeaderRules() {
+export function nextHeaderRules(options?: NextHeaderOptions): NextHeaderRule[] {
+  const extras = optionalGlobalHeaders(options);
   return [
-    { source: "/api/admin/content-worker/:path*", headers: contentWorkerSecurityHeaders() },
-    { source: GLOBAL_SECURITY_HEADER_EXCLUDE, headers: defaultSecurityHeaders() },
+    {
+      source: "/api/admin/content-worker/:path*",
+      headers: mergeHeaderSets(contentWorkerSecurityHeaders(), extras),
+    },
+    {
+      source: GLOBAL_SECURITY_HEADER_EXCLUDE,
+      headers: mergeHeaderSets(defaultSecurityHeaders(), extras),
+    },
   ];
 }
 
