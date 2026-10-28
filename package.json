@@ -23,6 +23,7 @@
     "rebuild:rollups": "tsx scripts/rebuild-analytics-rollups.ts",
     "golive:reset": "tsx scripts/golive-reset.ts",
     "fal:smoke": "tsx scripts/fal-smoke.ts",
+    "email:samples": "tsx scripts/email-samples.ts",
     "test:postgres": "tsx --test tests/shop-supplier-batch.postgres.test.ts tests/migrate-0014-wildframe.test.ts tests/migrate-0016-wildframe-portraits.test.ts tests/migrate.test.ts"
   },
   "dependencies": {

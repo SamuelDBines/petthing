@@ -1,5 +1,5 @@
 import { suppressEmail } from "@/lib/email/suppressions";
-import { parseVerifiedSnsBody, suppressedAddressesFromSesMessage, type SesBounceNotification } from "@/lib/email/sns";
+import { isAllowedSesSnsTopic, parseVerifiedSnsBody, suppressedAddressesFromSesMessage, type SesBounceNotification } from "@/lib/email/sns";
 
 export async function POST(request: Request) {
   const raw = await request.text();
@@ -14,6 +14,10 @@ export async function POST(request: Request) {
   }
 
   const type = String(envelope.Type || "");
+  if (type === "Notification" && !isAllowedSesSnsTopic(envelope.TopicArn)) {
+    return Response.json({ error: "SNS TopicArn not allowed" }, { status: 403 });
+  }
+
   if (type === "SubscriptionConfirmation") {
     const url = envelope.SubscribeURL;
     if (typeof url === "string") await fetch(url);

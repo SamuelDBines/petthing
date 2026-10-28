@@ -3,8 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
-import { formatGbp } from "@/config/pricing";
-import { FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
 import {
   EmailCapture,
   ReviewsPlaceholder,
@@ -15,45 +13,92 @@ import { ProductCard } from "@/components/shop/product-card";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 
 const FAQ: [string, string][] = [
-  ["Where do you ship from?", "Ready-made items ship from our UK dropship partner — typically 3–5 working days."],
-  ["When is delivery free?", `Free UK delivery on orders of ${formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)} or more.`],
-  ["Can I return something?", "Unused items in original packaging — see Returns & refunds for details."],
-  ["Are bundle savings real?", "Compare-at prices are the sum of parts — no invented was prices."],
+  [
+    "Can I leave windows open with pets inside?",
+    "Our cut-to-fit polyester mesh helps keep insects out while you ventilate. It is not cat-proof or claw-proof — our Cat-safe windows range is coming soon as an own-brand, pet-grade option.",
+  ],
+  ["Where do you ship from?", "Go Dropship UK — free delivery, typically 3–5 working days."],
+  ["Is the mesh pet-safe?", "We never claim polyester fly mesh is claw-proof. Use it for insects and ventilation, not as a pet barrier."],
+  ["Can I return something?", "Unused items in original packaging — see Returns & refunds."],
 ];
 
 const SECTIONS: { id: string; title: string; blurb: string; categories: string[] }[] = [
-  { id: "door", title: "Door & draughts", blurb: "Magnetic thermal curtains that close behind you.", categories: ["door"] },
-  { id: "car", title: "Car", blurb: "Frost covers, brushes, and the sensible boot kit.", categories: ["car"] },
-  { id: "garden", title: "Garden", blurb: "Fleece and jackets before the first hard frost.", categories: ["garden"] },
-  { id: "kits", title: "Kits with real savings", blurb: "Bundles priced honestly against buying separately.", categories: ["bundles"] },
+  {
+    id: "catsafe",
+    title: "Cat-safe windows",
+    blurb: "Own-brand, pet-grade screens — sourcing now. Join the list below for launch news.",
+    categories: [],
+  },
+  {
+    id: "window",
+    title: "Insect & spider screens",
+    blurb: "Cut-to-fit window mesh so you can ventilate without inviting everything that flies.",
+    categories: ["window", "screen"],
+  },
+  {
+    id: "door",
+    title: "Door curtains",
+    blurb: "Magnetic thermal curtains and walk-through fly screens for busy doorways.",
+    categories: ["door"],
+  },
+  {
+    id: "draught",
+    title: "Thermal & draught",
+    blurb: "Layer thermal curtains with seal strips to keep heat in.",
+    categories: ["draught"],
+  },
+  {
+    id: "kits",
+    title: "Door kits",
+    blurb: "Thermal plus mesh for the same doorway — priced as a pair.",
+    categories: ["bundles"],
+  },
 ];
 
 export function FixmongerHome({ products }: { products: StorefrontCatalogueProduct[] }) {
-  const bundles = useMemo(() => products.filter((p) => p.kind === "bundle"), [products]);
+  const screenProducts = useMemo(
+    () => products.filter((p) => p.category === "screen" || p.category === "window"),
+    [products],
+  );
 
   return (
     <main data-testid="fixmonger-home">
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-2 md:items-center md:py-16">
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-pumpkin">Fixmonger</p>
-          <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">Cheap fixes for proper British weather.</h1>
+          <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">
+            Keep windows open — pets in, bugs out, all year.
+          </h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
-            Frost covers, draught curtains, and shed essentials — no electric, no nonsense. Free UK delivery on orders of{" "}
-            {formatGbp(FIXMONGER_DELIVERY.freeDeliveryOverPence)} or more.
+            Magnetic door curtains, window insect mesh, and draught excluders from a UK warehouse partner. Free UK
+            delivery on every order.
           </p>
+          <nav className="mt-6 flex flex-wrap gap-2 text-sm font-medium text-cream/90" aria-label="Categories">
+            {["Cat-safe windows", "Insect & spider screens", "Door curtains", "Thermal/draught"].map((label) => (
+              <span key={label} className="rounded-full border border-line px-3 py-1">
+                {label}
+              </span>
+            ))}
+          </nav>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="#door" className="min-h-12 rounded-full bg-pumpkin px-6 text-sm font-semibold text-white inline-flex items-center">
-              Shop door fixes
+            <Link
+              href="#window"
+              className="min-h-12 rounded-full bg-pumpkin px-6 text-sm font-semibold text-white inline-flex items-center"
+            >
+              Shop screens
             </Link>
-            <Link href="#kits" className="min-h-12 rounded-full border border-line px-6 text-sm font-medium text-cream inline-flex items-center">
-              View kits
+            <Link
+              href="#door"
+              className="min-h-12 rounded-full border border-line px-6 text-sm font-medium text-cream inline-flex items-center"
+            >
+              Door curtains
             </Link>
           </div>
         </div>
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-line shadow-lg">
           <Image
             src="/stores/fixmonger/hero.jpg"
-            alt="Fixmonger winter essentials laid out on a workbench"
+            alt="Fixmonger magnetic door curtain and window mesh"
             width={1200}
             height={900}
             className="h-full w-full object-cover"
@@ -65,28 +110,34 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
 
       <TrustRow />
 
-      {SECTIONS.map((section) => {
-        const items = products.filter((p) => section.categories.includes(p.category));
+      <section id="catsafe" className="mx-auto max-w-6xl px-4 py-10">
+        <div className="rounded-2xl border border-dashed border-line bg-bark/40 px-6 py-8 text-center">
+          <h2 className="display text-2xl text-cream">Cat-safe windows — coming soon</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted">
+            We are sourcing a pet-grade, own-brand window screen. Until then, our cut-to-fit insect mesh is for bugs —
+            not claws. We will never call standard polyester mesh cat-proof.
+          </p>
+        </div>
+      </section>
+
+      {SECTIONS.filter((s) => s.id !== "catsafe").map((section) => {
+        const items =
+          section.id === "window"
+            ? screenProducts
+            : products.filter((p) => section.categories.includes(p.category));
         if (!items.length) return null;
         return (
           <section key={section.id} id={section.id} className="mx-auto max-w-6xl px-4 py-14">
             <h2 className="display text-3xl text-cream">{section.title}</h2>
             <p className="mt-2 text-muted">{section.blurb}</p>
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="fixmonger-product-grid">
-              {items.map((product) => <ProductCard key={product.id} product={product} />)}
+              {items.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
           </section>
         );
       })}
-
-      {bundles.length ? null : null}
-
-      <section className="mx-auto max-w-6xl px-4 py-8">
-        <h2 className="display text-2xl text-cream">Around the house</h2>
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {products.filter((p) => p.category === "home").map((product) => <ProductCard key={product.id} product={product} />)}
-        </div>
-      </section>
 
       <ReviewsPlaceholder />
       <ShopFaq items={FAQ} />

@@ -49,9 +49,10 @@ export function integrations() {
     supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
     fal: Boolean(process.env.FAL_KEY),
-    email: Boolean(
-      (process.env.AWS_SES_REGION || process.env.AWS_ACCESS_KEY_ID) && process.env.EMAIL_FROM,
-    ) || Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
+    email:
+      Boolean(process.env.RELAYEMAIL_API_KEY && process.env.EMAIL_FROM) ||
+      Boolean((process.env.AWS_SES_REGION || process.env.AWS_ACCESS_KEY_ID) && process.env.EMAIL_FROM) ||
+      Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
     prodigi: Boolean(prodigiApiKey()),
     metaPixel: Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID),
     tiktokPixel: Boolean(process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID),

@@ -6,6 +6,7 @@ export type IntegrationId =
   | "prodigi"
   | "printful"
   | "ses"
+  | "relayemail"
   | "resend"
   | "google_oauth"
   | "storage"
@@ -48,6 +49,12 @@ export const INTEGRATION_ENV: Record<IntegrationId, EnvRequirement[]> = {
     { key: "EMAIL_FROM", description: "From address (verified SES identity)" },
     { key: "ADMIN_EMAIL", description: "Admin alerts + digest" },
   ],
+  relayemail: [
+    { key: "RELAYEMAIL_API_KEY", description: "Relay Email API bearer token" },
+    { key: "RELAYEMAIL_API_BASE", optional: true, description: "Relay API base (default https://relayemail.net)" },
+    { key: "EMAIL_FROM", description: "Fallback From when store brand.email unset" },
+    { key: "ADMIN_EMAIL", description: "Admin alerts + digest" },
+  ],
   resend: [
     { key: "RESEND_API_KEY", optional: true, description: "Optional Resend provider (EMAIL_PROVIDER=resend)" },
     { key: "EMAIL_FROM", description: "From address (verified domain)" },
@@ -86,17 +93,17 @@ export const STORE_PROFILES: StoreGoLiveProfile[] = [
   {
     storeId: "pawtraitry",
     label: "Pawtraitry",
-    integrations: ["stripe", "fal", "prodigi", "ses", "google_oauth", "storage", "artinbulk_email"],
+    integrations: ["stripe", "fal", "prodigi", "relayemail", "google_oauth", "storage", "artinbulk_email"],
   },
   {
     storeId: "fixmonger",
     label: "Fixmonger",
-    integrations: ["stripe", "ses", "godropship_email", "storage"],
+    integrations: ["stripe", "relayemail", "godropship_email", "storage"],
   },
   {
     storeId: "jinglefold",
     label: "Jinglefold",
-    integrations: ["stripe", "fal", "prodigi", "printful", "ses", "godropship_email", "storage"],
+    integrations: ["stripe", "fal", "prodigi", "printful", "relayemail", "godropship_email", "storage"],
   },
 ];
 

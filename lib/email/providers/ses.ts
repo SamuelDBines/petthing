@@ -31,9 +31,9 @@ export function __setSesClientsForTests(factory: (() => SesClientBundle) | null)
   clientFactory = factory;
 }
 
-export async function sendViaSes(message: EmailMessage, from: string) {
+export async function sendViaSes(message: EmailMessage, from: string, replyToOverride?: string) {
   const { sesv2, ses } = sesClients();
-  const replyTo = message.replyTo || replyToAddress();
+  const replyTo = replyToOverride || message.replyTo || replyToAddress();
   const configurationSet = sesConfigurationSet();
 
   if (!message.attachments?.length) {
@@ -46,7 +46,12 @@ export async function sendViaSes(message: EmailMessage, from: string) {
         Content: {
           Simple: {
             Subject: { Data: message.subject, Charset: "UTF-8" },
-            Body: { Html: { Data: message.html, Charset: "UTF-8" } },
+            Body: {
+              Html: { Data: message.html, Charset: "UTF-8" },
+              ...(message.text
+                ? { Text: { Data: message.text, Charset: "UTF-8" } }
+                : {}),
+            },
           },
         },
       }),

@@ -17,6 +17,15 @@ export type StoreThemeColors = {
   line: string;
 };
 
+export type StoreBrandEmail = {
+  domain: string;
+  ordersLocal?: string;
+  helloLocal?: string;
+  fromName?: string;
+  /** Prefix From name when sending from a shared verified domain. */
+  placeholderSender?: boolean;
+};
+
 export type StoreBrand = {
   appName: string;
   tagline: string;
@@ -25,6 +34,7 @@ export type StoreBrand = {
   legalTradingName: string;
   footerTradingDisclosure: string;
   emailFromName: string;
+  email?: StoreBrandEmail;
   stripeStatementDescriptor: string;
   /** Stripe Checkout payment_intent_data.statement_descriptor_suffix (max 22 chars). */
   stripeStatementDescriptorSuffix?: string;

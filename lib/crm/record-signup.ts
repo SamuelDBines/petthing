@@ -21,6 +21,14 @@ export async function recordEmailSignup(args: {
       return;
     }
     await insertEmailSignup(args);
+    if (args.marketingConsent) {
+      const { sendShopWelcomeEmail } = await import("@/lib/shop/emails");
+      await sendShopWelcomeEmail({
+        storeId: args.storeId,
+        email: args.email,
+        firstName: args.name,
+      }).catch((err) => console.error("[crm] welcome email failed", err));
+    }
   } catch (error) {
     console.error("[crm] recordEmailSignup failed (non-blocking)", error);
   }

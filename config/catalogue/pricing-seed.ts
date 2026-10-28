@@ -56,8 +56,8 @@ export function adminUnitCostPence(store: PricingStoreName, sku: string) {
 }
 
 export const FIXMONGER_DELIVERY = {
-  freeDeliveryOverPence: 2000,
-  standardDeliveryPence: 299,
+  freeDeliveryOverPence: 0,
+  standardDeliveryPence: 0,
 };
 
 export function fixmongerShippingPence(subtotalPence: number) {

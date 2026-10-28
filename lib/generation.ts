@@ -5,7 +5,8 @@ import { getTheme } from "@/config/themes";
 import { buildPrompt } from "@/config/stylePrompts";
 import type { Job, Order } from "@/lib/domain";
 import { deleteBlob, putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
-import { alertAdmin, resultsEmail, reviewReadyEmail, sendEmail } from "@/lib/email";
+import { alertAdmin, reviewReadyEmail, sendEmail } from "@/lib/email";
+import { sendPortraitReadyEmail } from "@/lib/shop/emails";
 import { getImageProvider } from "@/lib/imageProvider";
 import { moderateImage } from "@/lib/moderation";
 import { londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
@@ -177,11 +178,12 @@ export async function deliverOrder(orderId: string) {
     resultsDeleteAfter: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     failureReason: null,
   });
-  const { origin, appName } = await orderPublicUrls(order);
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${appName} portraits are ready`,
-    html: resultsEmail(`${origin}/results/${order.resultsToken}`),
+  const { origin } = await orderPublicUrls(order);
+  const storeId = order.storeId === "jinglefold" ? "jinglefold" : "pawtraitry";
+  await sendPortraitReadyEmail({
+    storeId,
+    email: order.email,
+    galleryUrl: `${origin}/results/${order.resultsToken}`,
   });
 }
 
@@ -234,12 +236,12 @@ async function finishIfDone(orderId: string) {
   }
   if (order.status === "delivered") {
     if (order.pendingBonusEmail) {
-      const { origin, appName } = await orderPublicUrls(order);
-      await sendEmail({
-        to: order.email,
-        subject: `Your extra ${appName} style is ready`,
-        html: resultsEmail(`${origin}/results/${order.resultsToken}`),
-      });
+      const { origin } = await orderPublicUrls(order);
+  await sendPortraitReadyEmail({
+    storeId: order.storeId === "jinglefold" ? "jinglefold" : "pawtraitry",
+    email: order.email,
+    galleryUrl: `${origin}/results/${order.resultsToken}`,
+  });
       await store.updateOrder(orderId, { pendingBonusEmail: false });
     }
     return;

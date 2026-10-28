@@ -1,6 +1,8 @@
 import { formatGbp } from "@/config/pricing";
 import type { ShopOrder } from "@/lib/catalogue/types";
 import { sendEmail } from "@/lib/email";
+import { renderBrandedEmail, shopOrderToPayload } from "@/lib/email/templates/render";
+import type { EmailStoreId } from "@/lib/email/templates/constants";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 
@@ -10,110 +12,93 @@ async function storeMailContext(storeId: string) {
   return { config, origin };
 }
 
-function lineItemsHtml(order: ShopOrder) {
-  return order.lines
-    .map((line) => `<li>${line.name} × ${line.quantity} — ${formatGbp(line.unitPricePence * line.quantity)}</li>`)
-    .join("");
+async function sendRendered(
+  storeId: EmailStoreId,
+  to: string,
+  rendered: Awaited<ReturnType<typeof renderBrandedEmail>>,
+) {
+  await sendEmail({
+    to,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    storeId,
+    fromRole: rendered.fromRole,
+    listUnsubscribe: rendered.listUnsubscribe,
+  });
 }
 
 export async function sendShopOrderConfirmationEmail(order: ShopOrder) {
-  const { config, origin } = await storeMailContext(order.storeId);
-  const shipping =
-    order.shippingPence === 0
-      ? "Free UK delivery"
-      : `UK delivery ${formatGbp(order.shippingPence)}`;
-  const html = `
-    <p>Thanks for your ${config.brand.appName} order.</p>
-    <p>We've received your payment of <strong>${formatGbp(order.amountPence)}</strong> (${shipping}).</p>
-    <ul>${lineItemsHtml(order)}</ul>
-    <p>We'll email you again when your order has been dispatched.</p>
-    <p>Questions? Reply to this email or contact <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a>.</p>
-    <p><a href="${origin}">Back to ${config.brand.appName}</a></p>
-  `;
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${config.brand.appName} order confirmation`,
-    html,
-    storeId: order.storeId,
-  });
+  const { origin } = await storeMailContext(order.storeId);
+  const rendered = await renderBrandedEmail(order.storeId as EmailStoreId, "order_confirmation", shopOrderToPayload(order, origin));
+  await sendRendered(order.storeId as EmailStoreId, order.email, rendered);
 }
 
 export async function sendShopOrderSubmittedToSupplierEmail(order: ShopOrder) {
   const { config, origin } = await storeMailContext(order.storeId);
-  const html = `
-    <p>Thanks again — we've passed your ${config.brand.appName} order to our UK warehouse partner for packing.</p>
-    <ul>${lineItemsHtml(order)}</ul>
-    <p>You'll get another email when your parcel ships with tracking (if the carrier provides it).</p>
-    <p><a href="${origin}">${config.brand.appName}</a></p>
-  `;
   await sendEmail({
     to: order.email,
     subject: `We're packing your ${config.brand.appName} order`,
-    html,
+    html: `<p>We've passed your order to our UK warehouse partner for packing.</p><p><a href="${origin}">${config.brand.appName}</a></p>`,
     storeId: order.storeId,
   });
 }
 
 export async function sendShopOrderDispatchedEmail(order: ShopOrder) {
-  const { config, origin } = await storeMailContext(order.storeId);
-  const tracking = order.trackingNumber
-    ? `<p>Tracking: <strong>${order.trackingNumber}</strong></p>`
-    : "<p>Your parcel is on its way — tracking will follow if your carrier provides it.</p>";
-  const html = `
-    <p>Good news — your ${config.brand.appName} order has been dispatched.</p>
-    <ul>${lineItemsHtml(order)}</ul>
-    ${tracking}
-    <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
-    <p><a href="${origin}">${config.brand.appName}</a></p>
-  `;
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${config.brand.appName} order is on its way`,
-    html,
-    storeId: order.storeId,
-  });
+  const { origin } = await storeMailContext(order.storeId);
+  const payload = {
+    ...shopOrderToPayload(order, origin),
+    trackingNumber: order.trackingNumber ?? undefined,
+    trackingUrl: order.trackingNumber ? `https://www.royalmail.com/track-your-item#/${order.trackingNumber}` : undefined,
+  };
+  const rendered = await renderBrandedEmail(order.storeId as EmailStoreId, "shipped", payload);
+  await sendRendered(order.storeId as EmailStoreId, order.email, rendered);
 }
 
 export async function sendShopOrderDeliveredEmail(order: ShopOrder) {
-  const { config, origin } = await storeMailContext(order.storeId);
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${config.brand.appName} order was delivered`,
-    html: `
-      <p>We hope your order arrived safely.</p>
-      <ul>${lineItemsHtml(order)}</ul>
-      <p>If anything is wrong, reply within 30 days for unused returns (see our <a href="${origin}/refunds">returns policy</a>).</p>
-      <p><a href="${origin}">Shop again at ${config.brand.appName}</a></p>
-    `,
-    storeId: order.storeId,
-  });
+  const { origin } = await storeMailContext(order.storeId);
+  const rendered = await renderBrandedEmail(order.storeId as EmailStoreId, "delivered_review", shopOrderToPayload(order, origin));
+  await sendRendered(order.storeId as EmailStoreId, order.email, rendered);
 }
 
 export async function sendShopReviewRequestEmail(order: ShopOrder) {
-  const { config, origin } = await storeMailContext(order.storeId);
-  await sendEmail({
-    to: order.email,
-    subject: `How was your ${config.brand.appName} order?`,
-    html: `
-      <p>We'd love a quick note on how everything looked — reply to this email with a photo if you like.</p>
-      <p><a href="${origin}">Visit ${config.brand.appName}</a></p>
-    `,
-    storeId: order.storeId,
-  });
+  await sendShopOrderDeliveredEmail(order);
 }
 
 export async function sendShopAbandonedCheckoutEmail(order: ShopOrder) {
-  const { config, origin } = await storeMailContext(order.storeId);
+  const { origin } = await storeMailContext(order.storeId);
+  const rendered = await renderBrandedEmail(
+    order.storeId as EmailStoreId,
+    "abandoned_checkout",
+    shopOrderToPayload(order, origin),
+  );
+  await sendRendered(order.storeId as EmailStoreId, order.email, rendered);
+}
+
+export async function sendShopWelcomeEmail(args: { storeId: string; email: string; firstName?: string | null }) {
+  const rendered = await renderBrandedEmail(args.storeId as EmailStoreId, "welcome", {
+    firstName: args.firstName ?? undefined,
+    unsubscribeUrl: `${(await storeMailContext(args.storeId)).origin}/api/marketing/unsubscribe`,
+  });
+  await sendRendered(args.storeId as EmailStoreId, args.email, rendered);
+}
+
+export async function sendPortraitReadyEmail(args: {
+  storeId: EmailStoreId;
+  email: string;
+  galleryUrl: string;
+  subject?: string;
+}) {
+  const rendered = await renderBrandedEmail(args.storeId, "portrait_ready", {
+    galleryUrl: args.galleryUrl,
+  });
   await sendEmail({
-    to: order.email,
-    subject: `Still thinking about your ${config.brand.appName} basket?`,
-    html: `
-      <p>You started checkout but didn't finish payment. Your basket is still waiting.</p>
-      <ul>${lineItemsHtml(order)}</ul>
-      <p><a href="${origin}/shop/cart">Return to your cart</a></p>
-      <p style="font-size:12px;color:#666">You asked to hear about offers and reminders. Unsubscribe by replying STOP.</p>
-    `,
-    storeId: order.storeId,
+    to: args.email,
+    subject: args.subject ?? rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    storeId: args.storeId,
+    fromRole: rendered.fromRole,
   });
 }
 
@@ -127,24 +112,19 @@ export async function sendShopOrderCancelledEmail(
     ? "<p>Any payment taken has been refunded to your original payment method.</p>"
     : refundableNote(order);
   const supplierNote = options?.supplierCancelRequested
-    ? `<p>Your order had already been sent to our supplier. We have requested that they cancel fulfilment. If you still receive a parcel, please contact <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a>.</p>`
+    ? `<p>We have requested that our supplier cancel fulfilment. If you still receive a parcel, contact <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a>.</p>`
     : "";
   await sendEmail({
     to: order.email,
     subject: `Order cancelled — ${config.brand.appName}`,
-    html: `
-      <p>Your ${config.brand.appName} order has been cancelled.</p>
-      ${supplierNote}
-      ${refundNote}
-      <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
-    `,
+    html: `<p>Your ${config.brand.appName} order has been cancelled.</p>${supplierNote}${refundNote}`,
     storeId: order.storeId,
   });
 }
 
 function refundableNote(order: ShopOrder) {
   if (order.paidAt && (order.amountRefundedPence ?? 0) < order.amountPence) {
-    return "<p>Your payment is being refunded separately — watch for a refund confirmation email.</p>";
+    return "<p>Your payment is being refunded separately.</p>";
   }
   return "<p>No payment was taken for this order.</p>";
 }
@@ -154,11 +134,7 @@ export async function sendShopRefundEmail(order: ShopOrder, amountPence: number)
   await sendEmail({
     to: order.email,
     subject: `Refund issued — ${config.brand.appName}`,
-    html: `
-      <p>We've processed a refund of <strong>${formatGbp(amountPence)}</strong> to your original payment method.</p>
-      <p>It may take 5–10 working days to appear on your statement.</p>
-      <p>Questions? <a href="mailto:${config.brand.supportEmail}">${config.brand.supportEmail}</a></p>
-    `,
+    html: `<p>We've processed a refund of <strong>${formatGbp(amountPence)}</strong>.</p>`,
     storeId: order.storeId,
   });
 }

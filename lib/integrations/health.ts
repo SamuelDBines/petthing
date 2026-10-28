@@ -1,5 +1,6 @@
 import { recentFalHealthDetail, recentFalHealthDetailFromMemory } from "@/lib/fal/provider-errors";
 import { emailProviderId, sesCredentialsConfigured } from "@/lib/email/config";
+import { fetchRelayEmailHealth } from "@/lib/email/relayemail-health";
 import { fetchSesHealth } from "@/lib/email/ses-health";
 import { envPresent } from "@/lib/go-live/requirements";
 import { prodigiApiKey } from "@/lib/prodigi/config";
@@ -29,6 +30,15 @@ function prodigiMode() {
 function emailRows(): IntegrationHealthRow[] {
   const rows: IntegrationHealthRow[] = [];
   const provider = emailProviderId();
+  if (provider === "relayemail") {
+    const relay = fetchRelayEmailHealth();
+    rows.push({
+      id: "email_relay",
+      label: "Relay Email",
+      status: relay.configured ? "connected" : "missing",
+      detail: relay.detail,
+    });
+  }
   if (provider === "ses") {
     rows.push({
       id: "email_ses",

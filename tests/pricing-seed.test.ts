@@ -7,23 +7,24 @@ import { toStorefrontProduct } from "../lib/catalogue/storefront";
 import { TIERS } from "../config/pricing";
 import { pawtraitryPrintPricePence } from "../config/catalogue/pawtraitry-skus";
 
-test("Fixmonger seed drops HB-76661 and includes kits at seed prices", () => {
+test("Fixmonger v23 seed drops off-niche SKUs and keeps door kit", () => {
   const skus = FIXMONGER_SEED_PRODUCTS.map((p) => p.supplierSku);
   assert.equal(skus.includes("HB-76661"), false);
-  assert.equal(skus.includes("FX-KIT-CAR"), true);
-  assert.equal(recommendedPence("Fixmonger", "FX-KIT-CAR"), 2499);
-  assert.equal(recommendedPence("Fixmonger", "FX-KIT-DOOR"), 3499);
-  assert.equal(recommendedPence("Fixmonger", "FX-KIT-GARDEN"), 4499);
-  const carKit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-CAR");
-  assert.ok(carKit?.compareAtPricePence === 2798);
+  assert.equal(skus.includes("FX-KIT-CAR"), false);
+  assert.equal(skus.includes("CAR-46787"), false);
+  assert.equal(skus.includes("FX-KIT-DOOR"), true);
+  assert.equal(skus.includes("HOM-61194"), true);
+  assert.equal(recommendedPence("Fixmonger", "FX-KIT-DOOR"), 4499);
+  const doorKit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-DOOR");
+  assert.equal(doorKit?.compareAtPricePence, null);
 });
 
 test("bundle checkout lines expand to supplier SKUs", () => {
-  const kit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-CAR");
+  const kit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-DOOR");
   assert.ok(kit);
   const lines = shopOrderLinesForProduct(kit!, 1);
   assert.equal(lines.length, 2);
-  assert.deepEqual(lines.map((l) => l.supplierSku).sort(), ["AB6701", "CAR-46787"]);
+  assert.deepEqual(lines.map((l) => l.supplierSku).sort(), ["HOM-61194", "HOM-76459"]);
 });
 
 test("storefront products omit cost fields", () => {
@@ -33,9 +34,9 @@ test("storefront products omit cost fields", () => {
   assert.equal("bundleComponents" in storefront, false);
 });
 
-test("Fixmonger shipping is free from £20 subtotal", () => {
-  assert.equal(fixmongerShippingPence(1999), 299);
-  assert.equal(fixmongerShippingPence(2000), 0);
+test("Fixmonger shipping is free on all orders (v23)", () => {
+  assert.equal(fixmongerShippingPence(0), 0);
+  assert.equal(fixmongerShippingPence(1999), 0);
 });
 
 test("Pawtraitry digital tiers use recommended_price from seed", () => {

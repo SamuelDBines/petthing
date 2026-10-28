@@ -1,4 +1,6 @@
-export type EmailProviderId = "ses" | "resend" | "none";
+export type EmailProviderId = "ses" | "resend" | "relayemail" | "none";
+
+export type { EmailFromRole } from "@/lib/email/types";
 
 export function awsSesRegion() {
   return (process.env.AWS_SES_REGION || "eu-west-2").trim();
@@ -7,9 +9,11 @@ export function awsSesRegion() {
 export function emailProviderId(): EmailProviderId {
   const explicit = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
   if (explicit === "resend") return "resend";
+  if (explicit === "relayemail") return "relayemail";
   if (explicit === "ses") return "ses";
   if (explicit === "none" || explicit === "log" || explicit === "outbox") return "none";
   if (process.env.AWS_SES_REGION?.trim() || process.env.AWS_ACCESS_KEY_ID?.trim()) return "ses";
+  if (process.env.RELAYEMAIL_API_KEY?.trim()) return "relayemail";
   if (process.env.RESEND_API_KEY?.trim()) return "resend";
   return "none";
 }
@@ -19,34 +23,13 @@ export function sesCredentialsConfigured() {
   return Boolean(process.env.AWS_SES_REGION?.trim());
 }
 
-export function parseFromHeader(from: string) {
-  const trimmed = from.trim();
-  const match = trimmed.match(/^(.+?)\s*<([^>]+)>$/);
-  if (match) return { name: match[1].trim().replace(/^"|"$/g, ""), email: match[2].trim() };
-  return { name: undefined, email: trimmed };
-}
+import { formatFromHeader, parseFromHeader } from "@/lib/email/from-header";
 
-export function formatFromHeader(name: string, email: string) {
-  const safeName = name.replace(/"/g, "'");
-  return `${safeName} <${email}>`;
-}
+export { formatFromHeader, parseFromHeader } from "@/lib/email/from-header";
 
-/** Global or per-store EMAIL_FROM_FIXMONGER override; otherwise brand emailFromName + global address. */
-export async function resolveFromAddress(storeId?: string) {
-  if (storeId) {
-    const envKey = `EMAIL_FROM_${storeId.replace(/-/g, "_").toUpperCase()}`;
-    const override = process.env[envKey]?.trim();
-    if (override) return override;
-    const global = process.env.EMAIL_FROM?.trim();
-    if (!global) return null;
-    const { email } = parseFromHeader(global);
-    const { loadStoreConfig } = await import("@/lib/tenant/context");
-    const config = await loadStoreConfig(storeId);
-    return formatFromHeader(config.brand.emailFromName, email);
-  }
-  return process.env.EMAIL_FROM?.trim() ?? null;
-}
+export { resolveFromAddress, resolveReplyToAddress } from "@/lib/email/store-senders";
 
+/** Legacy global Reply-To when no store context. Prefer resolveReplyToAddress(storeId). */
 export function replyToAddress() {
   return process.env.EMAIL_REPLY_TO?.trim() || undefined;
 }
