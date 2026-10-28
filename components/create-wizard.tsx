@@ -1,7 +1,7 @@
 "use client";
 
 import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import { formatGbp, SEASON_PASS, TIERS, type TierId } from "@/config/pricing";
@@ -44,6 +44,7 @@ export function CreateWizard() {
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const previewTracked = useRef(false);
   const seasonPass = params.get("offer") === "season";
 
   useEffect(() => {
@@ -104,6 +105,12 @@ export function CreateWizard() {
     }
   }
 
+  useEffect(() => {
+    if (step !== 4 || previewTracked.current) return;
+    previewTracked.current = true;
+    void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
+  }, [step]);
+
   async function pay() {
     setBusy(true);
     setError("");
@@ -144,7 +151,12 @@ export function CreateWizard() {
       const checkout = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "portrait", orderId: order.orderId, uploadToken: order.uploadToken }),
+        body: JSON.stringify({
+          kind: "portrait",
+          orderId: order.orderId,
+          uploadToken: order.uploadToken,
+          analyticsSessionId: (await import("@/components/visitor-tracker")).analyticsSessionId(),
+        }),
       });
       const { ok, body: session } = await parseCheckoutResponse(checkout);
       if (!ok || !session.url) throw new Error(checkoutErrorMessage(session, ok));

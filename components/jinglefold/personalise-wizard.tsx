@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import {
@@ -58,6 +58,7 @@ export function JinglefoldPersonaliseWizard({
   const [lateAck, setLateAck] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const previewTracked = useRef(false);
 
   const cutoffIso = cutoffIsoForKind(cutoffs, product.cutoffKind);
   const pastCutoff = isPastCutoff(cutoffIso);
@@ -77,6 +78,12 @@ export function JinglefoldPersonaliseWizard({
     setPhotoUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  useEffect(() => {
+    if (!photoUrl || step < 2 || previewTracked.current) return;
+    previewTracked.current = true;
+    void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
+  }, [photoUrl, step]);
 
   async function startPreview() {
     setBusy(true);

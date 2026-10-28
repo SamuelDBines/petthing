@@ -58,15 +58,8 @@ type StoreOption = {
   settings?: { salesPaused: boolean; queueHalted: boolean };
 };
 
-type AnalyticsDashboard = {
-  summary: { uniqueVisitors: number; sessions: number; bounceRate: number; newVisitors: number; returningVisitors: number };
-  funnel: { step: string; count: number; conversionFromPrevious: number | null }[];
-  bounceReasons: { reason: string; count: number; detail: string }[];
-  topLandingPages: { path: string; sessions: number; bounceRate: number }[];
-  topSources: { source: string; sessions: number; bounceRate: number }[];
-  daily: { day: string; uniqueVisitors: number; sessions: number; bounceRate: number }[];
-  byStore?: Record<string, AnalyticsDashboard>;
-};
+import type { AnalyticsDashboard } from "@/lib/analytics/types";
+import { AdminAnalyticsPanel } from "@/components/admin-analytics-panel";
 
 type StoreEdit = {
   domains: string;
@@ -142,8 +135,9 @@ export function AdminDashboard({
       .then((body) => setLoginEvents(body.events ?? []));
   }
 
-  async function loadAnalytics() {
-    const response = await fetch("/api/admin/analytics");
+  async function loadAnalytics(query?: URLSearchParams) {
+    const suffix = query?.toString() ? `?${query.toString()}` : "";
+    const response = await fetch(`/api/admin/analytics${suffix}`);
     if (!response.ok) return;
     setAnalytics(await response.json());
   }
@@ -433,52 +427,7 @@ export function AdminDashboard({
       )}
 
       {tab === "analytics" && analytics ? (
-        <section className="mt-6 space-y-6" data-testid="admin-analytics-panel">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Unique visitors</p><p className="text-2xl">{analytics.summary.uniqueVisitors}</p></article>
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Sessions</p><p className="text-2xl">{analytics.summary.sessions}</p></article>
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Bounce rate</p><p className="text-2xl">{Math.round(analytics.summary.bounceRate * 100)}%</p></article>
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">New</p><p className="text-2xl">{analytics.summary.newVisitors}</p></article>
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Returning</p><p className="text-2xl">{analytics.summary.returningVisitors}</p></article>
-          </div>
-          <div>
-            <h2 className="text-2xl">Funnel</h2>
-            <table className="mt-2 w-full text-left text-sm">
-              <thead className="text-cream/60"><tr><th>Step</th><th>Count</th><th>Step conversion</th></tr></thead>
-              <tbody>
-                {analytics.funnel.map((row) => (
-                  <tr key={row.step} className="border-t border-line">
-                    <td className="py-2">{row.step}</td>
-                    <td>{row.count}</td>
-                    <td>{row.conversionFromPrevious == null ? "—" : `${Math.round(row.conversionFromPrevious * 100)}%`}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div>
-            <h2 className="text-2xl">Why people leave</h2>
-            <ul className="mt-2 space-y-2 text-sm">
-              {analytics.bounceReasons.map((row) => (
-                <li key={row.reason} className="rounded-2xl border border-line p-3">{row.reason} · {row.count} <span className="text-cream/60">({row.detail})</span></li>
-              ))}
-            </ul>
-          </div>
-          {analytics.byStore ? (
-            <div data-testid="admin-analytics-by-store">
-              <h2 className="text-2xl">By store</h2>
-              <div className="mt-3 grid gap-4 md:grid-cols-3">
-                {Object.entries(analytics.byStore).map(([storeId, dash]) => (
-                  <article key={storeId} className="rounded-2xl border border-line p-4">
-                    <h3 className="font-medium">{storeLabel(storeId)}</h3>
-                    <p className="mt-2 text-sm">Visitors {dash.summary.uniqueVisitors} · Sessions {dash.summary.sessions}</p>
-                    <p className="text-sm">Bounce {Math.round(dash.summary.bounceRate * 100)}%</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </section>
+        <AdminAnalyticsPanel analytics={analytics} onReload={(query) => void loadAnalytics(query)} />
       ) : null}
 
       {tab === "sales" && sales ? (

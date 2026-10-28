@@ -32,11 +32,17 @@ import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
 
 const schema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("portrait"), orderId: z.string().uuid(), uploadToken: z.string().min(10) }),
+  z.object({
+    kind: z.literal("portrait"),
+    orderId: z.string().uuid(),
+    uploadToken: z.string().min(10),
+    analyticsSessionId: z.string().uuid().optional(),
+  }),
   z.object({
     kind: z.literal("extra_styles"),
     token: z.string().min(10),
     styleIds: z.array(z.string()).min(1).max(EXTRA_STYLES_COUNT),
+    analyticsSessionId: z.string().uuid().optional(),
   }),
   z.object({
     kind: z.literal("print"),
@@ -147,7 +153,12 @@ export async function POST(request: Request) {
       kind: pass ? "season" : "portrait",
       email: order.email,
       lineItems: items,
-      metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id, storeId: order.storeId },
+      metadata: {
+        kind: pass ? "season_pass" : "portrait",
+        orderId: order.id,
+        storeId: order.storeId,
+        visitorSessionId: body.analyticsSessionId ?? "",
+      },
       mode: pass ? "subscription" : "payment",
       successPath: jinglefoldPersonalised
         ? `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`
@@ -201,7 +212,13 @@ export async function POST(request: Request) {
       kind: "extra",
       email: order.email,
       lineItems: [line(`${brand.appName} · 3 more styles`, EXTRA_STYLES_PENCE)],
-      metadata: { kind: "extra_styles", orderId: order.id, styleIds: chosen.join(","), storeId: order.storeId },
+      metadata: {
+        kind: "extra_styles",
+        orderId: order.id,
+        styleIds: chosen.join(","),
+        storeId: order.storeId,
+        visitorSessionId: body.analyticsSessionId ?? "",
+      },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `extra-${order.id}-${chosen.slice().sort().join("-")}`,

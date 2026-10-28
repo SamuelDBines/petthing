@@ -4,7 +4,9 @@ import { randomUUID } from "crypto";
 import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import type { CatalogueProduct, ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { AnalyticsEvent, Asset, Database, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
-import type { VisitorCollectPayload } from "@/lib/analytics/types";
+import type { AnalyticsCollectContext, VisitorCollectPayload } from "@/lib/analytics/types";
+import { classifyTraffic, browserFromUserAgent, referrerDomain } from "@/lib/analytics/traffic";
+import { INTERACTION_EVENT_TYPES } from "@/lib/analytics/metrics";
 import { mergeRollups, rollupDay } from "@/lib/analytics/rollup";
 import { BUILTIN_STORES, DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { configFromRow } from "@/lib/tenant/resolve";
@@ -180,10 +182,18 @@ export const jsonStore = {
         createdAt: new Date().toISOString(),
       };
     }),
-  collectAnalytics: (storeId: string, payload: VisitorCollectPayload, _countryCode?: string | null) =>
+  collectAnalytics: (storeId: string, payload: VisitorCollectPayload, context: import("@/lib/analytics/types").AnalyticsCollectContext = {}) =>
     withDb((db) => {
       const now = new Date().toISOString();
       const day = londonDay(new Date(now));
+      const userAgent = payload.userAgent ?? context.userAgent ?? null;
+      const traffic = classifyTraffic({
+        userAgent,
+        internalCheckHeader: context.internalCheckHeader,
+        ip: context.ip,
+        excludeCookie: context.excludeCookie,
+        isAdmin: context.isAdmin,
+      });
       const visitorId =
         payload.consent === "analytics" && payload.visitorId
           ? payload.visitorId
@@ -193,6 +203,7 @@ export const jsonStore = {
       if (!session) {
         sessionId = randomUUID();
         const isNew = !db.visitorSessions.some((s) => s.storeId === storeId && s.visitorId === visitorId);
+        const hadInteraction = Boolean(payload.event && INTERACTION_EVENT_TYPES.has(payload.event.type));
         session = {
           id: sessionId,
           storeId,
@@ -200,22 +211,30 @@ export const jsonStore = {
           consentLevel: payload.consent,
           isNewVisitor: isNew,
           referrer: payload.referrer ?? null,
+          referrerDomain: referrerDomain(payload.referrer),
           utmSource: payload.utm?.utm_source ?? null,
           utmMedium: payload.utm?.utm_medium ?? null,
           utmCampaign: payload.utm?.utm_campaign ?? null,
+          gclid: payload.clickIds?.gclid ?? payload.utm?.gclid ?? null,
+          fbclid: payload.clickIds?.fbclid ?? payload.utm?.fbclid ?? null,
+          ttclid: payload.clickIds?.ttclid ?? payload.utm?.ttclid ?? null,
           landingPath: payload.path,
           exitPath: payload.path,
           deviceType: payload.deviceType ?? null,
-          countryCode: null,
+          browser: browserFromUserAgent(userAgent),
+          countryCode: context.countryCode ?? null,
           startedAt: now,
           endedAt: null,
           pageviewCount: 1,
           bounced: true,
+          hadInteraction,
           durationMs: payload.durationMs ?? 0,
           maxScrollDepth: payload.scrollDepth ?? 0,
           rageClicks: payload.rageClick ? 1 : 0,
           jsErrors: payload.jsError ? 1 : 0,
           slowLoads: payload.slowLoadMs && payload.slowLoadMs > 4000 ? 1 : 0,
+          excludedFromMetrics: traffic.excluded,
+          exclusionReason: traffic.reason,
         };
         db.visitorSessions.push(session);
         db.visitorEvents.push({
@@ -236,7 +255,12 @@ export const jsonStore = {
         if (payload.rageClick) session.rageClicks += 1;
         if (payload.jsError) session.jsErrors += 1;
         if (payload.slowLoadMs && payload.slowLoadMs > 4000) session.slowLoads += 1;
-        session.bounced = session.durationMs < 10000 && session.maxScrollDepth < 25;
+        if (payload.event && INTERACTION_EVENT_TYPES.has(payload.event.type)) session.hadInteraction = true;
+        session.bounced = session.pageviewCount <= 1 && !session.hadInteraction && session.durationMs < 10_000;
+        if (traffic.excluded) {
+          session.excludedFromMetrics = true;
+          session.exclusionReason = traffic.reason;
+        }
         if (payload.leave) session.endedAt = now;
       }
       if (payload.event) {
@@ -250,12 +274,76 @@ export const jsonStore = {
           metadata: payload.event.metadata ?? {},
           createdAt: now,
         });
+        if (INTERACTION_EVENT_TYPES.has(payload.event.type)) {
+          session.hadInteraction = true;
+          session.bounced = false;
+        }
       }
       recomputeJsonRollup(db, storeId, day);
       return { sessionId, visitorId };
     }),
-  getAnalyticsRollups: (storeId: string | "all", from: string, to: string) =>
+  recordServerFunnelEvent: (args: {
+    storeId: string;
+    eventType: string;
+    visitorSessionId?: string | null;
+    visitorId?: string | null;
+    path?: string | null;
+    metadata?: Record<string, unknown>;
+  }) =>
     withDb((db) => {
+      const now = new Date().toISOString();
+      db.visitorEvents.push({
+        id: randomUUID(),
+        storeId: args.storeId,
+        sessionId: args.visitorSessionId ?? null,
+        visitorId: args.visitorId ?? null,
+        eventType: args.eventType,
+        path: args.path ?? "/",
+        metadata: args.metadata ?? {},
+        createdAt: now,
+      });
+      if (args.visitorSessionId) {
+        const session = db.visitorSessions.find((row) => row.id === args.visitorSessionId);
+        if (session && INTERACTION_EVENT_TYPES.has(args.eventType)) {
+          session.hadInteraction = true;
+          session.bounced = false;
+        }
+      }
+      recomputeJsonRollup(db, args.storeId, londonDay());
+    }),
+  countActiveVisitors: (storeId: string | "all", includeExcluded = false) =>
+    withDb((db) => {
+      const since = Date.now() - 5 * 60 * 1000;
+      const rows = db.visitorSessions.filter(
+        (session) =>
+          Date.parse(session.startedAt) >= since &&
+          (storeId === "all" || session.storeId === storeId) &&
+          (includeExcluded || !session.excludedFromMetrics),
+      );
+      return new Set(rows.map((row) => row.visitorId)).size;
+    }),
+  getAnalyticsRollups: (storeId: string | "all", from: string, to: string, includeExcluded = false) =>
+    withDb((db) => {
+      if (includeExcluded) {
+        const days: string[] = [];
+        const cursor = new Date(`${from}T00:00:00.000Z`);
+        const end = new Date(`${to}T00:00:00.000Z`);
+        while (cursor <= end) {
+          days.push(cursor.toISOString().slice(0, 10));
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+        return days.map((day) => {
+          const sessions = db.visitorSessions.filter(
+            (s) =>
+              londonDay(new Date(s.startedAt)) === day && (storeId === "all" || s.storeId === storeId),
+          );
+          const events = db.visitorEvents.filter(
+            (e) =>
+              londonDay(new Date(e.createdAt)) === day && (storeId === "all" || e.storeId === storeId),
+          );
+          return { day, metrics: rollupDay(sessions, events, { includeExcluded: true }) };
+        });
+      }
       const rows = db.analyticsRollups.filter((row) => row.day >= from && row.day <= to && (storeId === "all" || row.storeId === storeId));
       if (storeId === "all") {
         const byDay = new Map<string, import("@/lib/analytics/types").DailyRollupMetrics>();

@@ -21,6 +21,14 @@ function deviceType() {
   return "desktop";
 }
 
+function clickIdsFromSearch(search: URLSearchParams) {
+  return {
+    gclid: search.get("gclid") ?? undefined,
+    fbclid: search.get("fbclid") ?? undefined,
+    ttclid: search.get("ttclid") ?? undefined,
+  };
+}
+
 async function send(payload: Record<string, unknown>) {
   try {
     const response = await fetch("/api/analytics/collect", {
@@ -44,6 +52,12 @@ export function VisitorTracker() {
   const visitorId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    if (search.get("internal") === "1") {
+      void fetch("/api/analytics/collect?internal=1");
+    }
+  }, [search]);
+
+  useEffect(() => {
     const onScroll = () => {
       const doc = document.documentElement;
       const depth = doc.scrollHeight > 0 ? Math.round((window.scrollY / (doc.scrollHeight - window.innerHeight)) * 100) : 0;
@@ -63,18 +77,20 @@ export function VisitorTracker() {
       localStorage.setItem(STORAGE_VISITOR, visitorId.current);
     }
     const utm: Record<string, string> = {};
-    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+    for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "ttclid"]) {
       const value = search.get(key);
       if (value) utm[key] = value;
     }
     void send({
-      sessionId: sessionId.current,
+      sessionId: sessionId.current || sessionStorage.getItem(STORAGE_SESSION) || undefined,
       visitorId: visitorId.current,
       consent,
       path: pathname + (search.toString() ? `?${search.toString()}` : ""),
       referrer: document.referrer || undefined,
       utm,
+      clickIds: clickIdsFromSearch(search),
       deviceType: deviceType(),
+      userAgent: navigator.userAgent,
       durationMs: 0,
       scrollDepth: 0,
     }).then((body) => {
@@ -89,6 +105,7 @@ export function VisitorTracker() {
         visitorId: visitorId.current,
         consent: consentLevel(),
         path: pathname,
+        userAgent: navigator.userAgent,
         durationMs: Date.now() - started.current,
         scrollDepth: maxScroll.current,
         leave: true,
@@ -106,6 +123,11 @@ export function trackFunnelEvent(type: string, metadata?: Record<string, unknown
     consent: consentLevel(),
     path: window.location.pathname,
     deviceType: deviceType(),
+    userAgent: navigator.userAgent,
     event: { type, metadata },
   });
+}
+
+export function analyticsSessionId() {
+  return sessionStorage.getItem(STORAGE_SESSION) || undefined;
 }

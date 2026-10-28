@@ -264,6 +264,17 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
     const { markShopOrderPaid } = await import("@/lib/shop/fulfillment");
     await markShopOrderPaid(session.metadata.shopOrderId, session);
   }
+  const storeId = session.metadata?.storeId;
+  if (storeId && kind) {
+    const { recordPaidAnalyticsEvent } = await import("@/lib/analytics/server-events");
+    await recordPaidAnalyticsEvent({
+      storeId,
+      kind,
+      orderId: session.metadata?.orderId ?? session.metadata?.shopOrderId,
+      visitorSessionId: session.metadata?.visitorSessionId,
+      amountPence: session.amount_total,
+    });
+  }
 }
 
 export async function noteFailedPayment(session: Stripe.Checkout.Session) {

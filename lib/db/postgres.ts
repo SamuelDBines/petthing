@@ -9,7 +9,7 @@ import {
   updateStoreSettings,
   upsertStoreRow,
 } from "@/lib/db/tenant-methods";
-import type { VisitorCollectPayload } from "@/lib/analytics/types";
+import type { AnalyticsCollectContext, VisitorCollectPayload } from "@/lib/analytics/types";
 import { DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/db/schema";
@@ -282,11 +282,19 @@ export const postgresStore = {
   async upsertStore(input: { id: string; slug: string; domains: string[]; config?: Record<string, unknown> }) {
     return upsertStoreRow(input);
   },
-  async collectAnalytics(storeId: string, payload: VisitorCollectPayload, countryCode?: string | null) {
-    return collectVisitorAnalytics(storeId, payload, countryCode);
+  async collectAnalytics(storeId: string, payload: VisitorCollectPayload, context?: AnalyticsCollectContext) {
+    return collectVisitorAnalytics(storeId, payload, context ?? {});
   },
-  async getAnalyticsRollups(storeId: string | "all", from: string, to: string) {
-    return listRollups(storeId, from, to);
+  async recordServerFunnelEvent(args: Parameters<typeof import("@/lib/db/analytics-methods").recordServerFunnelEvent>[0]) {
+    const { recordServerFunnelEvent } = await import("@/lib/db/analytics-methods");
+    return recordServerFunnelEvent(args);
+  },
+  async countActiveVisitors(storeId: string | "all", includeExcluded = false) {
+    const { countActiveVisitors } = await import("@/lib/db/analytics-methods");
+    return countActiveVisitors(storeId, includeExcluded);
+  },
+  async getAnalyticsRollups(storeId: string | "all", from: string, to: string, includeExcluded = false) {
+    return listRollups(storeId, from, to, includeExcluded);
   },
   async refreshAnalyticsRollup(storeId: string, day?: string) {
     return recomputeRollup(storeId, day ?? londonDay());

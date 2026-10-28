@@ -32,7 +32,7 @@ export async function buildAdminDigestHtml() {
       const dash = daily.length
         ? buildDashboard({ storeId: id, from: day, to: day, daily })
         : rollupForEmptyRange(day, day, id);
-      visitors = String(dash.summary.uniqueVisitors);
+      visitors = String(dash.summary.uniqueVisitors.value);
     }
 
     sections.push(`

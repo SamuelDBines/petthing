@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAdmin } from "@/lib/adminAuth";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
@@ -18,6 +19,14 @@ const schema = z.object({
   rageClick: z.boolean().optional(),
   jsError: z.string().max(500).optional(),
   slowLoadMs: z.number().min(0).max(120_000).optional(),
+  userAgent: z.string().max(500).optional(),
+  clickIds: z
+    .object({
+      gclid: z.string().max(200).optional(),
+      fbclid: z.string().max(200).optional(),
+      ttclid: z.string().max(200).optional(),
+    })
+    .optional(),
   leave: z.boolean().optional(),
   event: z
     .object({
@@ -36,6 +45,11 @@ function countryFromRequest(request: Request) {
   );
 }
 
+function excludeCookie(request: Request) {
+  const cookie = request.headers.get("cookie") ?? "";
+  return /(?:^|;\s*)ps_analytics_exclude=1(?:;|$)/.test(cookie);
+}
+
 export async function POST(request: Request) {
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
@@ -45,6 +59,26 @@ export async function POST(request: Request) {
   const limits = rateLimits();
   const limit = await store.hitRateLimit(`analytics:${hashIp(clientIp(request))}`, limits.analyticsPerMinute, 60 * 1000);
   if (!limit.ok) return Response.json({ ok: true });
-  const result = await store.collectAnalytics(storeId, parsed.data, countryFromRequest(request));
+  const result = await store.collectAnalytics(storeId, parsed.data, {
+    countryCode: countryFromRequest(request),
+    ip: clientIp(request),
+    userAgent: parsed.data.userAgent ?? request.headers.get("user-agent"),
+    internalCheckHeader: request.headers.get("x-internal-check"),
+    excludeCookie: excludeCookie(request),
+    isAdmin: await isAdmin(),
+  });
   return Response.json({ ok: true, ...result });
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("internal") === "1") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Set-Cookie": "ps_analytics_exclude=1; Path=/; Max-Age=31536000; SameSite=Lax",
+      },
+    });
+  }
+  return jsonError("Not found", 404);
 }

@@ -2,7 +2,7 @@
 
 import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AI_GENERATED_LABEL, APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
 import { CardBuilder } from "@/components/card-builder";
@@ -61,12 +61,26 @@ export function ResultsGallery({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  const previewTracked = useRef(false);
+
+  useEffect(() => {
+    if (!data?.ready || previewTracked.current) return;
+    previewTracked.current = true;
+    void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
+  }, [data?.ready]);
+
   async function checkout(payload: object) {
     setMessage("");
+    const isUpsell = typeof payload === "object" && payload !== null && "kind" in payload && payload.kind === "extra_styles";
+    if (isUpsell) {
+      const { trackFunnelEvent } = await import("@/components/visitor-tracker");
+      trackFunnelEvent("upsell_add");
+    }
+    const { analyticsSessionId } = await import("@/components/visitor-tracker");
     const response = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, analyticsSessionId: analyticsSessionId() }),
     });
     const { ok, body } = await parseCheckoutResponse(response);
     if (!ok || !body.url) {
