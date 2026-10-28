@@ -2,6 +2,7 @@ import { z } from "zod";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
+import { requestHostFromRequest } from "@/lib/http/request-host";
 import { recordEmailSignup } from "@/lib/crm/record-signup";
 import { requestStoreId } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
     utm: parsed.data.utm,
     referrer: parsed.data.referrer,
     visitorSessionId: parsed.data.visitorSessionId,
+    requestHost: requestHostFromRequest(request),
+    stripeLivemode: false,
   });
   const leadEventId = parsed.data.metaLeadEventId ?? newMetaEventId("lead");
   const reqMeta = metaAttributionFromRequest(request);

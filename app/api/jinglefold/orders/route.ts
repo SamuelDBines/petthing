@@ -6,6 +6,7 @@ import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
 import { enqueueForOrder, scheduleOrderGeneration } from "@/lib/generation";
 import { jsonError, parseBody } from "@/lib/http";
+import { requestHostFromRequest } from "@/lib/http/request-host";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
 import { requestStoreId } from "@/lib/tenant/context";
@@ -95,6 +96,8 @@ export async function POST(request: Request) {
     email: order.email,
     source: "jinglefold_preview",
     marketingConsent: false,
+    requestHost: requestHostFromRequest(request),
+    stripeLivemode: false,
   });
   return Response.json({
     orderId: order.id,

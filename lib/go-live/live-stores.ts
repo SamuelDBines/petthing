@@ -105,7 +105,7 @@ export function prodigiApiKeyForStore(
   if (prodigiUsesLiveApi(storeId, opts, env)) {
     return env.PRODIGI_API_KEY?.trim() || "";
   }
-  return env.PRODIGI_SANDBOX_API_KEY?.trim() || env.PRODIGI_API_KEY?.trim() || "";
+  return env.PRODIGI_SANDBOX_API_KEY?.trim() || "";
 }
 
 export function prodigiUsesLiveApi(

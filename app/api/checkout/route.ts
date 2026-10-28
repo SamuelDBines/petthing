@@ -359,6 +359,8 @@ export async function POST(request: Request) {
     email: preorder.email,
     source: "christmas_preorder",
     marketingConsent: false,
+    requestHost,
+    stripeLivemode: false,
   });
   const opened = await openSession({
     storeId,

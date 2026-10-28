@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
+import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
 import { refundOrder } from "@/lib/fulfillment";
 import {
   approvePortraitReplacement,
@@ -106,11 +107,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (order.status !== "delivered") return jsonError("Send the email after the order is delivered.");
     const config = await loadStoreConfig(order.storeId);
     const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
-    await sendEmail({
-      to: order.email,
-      subject: `Your ${config.brand.appName} portraits are ready`,
-      html: resultsEmail(`${origin}/results/${order.resultsToken}`),
-    });
+    await sendEmail(
+      withEmailDelivery(orderEmailDelivery(order), {
+        to: order.email,
+        subject: `Your ${config.brand.appName} portraits are ready`,
+        html: resultsEmail(`${origin}/results/${order.resultsToken}`),
+        storeId: order.storeId,
+      }),
+    );
   }
   return Response.json({ ok: true, order: await store.getOrder(id) });
 }

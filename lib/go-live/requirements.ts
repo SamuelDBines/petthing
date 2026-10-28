@@ -245,7 +245,8 @@ export function validateGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
     if (profile.integrations.includes("prodigi") && !env.PRODIGI_SANDBOX_API_KEY?.trim()) {
       warnings.push({
         scope: profile.storeId,
-        message: "PRODIGI_SANDBOX_API_KEY missing — test-store Prodigi fulfilment will mock without a sandbox key",
+        message:
+          "PRODIGI_SANDBOX_API_KEY missing — test-store Prodigi sync/submit calls are skipped with “sandbox key missing” until set",
       });
     }
   }

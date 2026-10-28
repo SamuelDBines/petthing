@@ -7,6 +7,7 @@ import { getTheme } from "@/config/themes";
 import { putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
 import type { Order, Shipping } from "@/lib/domain";
 import { alertAdmin, christmasEmail, sendEmail } from "@/lib/email";
+import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
 import { enqueueForOrder, enqueuePlan, scheduleOrderGeneration } from "@/lib/generation";
 import { submitPrintOrder } from "@/lib/prodigi";
 import { composeCanvasPortrait } from "@/lib/canvasSheet";
@@ -23,6 +24,7 @@ type PaidArgs = {
   sessionId: string;
   paymentIntentId: string | null;
   amountPence: number | null;
+  stripeLivemode?: boolean | null;
 };
 
 function rememberPayment(order: Order, args: PaidArgs, kind: string): Order["payments"] {
@@ -53,11 +55,14 @@ async function rewardReferrer(order: Order) {
   if (styleId) {
     await store.updateOrder(owner.id, { styleIds: missing[0] ? [...owner.styleIds, styleId] : owner.styleIds });
     await enqueuePlan(owner.id, [{ styleId, count: 2 }], true);
-    await sendEmail({
-      to: owner.email,
-      subject: `A friend used your ${APP_NAME} code`,
-      html: "<p>They got 20% off. Your free extra style is being painted, and we’ll email you when it lands in the same gallery.</p>",
-    });
+    await sendEmail(
+      withEmailDelivery(orderEmailDelivery(owner), {
+        to: owner.email,
+        subject: `A friend used your ${APP_NAME} code`,
+        html: "<p>They got 20% off. Your free extra style is being painted, and we’ll email you when it lands in the same gallery.</p>",
+        storeId: owner.storeId,
+      }),
+    );
   }
   await store.updateOrder(order.id, { referralRewardGranted: true });
 }
@@ -206,11 +211,14 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
     });
     await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: result.prodigiOrderId, error: null });
     if (order) {
-      await sendEmail({
-        to: order.email,
-        subject: `Your ${APP_NAME} print is with the printer`,
-        html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
-      });
+      await sendEmail(
+        withEmailDelivery(orderEmailDelivery(order), {
+          to: order.email,
+          subject: `Your ${APP_NAME} print is with the printer`,
+          html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
+          storeId: order.storeId,
+        }),
+      );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Prodigi failed";
@@ -232,7 +240,17 @@ export async function markChristmasPaid(preorderId: string, args: PaidArgs) {
       await store.updateOrder(order.id, { photosDeleteAfter: keepUntil });
     }
   }
-  await sendEmail({ to: target.email, subject: `Christmas pre-order confirmed — ${APP_NAME}`, html: christmasEmail() });
+  await sendEmail(
+    withEmailDelivery(
+      { stripeLivemode: args.stripeLivemode ?? false, requestHost: null },
+      {
+        to: target.email,
+        subject: `Christmas pre-order confirmed — ${APP_NAME}`,
+        html: christmasEmail(),
+        storeId: target.storeId,
+      },
+    ),
+  );
 }
 
 export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
@@ -244,6 +262,7 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
     sessionId: session.id,
     paymentIntentId: paymentIntentId(session),
     amountPence: session.amount_total,
+    stripeLivemode: session.livemode,
   };
   if ((kind === "portrait" || kind === "season_pass") && session.metadata?.orderId) {
     const orderId = session.metadata.orderId;
@@ -294,11 +313,14 @@ export async function noteSeasonRenewed(subscriptionId: string) {
   const store = getStore();
   const order = await store.getOrderBySubscription(subscriptionId);
   if (!order || order.subscriptionStatus === "canceled") return;
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${APP_NAME} season pass renewed`,
-    html: "<p>The next season’s family portraits will use the photos we already hold. We’ll email the gallery when that season opens.</p>",
-  });
+  await sendEmail(
+    withEmailDelivery(orderEmailDelivery(order), {
+      to: order.email,
+      subject: `Your ${APP_NAME} season pass renewed`,
+      html: "<p>The next season’s family portraits will use the photos we already hold. We’ll email the gallery when that season opens.</p>",
+      storeId: order.storeId,
+    }),
+  );
   await alertAdmin(
     "Season pass renewed",
     `<p>${order.email} renewed ${subscriptionId}. The next season is not generated automatically.</p>`,

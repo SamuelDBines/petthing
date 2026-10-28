@@ -71,6 +71,7 @@ test("sendEmail delivers via mocked SES", async () => {
     subject: "Hello",
     html: "<p>Hi</p>",
     storeId: "fixmonger",
+    stripeLivemode: false,
   });
   assert.equal(result.sent, true);
   assert.equal(sent, 1);
@@ -100,7 +101,13 @@ test("suppressed addresses block send", async () => {
     ses: { send: async () => ({}) } as never,
   }));
 
-  const result = await sendEmail({ to: "blocked@example.com", subject: "x", html: "y" });
+  const result = await sendEmail({
+    to: "blocked@example.com",
+    subject: "x",
+    html: "y",
+    storeId: "pawtraitry",
+    stripeLivemode: false,
+  });
   assert.equal(result.sent, false);
   assert.equal(sent, 0);
   assert.equal(await isEmailSuppressed("blocked@example.com"), true);

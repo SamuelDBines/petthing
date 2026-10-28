@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { printSku, type PrintProduct } from "@/config/prints";
 import type { Shipping } from "@/lib/domain";
 import { prodigiApiKeyForStore, prodigiUsesLiveApi, type ProdigiRuntimeOpts } from "@/lib/prodigi/config";
@@ -7,8 +6,27 @@ function prodigiOpts(args: { storeId: string; stripeLivemode?: boolean | null; h
   return { stripeLivemode: args.stripeLivemode, host: args.host };
 }
 
+export type ProdigiAvailability =
+  | { ok: true }
+  | { ok: false; reason: "live_key_missing" | "sandbox_key_missing" };
+
+export function prodigiAvailability(storeId: string, opts?: ProdigiRuntimeOpts): ProdigiAvailability {
+  if (prodigiUsesLiveApi(storeId, opts)) {
+    return prodigiApiKeyForStore(storeId, opts) ? { ok: true } : { ok: false, reason: "live_key_missing" };
+  }
+  return prodigiApiKeyForStore(storeId, opts) ? { ok: true } : { ok: false, reason: "sandbox_key_missing" };
+}
+
+export function prodigiUnavailableMessage(storeId: string, opts?: ProdigiRuntimeOpts): string | null {
+  const avail = prodigiAvailability(storeId, opts);
+  if (avail.ok) return null;
+  return avail.reason === "sandbox_key_missing"
+    ? "Prodigi sandbox API key missing (set PRODIGI_SANDBOX_API_KEY)"
+    : "Prodigi live API key missing (set PRODIGI_API_KEY)";
+}
+
 export function prodigiMocked(storeId: string, opts?: ProdigiRuntimeOpts) {
-  return !prodigiApiKeyForStore(storeId, opts);
+  return !prodigiAvailability(storeId, opts).ok;
 }
 
 function baseUrl(storeId: string, opts?: ProdigiRuntimeOpts) {
@@ -44,11 +62,11 @@ export async function quotePrintShipping(args: {
   items?: number;
 }) {
   const storeId = args.storeId ?? "pawtraitry";
-  if (prodigiMocked(storeId)) {
-    return { mocked: true, currency: "GBP", shipping: 499, subtotal: args.product.pricePence };
-  }
+  const opts = prodigiOpts({ storeId });
+  const unavailable = prodigiUnavailableMessage(storeId, opts);
+  if (unavailable) throw new Error(unavailable);
   const sku = printSku(args.product);
-  const response = await prodigi(storeId, "/quotes", undefined, {
+  const response = await prodigi(storeId, "/quotes", opts, {
     method: "POST",
     body: JSON.stringify({
       shippingMethod: "Standard",
@@ -74,9 +92,8 @@ export async function fetchProdigiOrder(
   storeId = "pawtraitry",
   opts?: ProdigiRuntimeOpts,
 ) {
-  if (prodigiMocked(storeId, opts)) {
-    return { status: "Complete", trackingNumber: `MOCK${orderId.slice(-6)}`, trackingUrl: null };
-  }
+  const unavailable = prodigiUnavailableMessage(storeId, opts);
+  if (unavailable) throw new Error(unavailable);
   const response = await prodigi(storeId, `/orders/${encodeURIComponent(orderId)}`, opts);
   const payload = (await response.json().catch(() => ({}))) as {
     order?: { status?: { stage?: string }; shipments?: { tracking?: { number?: string; url?: string } }[] };
@@ -102,11 +119,8 @@ export async function submitMerchandiseOrder(args: {
 }) {
   const storeId = args.storeId ?? "jinglefold";
   const opts = prodigiOpts({ storeId, stripeLivemode: args.stripeLivemode });
-  if (prodigiMocked(storeId, opts)) {
-    const id = `mock_prodigi_${randomUUID().slice(0, 8)}`;
-    console.log(`[prodigi mock] ${args.merchantReference} → ${id} (${args.sku})`);
-    return { prodigiOrderId: id };
-  }
+  const unavailable = prodigiUnavailableMessage(storeId, opts);
+  if (unavailable) throw new Error(unavailable);
   assertPrinterCanFetch(args.assetUrl);
   const body = {
     shippingMethod: "Standard",
@@ -152,11 +166,8 @@ export async function submitPrintOrder(args: {
 }) {
   const storeId = args.storeId ?? "pawtraitry";
   const opts = prodigiOpts({ storeId, stripeLivemode: args.stripeLivemode });
-  if (prodigiMocked(storeId, opts)) {
-    const id = `mock_prodigi_${randomUUID().slice(0, 8)}`;
-    console.log(`[prodigi mock] ${args.merchantReference} → ${id} (${args.product.id})`);
-    return { prodigiOrderId: id };
-  }
+  const unavailable = prodigiUnavailableMessage(storeId, opts);
+  if (unavailable) throw new Error(unavailable);
   for (const asset of args.assets) assertPrinterCanFetch(asset.url);
   const sku = printSku(args.product);
   const productResponse = await prodigi(storeId, `/products/${encodeURIComponent(sku)}`, opts);

@@ -4,6 +4,7 @@ import { discountedPence, getTier, PRIORITY_PENCE, REFERRAL_DISCOUNT, SEASON_PAS
 import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
 import { cleanUtm, jsonError, parseBody } from "@/lib/http";
+import { requestHostFromRequest } from "@/lib/http/request-host";
 import { orderInputSchema, photoConsentGiven } from "@/lib/orderInput";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp, referralCode } from "@/lib/runtime";
@@ -97,6 +98,8 @@ export async function POST(request: Request) {
     name: order.cardNames || null,
     marketingConsent: false,
     utm: order.utm,
+    requestHost: requestHostFromRequest(request),
+    stripeLivemode: false,
   });
   return Response.json({ orderId: order.id, uploadToken: order.uploadToken, amountPence });
 }

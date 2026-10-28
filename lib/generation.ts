@@ -184,6 +184,7 @@ export async function deliverOrder(orderId: string) {
     storeId,
     email: order.email,
     galleryUrl: `${origin}/results/${order.resultsToken}`,
+    stripeLivemode: order.stripeLivemode,
   });
 }
 
@@ -237,11 +238,12 @@ async function finishIfDone(orderId: string) {
   if (order.status === "delivered") {
     if (order.pendingBonusEmail) {
       const { origin } = await orderPublicUrls(order);
-  await sendPortraitReadyEmail({
-    storeId: order.storeId === "jinglefold" ? "jinglefold" : "pawtraitry",
-    email: order.email,
-    galleryUrl: `${origin}/results/${order.resultsToken}`,
-  });
+      await sendPortraitReadyEmail({
+        storeId: order.storeId === "jinglefold" ? "jinglefold" : "pawtraitry",
+        email: order.email,
+        galleryUrl: `${origin}/results/${order.resultsToken}`,
+        stripeLivemode: order.stripeLivemode,
+      });
       await store.updateOrder(orderId, { pendingBonusEmail: false });
     }
     return;

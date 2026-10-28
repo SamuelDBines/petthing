@@ -151,6 +151,8 @@ export async function POST(request: Request) {
     email: shopOrder.email,
     source: "shop_checkout",
     marketingConsent: shopOrder.marketingConsent,
+    requestHost,
+    stripeLivemode: false,
   });
 
   const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = pricedLines.map(({ product, quantity }) => {

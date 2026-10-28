@@ -11,6 +11,7 @@ import { sendViaRelayEmail } from "@/lib/email/providers/relayemail";
 import { sendViaResend } from "@/lib/email/providers/resend";
 import { sendViaSes } from "@/lib/email/providers/ses";
 import { isEmailSuppressed } from "@/lib/email/suppressions";
+import { assertCustomerEmailDelivery } from "@/lib/email/delivery-context";
 import type { EmailMessage, EmailSendResult } from "@/lib/email/types";
 
 export type { EmailMessage, EmailSendResult } from "@/lib/email/types";
@@ -38,6 +39,7 @@ function logEmail(message: EmailMessage, meta: Record<string, string>) {
 }
 
 export async function sendEmail(message: EmailMessage): Promise<EmailSendResult> {
+  assertCustomerEmailDelivery(message);
   const meta: Record<string, string> = {
     provider: emailProviderId(),
     outcome: "queued",

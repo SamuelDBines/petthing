@@ -5,8 +5,9 @@ import {
 } from "@/config/jinglefold-partners";
 import type { Order, Shipping } from "@/lib/domain";
 import { alertAdmin, sendEmail } from "@/lib/email";
+import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
 import { signedBlobUrl } from "@/lib/blobs";
-import { fetchProdigiOrder, submitMerchandiseOrder } from "@/lib/prodigi";
+import { fetchProdigiOrder, prodigiUnavailableMessage, submitMerchandiseOrder } from "@/lib/prodigi";
 import { fetchPrintfulOrder, submitPrintfulOrder } from "@/lib/printful";
 import { orderPublicUrls } from "@/lib/generation";
 import { loadStoreConfig } from "@/lib/tenant/context";
@@ -81,6 +82,7 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
           printArea: PRODIGI_PRINT_AREA,
           merchantReference: order.id,
           copies,
+          stripeLivemode: order.stripeLivemode,
         }),
       );
       partner = {
@@ -106,11 +108,14 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
 
   await getStore().updateOrder(order.id, { partnerFulfillment: partner });
   const config = await loadStoreConfig(order.storeId);
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${config.brand.appName} gift is with our print partner`,
-    html: `<p>We have sent your order to our UK print partner. You will receive tracking when it ships. Your preview gallery remains available from your confirmation email.</p>`,
-  });
+  await sendEmail(
+    withEmailDelivery(orderEmailDelivery(order), {
+      to: order.email,
+      subject: `Your ${config.brand.appName} gift is with our print partner`,
+      html: `<p>We have sent your order to our UK print partner. You will receive tracking when it ships. Your preview gallery remains available from your confirmation email.</p>`,
+      storeId: order.storeId,
+    }),
+  );
   return partner;
 }
 
@@ -118,11 +123,21 @@ export async function syncPartnerFulfillment(order: Order): Promise<PartnerFulfi
   const pf = order.partnerFulfillment;
   if (!pf?.externalOrderId) return null;
   const now = new Date().toISOString();
+  if (pf.provider === "prodigi") {
+    const skip = prodigiUnavailableMessage(order.storeId, { stripeLivemode: order.stripeLivemode });
+    if (skip) {
+      const next = { ...pf, lastSyncedAt: now, error: skip };
+      await getStore().updateOrder(order.id, { partnerFulfillment: next });
+      return next;
+    }
+  }
   try {
     const remote =
       pf.provider === "printful"
         ? await fetchPrintfulOrder(pf.externalOrderId)
-        : await fetchProdigiOrder(pf.externalOrderId);
+        : await fetchProdigiOrder(pf.externalOrderId, order.storeId, {
+            stripeLivemode: order.stripeLivemode,
+          });
     const next: PartnerFulfillment = {
       ...pf,
       status: remote.status,
@@ -135,11 +150,14 @@ export async function syncPartnerFulfillment(order: Order): Promise<PartnerFulfi
     await getStore().updateOrder(order.id, { partnerFulfillment: next });
     if (trackingChanged && remote.trackingNumber) {
       const config = await loadStoreConfig(order.storeId);
-      await sendEmail({
-        to: order.email,
-        subject: `Your ${config.brand.appName} order is on its way`,
-        html: `<p>Tracking: <strong>${remote.trackingNumber}</strong>${remote.trackingUrl ? ` — <a href="${remote.trackingUrl}">Track parcel</a>` : ""}</p>`,
-      });
+      await sendEmail(
+        withEmailDelivery(orderEmailDelivery(order), {
+          to: order.email,
+          subject: `Your ${config.brand.appName} order is on its way`,
+          html: `<p>Tracking: <strong>${remote.trackingNumber}</strong>${remote.trackingUrl ? ` — <a href="${remote.trackingUrl}">Track parcel</a>` : ""}</p>`,
+          storeId: order.storeId,
+        }),
+      );
     }
     return next;
   } catch (error) {

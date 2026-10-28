@@ -28,6 +28,8 @@ test("staging gate blocks relay delivery to non-allowlisted addresses", async ()
     subject: "Should not send",
     html: "<p>x</p>",
     storeId: "pawtraitry",
+    stripeLivemode: false,
+    requestHost: "pawtraitry.dropship.store.bishop-co-tech.co.uk",
   });
   assert.equal(blocked.sent, false);
   assert.equal(posts, 0);
@@ -37,6 +39,8 @@ test("staging gate blocks relay delivery to non-allowlisted addresses", async ()
     subject: "Allowed",
     html: "<p>ok</p>",
     storeId: "pawtraitry",
+    stripeLivemode: true,
+    requestHost: "pawtraitry.com",
   });
   assert.equal(allowed.sent, true);
   assert.equal(posts, 1);
@@ -66,6 +70,7 @@ test("relayemail provider sends JSON body with text fallback", async () => {
     subject: "Hi",
     html: "<p>Hello</p>",
     storeId: "pawtraitry",
+    stripeLivemode: true,
   });
   assert.equal(result.sent, true);
   assert.equal((body as { text?: string }).text, "Hello");

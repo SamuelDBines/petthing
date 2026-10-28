@@ -12,6 +12,8 @@ export async function recordEmailSignup(args: {
   referrer?: string | null;
   visitorSessionId?: string | null;
   excludedFromMetrics?: boolean;
+  requestHost?: string | null;
+  stripeLivemode?: boolean | null;
 }) {
   if (!args.email?.includes("@")) return;
   try {
@@ -27,6 +29,8 @@ export async function recordEmailSignup(args: {
         storeId: args.storeId,
         email: args.email,
         firstName: args.name,
+        requestHost: args.requestHost,
+        stripeLivemode: args.stripeLivemode,
       }).catch((err) => console.error("[crm] welcome email failed", err));
     }
   } catch (error) {
