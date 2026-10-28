@@ -12,6 +12,8 @@ import { enqueueForOrder, enqueuePlan, scheduleOrderGeneration } from "@/lib/gen
 import { submitPrintOrder } from "@/lib/prodigi";
 import { composePrintArea } from "@/lib/print-compose";
 import { isHandPaintedTierId } from "@/config/paintings";
+import { pawtraitryBasketHasPhysical } from "@/lib/pawtraitry/create-basket";
+import { capturePortraitPaymentIntent } from "@/lib/pawtraitry/partial-refund";
 import { createHandPaintedWorkflow } from "@/lib/handPainted";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
@@ -119,6 +121,10 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
   });
   const rewarded = await store.getOrder(order.id);
   if (rewarded) await rewardReferrer(rewarded);
+  if (order.storeId === "pawtraitry" && order.offer === "one_off") {
+    const { sendPawtraitryOrderConfirmationEmail } = await import("@/lib/pawtraitry/order-email");
+    await sendPawtraitryOrderConfirmationEmail(await store.getOrder(order.id) ?? order);
+  }
 }
 
 export async function markExtraPaid(orderId: string, styleIds: string[], args: PaidArgs) {
@@ -220,7 +226,7 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
   }
 }
 
-async function fulfillPrintToProdigi(print: PrintOrder, order: Order | null | undefined, shipping: Shipping) {
+export async function fulfillPrintToProdigi(print: PrintOrder, order: Order | null | undefined, shipping: Shipping) {
   const store = getStore();
   const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
   const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;
@@ -288,6 +294,11 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
       const shipping = shippingFrom(session);
       if (shipping) await getStore().updateOrder(orderId, { shipping });
     }
+    if (portraitOrder?.storeId === "pawtraitry" && pawtraitryBasketHasPhysical(portraitOrder.productMeta?.checkoutBasket)) {
+      const shipping = shippingFrom(session);
+      if (shipping) await getStore().updateOrder(orderId, { shipping });
+    }
+    await capturePortraitPaymentIntent(orderId, session);
     await markPortraitPaid(orderId, args);
     if (kind === "season_pass") {
       const subscription = session.subscription;

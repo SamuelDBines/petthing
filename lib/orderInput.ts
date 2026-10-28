@@ -17,6 +17,15 @@ const orderBodySchema = z.object({
   offer: z.enum(["one_off", "season_pass"]).optional(),
   referralCode: z.string().max(40).optional(),
   utm: utmSchema.optional(),
+  physicalLines: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().min(1).max(10),
+      }),
+    )
+    .max(24)
+    .optional(),
 });
 
 export const orderInputSchema = orderBodySchema.superRefine((data, ctx) => {

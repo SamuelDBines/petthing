@@ -60,6 +60,7 @@ export type Order = {
     lateDeliveryAckAt?: string;
     /** Automated NSFW scan failed (fal outage) — manual photo review in admin. */
     photoSafetyReviewRequired?: boolean;
+    checkoutBasket?: import("@/lib/pawtraitry/create-basket").PawtraitryCheckoutBasket;
   } | null;
   shipping?: Shipping | null;
   partnerFulfillment?: {

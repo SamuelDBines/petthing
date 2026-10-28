@@ -8,6 +8,8 @@ import {
   formatGbp,
   getTier,
   PRIORITY_PENCE,
+  REFERRAL_DISCOUNT,
+  SEASON_PASS,
 } from "@/config/pricing";
 import {
   PAWTRAITRY_BUMP_PRICE_PENCE,
@@ -15,6 +17,11 @@ import {
 } from "@/config/pawtraitry-promos";
 import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
+import {
+  pawtraitryBasketHasPhysical,
+  stripeLineItemsForPortraitCheckout,
+} from "@/lib/pawtraitry/create-basket";
+import { capturePortraitPaymentIntent } from "@/lib/pawtraitry/partial-refund";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, demoCheckoutAllowed, hashIp } from "@/lib/runtime";
@@ -146,11 +153,18 @@ export async function POST(request: Request) {
     if (!uploads.length) return jsonError("Upload at least one photo first.");
     const pass = order.offer === "season_pass";
     const tier = getTier(order.tierId, storeConfig.catalog.tiers);
-    const portraitPence = order.amountPence - (order.priority ? PRIORITY_PENCE : 0);
-    const items = pass
-      ? [line(`${brand.appName} season pass`, portraitPence, true)]
-      : [line(`${brand.appName} · ${tier.name}`, portraitPence)];
-    if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
+    const physical = order.productMeta?.checkoutBasket?.physical ?? [];
+    const referralDiscountPence = order.referralCodeUsed ? REFERRAL_DISCOUNT : 0;
+    const items = stripeLineItemsForPortraitCheckout({
+      brandName: brand.appName,
+      tier,
+      offer: order.offer,
+      seasonPassPence: SEASON_PASS.pricePence,
+      seasonPassName: SEASON_PASS.name,
+      priority: order.priority,
+      physical,
+      referralDiscountPence,
+    });
     const jinglefoldPersonalised =
       order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised);
     const stripe = getStripeForStore(order.storeId, requestHost);
@@ -184,7 +198,8 @@ export async function POST(request: Request) {
       idempotencyKey: `portrait-${order.id}-${order.amountPence}`,
       integrationStableKey: order.id,
       allowPromotionCodes: !order.referralCodeUsed,
-      collectShipping: jinglefoldPersonalised,
+      collectShipping:
+        jinglefoldPersonalised || (order.storeId === "pawtraitry" && pawtraitryBasketHasPhysical(order.productMeta?.checkoutBasket)),
     });
     if (opened instanceof Response) return opened;
     if (opened.demo) {

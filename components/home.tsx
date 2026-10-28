@@ -21,7 +21,7 @@ const FAQS = [
   ["Do you print?", "Yes. When your gallery is ready you can order UK-posted prints and gifts. Puzzles, canvas, classic frames, mugs, and more. From the same portraits."],
   [
     "Can I get my portrait on a mug or canvas?",
-    "Yes. After your portraits are ready, your gallery lists mugs, cushions, coasters, framed prints, canvas, puzzles, and cards. Pick a style, choose the portrait, and checkout with a UK shipping address. Delivery is included in the print prices.",
+    "Yes. In the create flow you can add mugs, cushions, coasters, framed prints, canvas, puzzles, and cards in one checkout. After your portraits are ready, your gallery still offers extras. UK delivery is included in print prices.",
   ],
   ["Is this only for one season?", "No. We run themed collections through the year. Pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
   ["Are the portraits real photos?", "No. They are AI-generated art styled from your uploads. We label them clearly on your gallery and in emails."],

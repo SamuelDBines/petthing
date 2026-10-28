@@ -294,6 +294,11 @@ async function finishIfDone(orderId: string) {
     return;
   }
   await deliverOrder(orderId);
+  const delivered = await store.getOrder(orderId);
+  if (delivered?.storeId === "pawtraitry") {
+    const { fulfillPawtraitryCheckoutBasket } = await import("@/lib/pawtraitry/basket-fulfillment");
+    await fulfillPawtraitryCheckoutBasket(delivered);
+  }
 }
 
 async function loadJob(jobId: string, orderId?: string) {

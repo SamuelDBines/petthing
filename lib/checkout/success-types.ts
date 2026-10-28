@@ -31,4 +31,5 @@ export type CheckoutSuccessPayload = {
   progress: CheckoutSuccessProgress | null;
   failureReason: string | null;
   trackPurchase: boolean;
+  basketLines?: string[];
 };

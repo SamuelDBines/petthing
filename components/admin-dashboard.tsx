@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatGbp } from "@/config/pricing";
+import { basketLineLabels } from "@/lib/pawtraitry/create-basket";
 import { THEMES } from "@/config/themes";
 import { orderPipelineStatus, printSummary } from "@/lib/adminDisplay";
 import type { ShopOrder } from "@/lib/catalogue/types";
@@ -518,6 +519,11 @@ export function AdminDashboard({
                       {order.prints.map((print) => (
                         <span key={print.id} className="mt-1 block text-cream/60">{print.productId}: {printSummary(print)}</span>
                       ))}
+                      {order.prints.length === 0 && order.productMeta?.checkoutBasket?.physical?.length ? (
+                        <span className="mt-1 block text-cream/60" data-testid="checkout-basket-pending">
+                          Checkout basket: {basketLineLabels(order.productMeta.checkoutBasket).join(" · ")}
+                        </span>
+                      ) : null}
                       {order.partnerFulfillment?.externalOrderId ? (
                         <span className="mt-1 block text-cream/60">
                           {order.partnerFulfillment.provider}: {order.partnerFulfillment.status}

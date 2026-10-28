@@ -34,8 +34,8 @@ export function PawtraitryHomeGiftsSection() {
         ))}
       </ul>
       <p className="mt-6 max-w-2xl text-sm text-muted sm:text-base">
-        Create and pay for your portrait first. When it is ready, open your gallery to add prints and gifts. UK delivery is
-        included in each price.
+        Pick your gifts while you create your portrait. Add mugs, prints, and more in the create flow before you pay. UK delivery is
+        included in each print price (no extra shipping at checkout).
       </p>
       <Link
         href="/create"

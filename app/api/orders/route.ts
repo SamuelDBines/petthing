@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { isHandPaintedTierId } from "@/config/paintings";
 import { discountedPence, getTier, PRIORITY_PENCE, REFERRAL_DISCOUNT, SEASON_PASS, styleSlots } from "@/config/pricing";
+import { allPrintProductIds, getPrint } from "@/config/prints";
+import {
+  normalizePhysicalBasket,
+  orderAmountPence,
+  type PawtraitryPhysicalBasketLine,
+} from "@/lib/pawtraitry/create-basket";
 import { getCatalog } from "@/lib/catalog";
 import type { Order } from "@/lib/domain";
 import { cleanUtm, jsonError, parseBody } from "@/lib/http";
@@ -48,8 +54,29 @@ export async function POST(request: Request) {
   }
 
   const priority = offer === "season_pass" ? false : input.priority;
-  const basePence = offer === "season_pass" ? SEASON_PASS.pricePence : tier.pricePence;
-  const amountPence = discountedPence(basePence, discount) + (priority ? PRIORITY_PENCE : 0);
+  let physical: PawtraitryPhysicalBasketLine[] = [];
+  if (offer === "one_off" && storeId === "pawtraitry" && input.physicalLines?.length) {
+    for (const line of input.physicalLines) {
+      if (!allPrintProductIds().includes(line.productId as PawtraitryPhysicalBasketLine["productId"])) {
+        return jsonError("One of those print products is not available.");
+      }
+      getPrint(line.productId as PawtraitryPhysicalBasketLine["productId"]);
+    }
+    physical = normalizePhysicalBasket(
+      input.physicalLines.map((line) => ({
+        productId: line.productId as PawtraitryPhysicalBasketLine["productId"],
+        quantity: line.quantity,
+      })),
+    );
+  }
+  const amountPence = orderAmountPence({
+    tier,
+    offer,
+    seasonPassPence: SEASON_PASS.pricePence,
+    priority,
+    referralDiscountPence: discount,
+    physical,
+  });
   const now = new Date().toISOString();
   const order: Order = {
     id: randomUUID(),
@@ -88,6 +115,10 @@ export async function POST(request: Request) {
     stripeSubscriptionId: null,
     subscriptionStatus: null,
     payments: [],
+    productMeta:
+      physical.length && storeId === "pawtraitry"
+        ? { checkoutBasket: { physical } }
+        : undefined,
   };
   await store.createOrder(order);
   const { recordEmailSignup } = await import("@/lib/crm/record-signup");

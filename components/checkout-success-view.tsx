@@ -144,6 +144,12 @@ export function CheckoutSuccessView({
                       <dd>{payload.styleNames.join(", ")}</dd>
                     </>
                   ) : null}
+                  {payload.basketLines?.length ? (
+                    <>
+                      <dt className="text-muted">Prints and gifts</dt>
+                      <dd>{payload.basketLines.join(" · ")}</dd>
+                    </>
+                  ) : null}
                   {payload.imageCount != null ? (
                     <>
                       <dt className="text-muted">Portraits</dt>

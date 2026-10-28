@@ -8,6 +8,7 @@ import {
 } from "@/lib/checkout/success-view";
 import type { CheckoutSuccessPayload } from "@/lib/checkout/success-types";
 import { signedBlobUrl } from "@/lib/blobs";
+import { basketLineLabels } from "@/lib/pawtraitry/create-basket";
 import { portraitGenerationProgress } from "@/lib/generation/progress";
 import { getStripeForStore } from "@/lib/stripe";
 import type { Order } from "@/lib/domain";
@@ -79,6 +80,7 @@ async function portraitPayload(args: {
     progress,
     failureReason: args.order.failureReason,
     trackPurchase: checkoutSuccessAllowsPurchaseEvent(phase),
+    basketLines: basketLineLabels(args.order.productMeta?.checkoutBasket),
   };
 }
 
