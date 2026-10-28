@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type Stripe from "stripe";
 import { jsonError } from "@/lib/http";
 import { checkoutSessionForStore } from "@/lib/stripe/store-checkout";
+import { isStatementDescriptorSuffixStripeError } from "@/lib/stripe/statement-descriptor-suffix";
 import type { StoreBrand } from "@/lib/tenant/types";
 
 /** Deterministic Stripe integration id (must be stable for idempotency keys to work). */
@@ -57,17 +58,31 @@ export async function createCheckoutSession(args: {
   idempotencyKey: string;
   logoUrl?: string;
 }): Promise<{ url: string; sessionId: string; livemode: boolean }> {
-  const session = await args.stripe.checkout.sessions.create(
-    checkoutSessionForStore(
-      args.brand,
-      {
-        ...args.sessionParams,
-        ...checkoutSessionPaymentMethodParams(),
-      },
-      { logoUrl: args.logoUrl },
-    ),
-    { idempotencyKey: args.idempotencyKey },
-  );
+  const baseParams = {
+    ...args.sessionParams,
+    ...checkoutSessionPaymentMethodParams(),
+  };
+  const withSuffix = checkoutSessionForStore(args.brand, baseParams, {
+    logoUrl: args.logoUrl,
+    statementDescriptorSuffix: true,
+  });
+  let session: Stripe.Response<Stripe.Checkout.Session>;
+  try {
+    session = await args.stripe.checkout.sessions.create(withSuffix, { idempotencyKey: args.idempotencyKey });
+  } catch (error) {
+    if (!isStatementDescriptorSuffixStripeError(error)) throw error;
+    console.warn(
+      `[stripe] statement_descriptor_suffix rejected for ${args.brand.appName}, retrying checkout without suffix`,
+      error instanceof Error ? error.message : error,
+    );
+    const withoutSuffix = checkoutSessionForStore(args.brand, baseParams, {
+      logoUrl: args.logoUrl,
+      statementDescriptorSuffix: false,
+    });
+    session = await args.stripe.checkout.sessions.create(withoutSuffix, {
+      idempotencyKey: `${args.idempotencyKey}:no-descriptor-suffix`,
+    });
+  }
   if (!session.url) throw new Error("Stripe did not return a checkout URL.");
   return { url: session.url, sessionId: session.id, livemode: Boolean(session.livemode) };
 }

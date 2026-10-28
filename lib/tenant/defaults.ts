@@ -118,6 +118,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
         fromName: "Pawtraitry",
       },
       stripeStatementDescriptor: "PAWTRAITRY",
+      statementDescriptorSuffix: "PAWTRAITRY",
       referralPrefix: "PAW",
       logoPath: "/logo.svg",
       colors: pawtraitryColors,

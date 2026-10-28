@@ -36,7 +36,9 @@ export type StoreBrand = {
   emailFromName: string;
   email?: StoreBrandEmail;
   stripeStatementDescriptor: string;
-  /** Stripe Checkout payment_intent_data.statement_descriptor_suffix (max 22 chars). */
+  /** Optional Checkout `payment_intent_data.statement_descriptor_suffix` (per store, not account settings). */
+  statementDescriptorSuffix?: string;
+  /** @deprecated Use statementDescriptorSuffix */
   stripeStatementDescriptorSuffix?: string;
   referralPrefix: string;
   logoPath: string;
