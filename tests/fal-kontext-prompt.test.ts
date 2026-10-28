@@ -21,3 +21,15 @@ test("kontext prompt omits negative-style Do not include line", () => {
   assert.doesNotMatch(kontext.prompt, /\bnudity\b/i);
   assert.doesNotMatch(kontext.prompt, /\bgore\b/i);
 });
+
+test("kontext prompt asks for a single pet with no duplicates", () => {
+  const kontext = buildPrompt({
+    styleId: "friendly-vampires",
+    subject: "pet",
+    variantIndex: 1,
+    quality: "hd",
+    forFalKontext: true,
+  });
+  assert.match(kontext.prompt, /Exactly one animal/i);
+  assert.match(kontext.prompt, /no duplicate animals/i);
+});

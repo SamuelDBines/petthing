@@ -508,6 +508,37 @@ export async function regenerateMissingPortraits(orderId: string) {
   await store.updateOrder(orderId, { status: "generating", failureReason: null });
 }
 
+export async function regeneratePortraitVariant(orderId: string, styleId: string, variantIndex: number) {
+  const store = getStore();
+  const order = await store.getOrder(orderId);
+  if (!order) throw new Error("Order not found");
+  const theme = getTheme(order.themeId);
+  if (!theme?.styles.some((style) => style.id === styleId)) throw new Error("That style is not on this theme");
+  const jobs = await store.listJobs(orderId);
+  const job = jobs.find((row) => row.styleId === styleId && row.variantIndex === variantIndex);
+  if (!job) throw new Error("No generation job for that style and variant");
+  const assets = await store.listAssets(orderId);
+  const doomed = assets.filter(
+    (asset) =>
+      asset.styleId === styleId &&
+      asset.variantIndex === variantIndex &&
+      asset.kind !== "upload",
+  );
+  for (const asset of doomed) await deleteBlob(asset.bucket, asset.storagePath);
+  await store.deleteAssets(doomed.map((asset) => asset.id));
+  await store.updateJob(job.id, {
+    status: "queued",
+    attempts: 0,
+    providerRequestId: null,
+    providerMeta: null,
+    falPaidSubmits: 0,
+    lastError: null,
+    lockedUntil: null,
+    nextRunAt: null,
+  });
+  await store.updateOrder(orderId, { status: "generating", failureReason: null });
+}
+
 export async function regenerateStyle(orderId: string, styleId: string) {
   const store = getStore();
   const theme = getTheme((await store.getOrder(orderId))?.themeId || "");

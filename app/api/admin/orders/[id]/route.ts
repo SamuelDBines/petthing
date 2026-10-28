@@ -2,7 +2,14 @@ import { z } from "zod";
 import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
-import { deliverOrder, regenerateMissingPortraits, regenerateStyle, runQueue } from "@/lib/generation";
+import {
+  deliverOrder,
+  regenerateMissingPortraits,
+  regeneratePortraitVariant,
+  regenerateStyle,
+  scheduleOrderGeneration,
+  runQueue,
+} from "@/lib/generation";
 import { countResultImages, orderHasFullPortraitSet } from "@/lib/generation/progress";
 import { getTier } from "@/config/pricing";
 import { loadStoreConfig } from "@/lib/tenant/context";
@@ -13,8 +20,17 @@ import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 
 const schema = z.object({
-  action: z.enum(["approve", "regenerate", "regenerate_missing", "refund", "resend", "resubmit_partner"]),
+  action: z.enum([
+    "approve",
+    "regenerate",
+    "regenerate_variant",
+    "regenerate_missing",
+    "refund",
+    "resend",
+    "resubmit_partner",
+  ]),
   styleId: z.string().optional(),
+  variantIndex: z.number().int().min(0).optional(),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -54,7 +70,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (parsed.data.action === "regenerate") {
     if (!parsed.data.styleId) return jsonError("Choose a style to regenerate.");
     await regenerateStyle(id, parsed.data.styleId);
-    await runQueue();
+    scheduleOrderGeneration(id);
+  }
+  if (parsed.data.action === "regenerate_variant") {
+    if (!parsed.data.styleId) return jsonError("Choose a style to regenerate.");
+    if (parsed.data.variantIndex === undefined) return jsonError("Choose a variant index (0 = first image).");
+    try {
+      await regeneratePortraitVariant(id, parsed.data.styleId, parsed.data.variantIndex);
+      scheduleOrderGeneration(id);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Regenerate failed", 400);
+    }
   }
   if (parsed.data.action === "refund") await refundOrder(id);
   if (parsed.data.action === "resubmit_partner") {

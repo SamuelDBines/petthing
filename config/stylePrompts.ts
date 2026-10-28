@@ -26,6 +26,16 @@ export type StylePrompt = {
   negative: string;
 };
 
+function kontextSingleSubjectLine(subject: SubjectType) {
+  if (subject === "pet") {
+    return "Exactly one animal in the frame: a single pet from the references, no duplicate animals, no side-by-side copies, no collage.";
+  }
+  if (subject === "me") {
+    return "Exactly one person in the frame: a single portrait subject, no duplicate faces, no side-by-side copies.";
+  }
+  return null;
+}
+
 const SUBJECT_LINES: Record<SubjectType, string> = {
   pet: "the same pet from the reference photos, with the same face, markings, and fur",
   family: "the same family group from the reference photos, every person included and recognisable",
@@ -236,6 +246,10 @@ export function buildPrompt(args: {
     args.quality === "hd" ? "Crisp features and fine costume detail." : "Clear, natural detail.",
     `Variation ${args.variantIndex + 1}: a slightly different pose and crop, same identity.`,
   ];
+  if (args.forFalKontext) {
+    const single = kontextSingleSubjectLine(args.subject);
+    if (single) parts.push(single);
+  }
   if (!args.forFalKontext) {
     parts.push(`Do not include: ${negative}.`);
   }

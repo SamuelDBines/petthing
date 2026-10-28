@@ -99,6 +99,7 @@ export function AdminDashboard({
   const [settings, setSettings] = useState({ themeMode: "auto", activeThemeId: "halloween", salesPaused: false, queueHalted: false });
   const [error, setError] = useState("");
   const [styleId, setStyleId] = useState<Record<string, string>>({});
+  const [variantIndex, setVariantIndex] = useState<Record<string, number>>({});
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [adminStore, setAdminStore] = useState<string>("all");
   const [analytics, setAnalytics] = useState<AnalyticsDashboard | null>(null);
@@ -256,11 +257,15 @@ export function AdminDashboard({
     await load();
   }
 
-  async function act(id: string, action: string, chosenStyle?: string) {
+  async function act(id: string, action: string, chosenStyle?: string, chosenVariant?: number) {
     const response = await fetch(`/api/admin/orders/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, styleId: chosenStyle }),
+      body: JSON.stringify({
+        action,
+        styleId: chosenStyle,
+        variantIndex: chosenVariant,
+      }),
     });
     const body = await response.json();
     if (!response.ok) setError(body.error || "Action failed");
@@ -588,6 +593,31 @@ export function AdminDashboard({
                       <select className="field" value={styleId[order.id] || order.styleIds[0] || ""} onChange={(event) => setStyleId({ ...styleId, [order.id]: event.target.value })}>
                         {order.styleIds.map((id) => <option key={id} value={id}>{id}</option>)}
                       </select>
+                      <select
+                        className="field"
+                        value={variantIndex[order.id] ?? 0}
+                        onChange={(event) => setVariantIndex({ ...variantIndex, [order.id]: Number(event.target.value) })}
+                        data-testid="admin-regenerate-variant"
+                      >
+                        {[0, 1, 2, 3, 4, 5].map((index) => (
+                          <option key={index} value={index}>Variant {index + 1}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="block"
+                        type="button"
+                        onClick={() =>
+                          act(
+                            order.id,
+                            "regenerate_variant",
+                            styleId[order.id] || order.styleIds[0],
+                            variantIndex[order.id] ?? 0,
+                          )
+                        }
+                        data-testid="regenerate-one-portrait"
+                      >
+                        Regenerate one image
+                      </button>
                       <button className="block" type="button" onClick={() => act(order.id, "regenerate", styleId[order.id] || order.styleIds[0])}>Regenerate style</button>
                       <button className="block" type="button" onClick={() => act(order.id, "resend")}>Resend email</button>
                       {order.productMeta?.personalised && !order.partnerFulfillment?.externalOrderId ? (
