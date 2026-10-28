@@ -85,17 +85,20 @@ export function parseProdigiProductDetails(payload: unknown): ProdigiProductDeta
 
 export function validateStaticImplicitAgainstProductDetails(
   defaultSku: string,
-  resolvedSku: string,
+  _resolvedSku: string,
   details: ProdigiProductDetails,
   staticImplicit: Record<string, string>,
 ): string[] {
   const errors: string[] = [];
-  const apiSingle = singleValueAttributesFromDetails(details);
-  for (const [name, expected] of Object.entries(apiSingle)) {
-    const actual = staticImplicit[name];
-    if (actual !== expected) {
+  for (const [name, actual] of Object.entries(staticImplicit)) {
+    const allowed = details.attributes[name];
+    if (!allowed?.length) {
+      errors.push(`${defaultSku}: static implicit ${name} is not on Prodigi product ${details.sku}`);
+      continue;
+    }
+    if (!allowed.includes(actual)) {
       errors.push(
-        `${defaultSku}: static implicit ${name} is ${JSON.stringify(actual ?? null)} but Prodigi expects ${JSON.stringify(expected)} — update config/prodigi-print-attributes.ts`,
+        `${defaultSku}: static implicit ${name}=${JSON.stringify(actual)} not in Prodigi [${allowed.join(", ")}]`,
       );
     }
   }
