@@ -3,6 +3,7 @@ import { alertAdmin } from "@/lib/email";
 import { fulfillCheckoutSession, noteFailedPayment, noteSeasonCanceled, noteSeasonRenewed } from "@/lib/fulfillment";
 import { kickOrderGeneration } from "@/lib/generation";
 import { isStoreLive } from "@/lib/go-live/live-stores";
+import { getStore } from "@/lib/store";
 import { storeIdFromMetadata } from "@/lib/stripe/ownership";
 import {
   chargeBelongsToUs,
@@ -18,7 +19,36 @@ export type StripeWebhookDeps = {
   fulfillCheckoutSession?: typeof fulfillCheckoutSession;
   alertAdmin?: typeof alertAdmin;
   after?: (fn: () => void) => void;
+  /**
+   * Does the order a checkout session points at still exist? `true` when the session names no
+   * order we track. Injected in tests; defaults to a store lookup.
+   */
+  checkoutOrderExists?: (session: Stripe.Checkout.Session) => Promise<boolean>;
 };
+
+const PORTRAIT_ORDER_KINDS = new Set(["portrait", "season_pass", "extra_styles"]);
+
+export async function defaultCheckoutOrderExists(session: Stripe.Checkout.Session): Promise<boolean> {
+  const kind = session.metadata?.kind;
+  const store = getStore();
+  if (kind === "shop" && session.metadata?.shopOrderId) {
+    if (!store.getShopOrder) return true;
+    return Boolean(await store.getShopOrder(session.metadata.shopOrderId));
+  }
+  if (kind && PORTRAIT_ORDER_KINDS.has(kind) && session.metadata?.orderId) {
+    return Boolean(await store.getOrder(session.metadata.orderId));
+  }
+  return true;
+}
+
+function checkoutOrderRef(session: Stripe.Checkout.Session) {
+  return session.metadata?.shopOrderId ?? session.metadata?.orderId ?? "?";
+}
+
+/** Store "X not found" errors (order deleted between lookup and update). */
+function isOrderNotFoundError(error: unknown) {
+  return error instanceof Error && /\border not found\b/i.test(error.message);
+}
 
 export type StripeWebhookOutcome =
   | { status: "ok" }
@@ -64,6 +94,7 @@ export async function handleStripeWebhookEvent(
   const fulfill = deps.fulfillCheckoutSession ?? fulfillCheckoutSession;
   const notify = deps.alertAdmin ?? alertAdmin;
   const scheduleAfter = deps.after ?? ((fn: () => void) => fn());
+  const orderExists = deps.checkoutOrderExists ?? defaultCheckoutOrderExists;
 
   if (!livemodeMatchesStore(event)) {
     return { status: "ignored", reason: "livemode_mismatch" };
@@ -74,6 +105,13 @@ export async function handleStripeWebhookEvent(
       const session = event.data.object as Stripe.Checkout.Session;
       if (!checkoutSessionMetadataIsOurs(session)) {
         return { status: "ignored", reason: "foreign_checkout_session" };
+      }
+      if (!(await orderExists(session))) {
+        // e.g. the order was cleared (go-live reset) before Stripe expired/completed the session.
+        console.warn(
+          `[stripe] webhook ${event.type} (${event.id}) for missing order ${checkoutOrderRef(session)} - ignored`,
+        );
+        return { status: "ignored", reason: "order_missing" };
       }
       if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
         await fulfill(session);
@@ -129,6 +167,13 @@ export async function handleStripeWebhookEvent(
 
     return { status: "ignored", reason: "unhandled_type" };
   } catch (error) {
+    if (CHECKOUT_SESSION_TYPES.has(event.type) && isOrderNotFoundError(error)) {
+      console.warn(
+        `[stripe] webhook ${event.type} (${event.id}) order vanished mid-handling - ignored`,
+        error instanceof Error ? error.message : error,
+      );
+      return { status: "ignored", reason: "order_missing" };
+    }
     const ours = await eventLooksLikeOurs(event, lookup, deps.stripe ?? null);
     console.error(`[stripe] webhook ${event.type} (${event.id}) failed`, error);
     if (ours && isTransientError(error)) {

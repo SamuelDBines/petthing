@@ -608,7 +608,21 @@ export function AdminDashboard({
                       {order.productMeta?.personalised && !order.partnerFulfillment?.externalOrderId ? (
                         <button className="block" type="button" onClick={() => act(order.id, "resubmit_partner")}>Resubmit Prodigi/Printful</button>
                       ) : null}
-                      <button className="block" type="button" onClick={() => act(order.id, "refund")}>Refund</button>
+                      {order.status === "refunded" ? (
+                        <button className="block opacity-50" type="button" disabled data-testid="order-refunded">Refunded</button>
+                      ) : (
+                        <button
+                          className="block"
+                          type="button"
+                          data-testid="order-refund"
+                          onClick={() => {
+                            if (!window.confirm("Refund this order in full?")) return;
+                            void act(order.id, "refund");
+                          }}
+                        >
+                          Refund
+                        </button>
+                      )}
                       {order.status === "delivered" ? <a className="block" href={`/results/${order.resultsToken}`}>Gallery</a> : null}
                     </td>
                   </tr>

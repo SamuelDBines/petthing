@@ -53,6 +53,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!parsed.ok) return parsed.response;
   const order = await getStore().getShopOrder(id);
   if (!order) return jsonError("Shop order not found.", 404);
+  if ((parsed.data.action === "refund_full" || parsed.data.action === "refund_partial") && order.status === "refunded") {
+    return jsonError("Order is already refunded.", 409);
+  }
   try {
     if (parsed.data.action === "refund_full") {
       await refundShopOrder(id);

@@ -340,10 +340,24 @@ export async function noteSeasonCanceled(subscriptionId: string) {
   );
 }
 
+export class OrderAlreadyRefundedError extends Error {
+  constructor(orderId: string) {
+    super(`Order ${orderId} is already refunded.`);
+    this.name = "OrderAlreadyRefundedError";
+  }
+}
+
+/** Stripe answers this when the charge behind a payment intent was already fully refunded. */
+function isAlreadyRefundedStripeError(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "charge_already_refunded";
+}
+
 export async function refundOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order) throw new Error("Order not found");
+  if (order.status === "refunded") throw new OrderAlreadyRefundedError(orderId);
   const stripe = getStripeForStore(order.storeId, { stripeLivemode: order.stripeLivemode });
   const prints = await store.listPrints(orderId);
   const intents = new Set<string>();
@@ -357,7 +371,12 @@ export async function refundOrder(orderId: string) {
   if (stripe) {
     for (const intent of intents) {
       if (intent.startsWith("demo")) continue;
-      await stripe.refunds.create({ payment_intent: intent });
+      try {
+        await stripe.refunds.create({ payment_intent: intent });
+      } catch (error) {
+        // Refunded already (e.g. from the Stripe dashboard): record it rather than failing.
+        if (!isAlreadyRefundedStripeError(error)) throw error;
+      }
     }
   }
   await store.updateOrder(orderId, { status: "refunded" });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
-import { refundOrder } from "@/lib/fulfillment";
+import { OrderAlreadyRefundedError, refundOrder } from "@/lib/fulfillment";
 import {
   approvePortraitReplacement,
   deliverOrder,
@@ -94,7 +94,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return jsonError(error instanceof Error ? error.message : "Regenerate failed", 400);
     }
   }
-  if (parsed.data.action === "refund") await refundOrder(id);
+  if (parsed.data.action === "refund") {
+    if (order.status === "refunded") return jsonError("Order is already refunded.", 409);
+    try {
+      await refundOrder(id);
+    } catch (error) {
+      if (error instanceof OrderAlreadyRefundedError) return jsonError("Order is already refunded.", 409);
+      console.error(`[admin] refund failed for ${id}`, error);
+      return jsonError(error instanceof Error ? error.message : "Refund failed", 400);
+    }
+  }
   if (parsed.data.action === "resubmit_partner") {
     if (!order.productMeta?.personalised) return jsonError("Not a personalised physical order.");
     try {
