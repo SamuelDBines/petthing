@@ -1,5 +1,6 @@
 "use client";
 
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatGbp } from "@/config/pricing";
@@ -48,10 +49,10 @@ export function FixmongerCartPage({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, lines, marketingConsent }),
     });
-    const body = await response.json().catch(() => ({}));
+    const { ok, body } = await parseCheckoutResponse(response);
     setBusy(false);
-    if (!response.ok) {
-      setError(body.error ?? "Checkout failed");
+    if (!ok || !body.url) {
+      setError(checkoutErrorMessage(body, ok));
       return;
     }
     writeCart([]);

@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { APP_NAME, SUPPORT_EMAIL, TAGLINE } from "@/config/brand";
 import { CHRISTMAS_PREORDER_PENCE, formatGbp, SEASON_PASS, TIERS } from "@/config/pricing";
 import { THEMES, type ThemeDefinition } from "@/config/themes";
@@ -47,9 +48,9 @@ export function HomePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "christmas", email }),
     });
-    const data = await response.json();
-    if (!response.ok) {
-      setNote(data.error || "Could not start checkout");
+    const { ok, body: data } = await parseCheckoutResponse(response);
+    if (!ok || !data.url) {
+      setNote(checkoutErrorMessage(data, ok));
       return;
     }
     window.location.href = data.url;

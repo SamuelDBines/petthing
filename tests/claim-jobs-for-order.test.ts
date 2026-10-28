@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "crypto";
 import test from "node:test";
 import type { Job, Order } from "../lib/domain";
 import { jsonStore } from "../lib/store/json";
 
-const orderId = "00000000-0000-4000-8000-000000000099";
-
-function portraitOrder(): Order {
+function portraitOrder(id: string): Order {
   return {
-    id: orderId,
+    id,
     storeId: "pawtraitry",
     createdAt: "2026-01-01T00:00:00.000Z",
     email: "a@example.com",
@@ -46,12 +45,12 @@ function portraitOrder(): Order {
   };
 }
 
-function queuedJob(index: number, order: string): Job {
+function queuedJob(id: string, order: string, variantIndex: number): Job {
   return {
-    id: `00000000-0000-4000-8000-0000000000${index}`,
+    id,
     orderId: order,
     styleId: "victorian-portrait",
-    variantIndex: index,
+    variantIndex,
     status: "queued",
     attempts: 0,
     providerRequestId: null,
@@ -66,13 +65,14 @@ function queuedJob(index: number, order: string): Job {
 }
 
 test("claimJobsForOrder only claims jobs for that order", async () => {
-  const otherId = "00000000-0000-4000-8000-000000000088";
-  await jsonStore.createOrder(portraitOrder());
-  await jsonStore.createOrder({ ...portraitOrder(), id: otherId, ownReferralCode: "PAW-OTHER" });
+  const orderId = randomUUID();
+  const otherId = randomUUID();
+  await jsonStore.createOrder(portraitOrder(orderId));
+  await jsonStore.createOrder({ ...portraitOrder(otherId), ownReferralCode: "PAW-OTHER" });
   await jsonStore.addJobs([
-    queuedJob(1, orderId),
-    queuedJob(2, orderId),
-    queuedJob(3, otherId),
+    queuedJob(randomUUID(), orderId, 0),
+    queuedJob(randomUUID(), orderId, 1),
+    queuedJob(randomUUID(), otherId, 0),
   ]);
   const claimed = await jsonStore.claimJobsForOrder(orderId, 6);
   assert.equal(claimed.length, 2);

@@ -1,5 +1,7 @@
 "use client";
 
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
+
 import { useEffect, useState } from "react";
 import { AI_GENERATED_LABEL, APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
@@ -66,9 +68,9 @@ export function ResultsGallery({ token }: { token: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = await response.json();
-    if (!response.ok) {
-      setMessage(body.error || "Could not start checkout");
+    const { ok, body } = await parseCheckoutResponse(response);
+    if (!ok || !body.url) {
+      setMessage(checkoutErrorMessage(body, ok));
       return;
     }
     window.location.href = body.url;

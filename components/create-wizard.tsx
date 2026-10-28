@@ -1,5 +1,6 @@
 "use client";
 
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
@@ -145,8 +146,8 @@ export function CreateWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "portrait", orderId: order.orderId, uploadToken: order.uploadToken }),
       });
-      const session = await checkout.json();
-      if (!checkout.ok) throw new Error(session.error || "Checkout failed");
+      const { ok, body: session } = await parseCheckoutResponse(checkout);
+      if (!ok || !session.url) throw new Error(checkoutErrorMessage(session, ok));
       const { trackFunnelEvent: trackCheckout } = await import("@/components/visitor-tracker");
       trackCheckout("checkout_started");
       window.location.href = session.url;

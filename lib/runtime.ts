@@ -76,14 +76,6 @@ export function referralCode(prefix = REFERRAL_PREFIX) {
   return `${prefix}-${body}`;
 }
 
-export function integrationIdentifier(flow: string) {
-  const alphabet = "abcdefghijklmnopqrstuvwxyz";
-  const bytes = randomBytes(8);
-  let suffix = "";
-  for (const byte of bytes) suffix += alphabet[byte % alphabet.length];
-  return `pawtraitry_${flow}_${suffix}`;
-}
-
 export function signValue(value: string, secretName: string, fallback: string) {
   return createHmac("sha256", secret(secretName, fallback)).update(value).digest("base64url");
 }

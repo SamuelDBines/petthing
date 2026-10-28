@@ -8,11 +8,16 @@ import type { ShopOrder, ShopOrderLine } from "@/lib/catalogue/types";
 import { formatGbp } from "@/config/pricing";
 import { jsonError, parseBody } from "@/lib/http";
 import { rateLimits } from "@/lib/rateLimits";
-import { clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
+import { clientIp, demoCheckoutAllowed, hashIp } from "@/lib/runtime";
+import {
+  createCheckoutSession,
+  integrationIdentifier,
+  openCheckoutSessionUrl,
+  stripeCheckoutErrorResponse,
+} from "@/lib/stripe/checkout";
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
-import { checkoutSessionForStore } from "@/lib/stripe/store-checkout";
 import { getStripe } from "@/lib/stripe";
 import { markShopOrderPaid } from "@/lib/shop/fulfillment";
 import type Stripe from "stripe";
@@ -30,6 +35,7 @@ async function openSession(args: {
   lineItems: Stripe.Checkout.SessionCreateParams.LineItem[];
   metadata: Record<string, string>;
   idempotencyKey: string;
+  integrationStableKey: string;
   shippingPence: number;
 }) {
   const stripe = getStripe();
@@ -38,37 +44,39 @@ async function openSession(args: {
     if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
     return { demo: true as const, url: success.replace("{CHECKOUT_SESSION_ID}", `demo_${args.idempotencyKey}`) };
   }
-  const session = await stripe.checkout.sessions.create(
-    checkoutSessionForStore(
-      args.brand,
-      {
-      mode: "payment",
-      customer_email: args.email,
-      line_items: args.lineItems,
-      success_url: success,
-      cancel_url: `${args.origin}/shop/cart`,
-      metadata: args.metadata,
-      integration_identifier: integrationIdentifier("shop"),
-      shipping_address_collection: { allowed_countries: ["GB"] },
-      shipping_options: [
-        {
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: args.shippingPence, currency: "gbp" },
-            display_name:
-              args.shippingPence === 0
-                ? "Free UK delivery"
-                : `UK delivery (${formatGbp(args.shippingPence)})`,
+  try {
+    const session = await createCheckoutSession({
+      stripe,
+      brand: args.brand,
+      idempotencyKey: args.idempotencyKey,
+      logoUrl: `${args.origin}${args.brand.logoPath}`,
+      sessionParams: {
+        mode: "payment",
+        customer_email: args.email,
+        line_items: args.lineItems,
+        success_url: success,
+        cancel_url: `${args.origin}/shop/cart`,
+        metadata: args.metadata,
+        integration_identifier: integrationIdentifier("shop", args.integrationStableKey),
+        shipping_address_collection: { allowed_countries: ["GB"] },
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: args.shippingPence, currency: "gbp" },
+              display_name:
+                args.shippingPence === 0
+                  ? "Free UK delivery"
+                  : `UK delivery (${formatGbp(args.shippingPence)})`,
+            },
           },
-        },
-      ],
-    },
-      { logoUrl: `${args.origin}${args.brand.logoPath}` },
-    ),
-    { idempotencyKey: args.idempotencyKey },
-  );
-  if (!session.url) return jsonError("Stripe did not return a checkout URL.", 502);
-  return { demo: false as const, url: session.url, sessionId: session.id };
+        ],
+      },
+    });
+    return { demo: false as const, url: session.url, sessionId: session.sessionId };
+  } catch (error) {
+    return stripeCheckoutErrorResponse(error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -138,6 +146,19 @@ export async function POST(request: Request) {
   });
 
   const origin = publicOriginForStore(request, config.brand, storeId, config.domains);
+  const stripe = getStripe();
+  if (stripe && shopOrder.stripeCheckoutSessionId) {
+    const existingUrl = await openCheckoutSessionUrl(stripe, shopOrder.stripeCheckoutSessionId);
+    if (existingUrl) {
+      return Response.json({
+        url: existingUrl,
+        total: formatGbp(orderTotalPence),
+        subtotal: formatGbp(subtotal),
+        shipping: formatGbp(shippingPence),
+        freeDeliveryOver: formatGbp(deliveryMeta.freeOver),
+      });
+    }
+  }
   const opened = await openSession({
     brand: config.brand,
     origin,
@@ -145,6 +166,7 @@ export async function POST(request: Request) {
     lineItems: stripeItems,
     metadata: { kind: "shop", shopOrderId: shopOrder.id, storeId },
     idempotencyKey: `shop-${shopOrder.id}`,
+    integrationStableKey: shopOrder.id,
     shippingPence,
   });
   if (opened instanceof Response) return opened;

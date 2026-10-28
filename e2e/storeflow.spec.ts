@@ -81,7 +81,6 @@ test.describe("Stripe Checkout @stripe", () => {
     const email = `decline-${Date.now()}@pawtraitry.test`;
     await completePortraitWizard(page, email);
     await page.waitForURL(/checkout\.stripe\.com/, { timeout: 60_000 });
-    await fillStripeCheckoutAndPay(page, "4000000000000002");
-    await expect(page.getByText(/declined|failed|could not/i)).toBeVisible({ timeout: 60_000 });
+    await fillStripeCheckoutAndPay(page, "4000000000000002", { expectDecline: true });
   });
 });

@@ -1,7 +1,11 @@
 import type { Page } from "@playwright/test";
 import path from "path";
 
-export async function fillStripeCheckoutAndPay(page: Page, cardNumber: string) {
+export async function fillStripeCheckoutAndPay(
+  page: Page,
+  cardNumber: string,
+  options?: { expectDecline?: boolean },
+) {
   await page.locator('input[name="cardNumber"]').fill(cardNumber);
   await page.locator('input[name="cardExpiry"]').fill("12/34");
   await page.locator('input[name="cardCvc"]').fill("123");
@@ -15,6 +19,9 @@ export async function fillStripeCheckoutAndPay(page: Page, cardNumber: string) {
     await linkSave.uncheck().catch(() => undefined);
   }
   await page.getByTestId("hosted-payment-submit-button").click();
+  if (options?.expectDecline) {
+    await page.getByText(/declined|failed|could not|card was declined/i).waitFor({ timeout: 60_000 });
+  }
 }
 
 export const adminPassword = process.env.ADMIN_PASSWORD || "portrait-dev";
