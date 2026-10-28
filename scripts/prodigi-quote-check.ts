@@ -1,7 +1,7 @@
 /**
  * Read-only Prodigi quote check for every Pawtraitry print SKU.
  *
- *   PRODIGI_SANDBOX_API_KEY=… npx tsx scripts/prodigi-quote-check.ts
+ *   PRODIGI_API_KEY=… PRODIGI_BASE_URL=https://api.prodigi.com/v4.0 npx tsx scripts/prodigi-quote-check.ts
  *
  * Uses the same quote line-item shape as lib/prodigi.ts (attributes + print areas).
  */
@@ -12,22 +12,44 @@ import {
   validateProdigiLineItemAgainstProduct,
 } from "@/lib/prodigi/print-payload";
 
-const SANDBOX = "https://api.sandbox.prodigi.com/v4.0";
+const DEFAULT_BASE = "https://api.sandbox.prodigi.com/v4.0";
+
+function prodigiBaseUrl() {
+  const raw = process.env.PRODIGI_BASE_URL?.trim() || DEFAULT_BASE;
+  return raw.replace(/\/$/, "");
+}
 
 function apiKey() {
   return process.env.PRODIGI_SANDBOX_API_KEY?.trim() || process.env.PRODIGI_API_KEY?.trim() || "";
 }
 
-async function prodigiGet(path: string, key: string) {
-  const response = await fetch(`${SANDBOX}${path}`, {
+function quoteCostLabel(body: unknown): string {
+  const quotes = (body as { quotes?: { costSummary?: Record<string, { amount?: string; currency?: string }> }[] })
+    .quotes;
+  const summary = quotes?.[0]?.costSummary;
+  if (!summary) return "";
+  const total = summary.totalCost;
+  if (total?.amount && total.currency) return `${total.currency} ${total.amount}`;
+  const items = summary.items;
+  const shipping = summary.shipping;
+  if (items?.amount && items.currency) {
+    const ship =
+      shipping?.amount && shipping.currency ? ` + ship ${shipping.currency} ${shipping.amount}` : "";
+    return `${items.currency} ${items.amount}${ship}`;
+  }
+  return "";
+}
+
+async function prodigiGet(path: string, key: string, base: string) {
+  const response = await fetch(`${base}${path}`, {
     headers: { "X-API-Key": key, "Content-Type": "application/json" },
   });
   const body = await response.json().catch(() => ({}));
   return { response, body };
 }
 
-async function prodigiQuote(key: string, item: ReturnType<typeof buildProdigiQuoteLineItem>) {
-  const response = await fetch(`${SANDBOX}/quotes`, {
+async function prodigiQuote(key: string, base: string, item: ReturnType<typeof buildProdigiQuoteLineItem>) {
+  const response = await fetch(`${base}/quotes`, {
     method: "POST",
     headers: { "X-API-Key": key, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -47,6 +69,9 @@ async function main() {
     process.exit(0);
   }
 
+  const base = prodigiBaseUrl();
+  console.log(`Prodigi base: ${base}`);
+
   const failures: string[] = [];
 
   for (const product of PRINTS) {
@@ -54,6 +79,7 @@ async function main() {
     const { response: productResponse, body: productBody } = await prodigiGet(
       `/products/${encodeURIComponent(item.sku)}`,
       key,
+      base,
     );
     if (!productResponse.ok) {
       failures.push(`${product.id} (${item.sku}): product lookup ${productResponse.status}`);
@@ -66,14 +92,15 @@ async function main() {
     }
     failures.push(...validateProdigiLineItemAgainstProduct(item, details));
 
-    const { response: quoteResponse, body: quoteBody } = await prodigiQuote(key, item);
+    const { response: quoteResponse, body: quoteBody } = await prodigiQuote(key, base, item);
     const outcome = (quoteBody as { outcome?: string }).outcome;
     if (!quoteResponse.ok || (outcome && outcome !== "Created" && outcome !== "Ok")) {
       failures.push(
         `${product.id} (${item.sku}): quote rejected (${quoteResponse.status}) ${JSON.stringify(quoteBody).slice(0, 400)}`,
       );
     } else {
-      console.log(`OK ${product.id} → ${item.sku}`);
+      const cost = quoteCostLabel(quoteBody);
+      console.log(`OK ${product.id} → ${item.sku}${cost ? ` · ${cost}` : ""}`);
     }
   }
 

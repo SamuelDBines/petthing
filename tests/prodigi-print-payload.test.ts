@@ -27,7 +27,7 @@ test("canvas SKUs send wrap or frame color attributes", () => {
   assert.deepEqual(buildProdigiQuoteLineItem(slim!).attributes, { wrap: "MirrorWrap" });
   assert.equal(buildProdigiQuoteLineItem(slim!).sku, "GLOBAL-SLIMCAN-12X16");
   assert.deepEqual(buildProdigiQuoteLineItem(stretched!).attributes, { wrap: "MirrorWrap" });
-  assert.deepEqual(buildProdigiQuoteLineItem(framed!).attributes, { color: "black" });
+  assert.deepEqual(buildProdigiQuoteLineItem(framed!).attributes, { color: "black", wrap: "MirrorWrap" });
 });
 
 test("order line item matches quote shape plus sizing and asset urls", () => {
@@ -63,4 +63,27 @@ test("validateProdigiLineItemAgainstProduct checks attributes and print areas", 
     details,
   );
   assert.match(bad.join(" "), /print area default/);
+});
+
+test("framed canvas validation requires wrap and color from product details", () => {
+  const framed = PRINTS.find((p) => p.id === "canvas_framed_slim_16x20")!;
+  const item = buildProdigiQuoteLineItem(framed);
+  const details = parseProdigiProductDetails({
+    product: {
+      sku: "GLOBAL-FRA-CAN-16X20",
+      attributes: {
+        color: ["black", "white"],
+        wrap: ["White", "MirrorWrap", "ImageWrap", "Black"],
+      },
+      printAreas: { default: { required: true } },
+    },
+  });
+  assert.ok(details);
+  assert.deepEqual(validateProdigiLineItemAgainstProduct(item, details), []);
+
+  const missingWrap = validateProdigiLineItemAgainstProduct(
+    { ...item, attributes: { color: "black" } },
+    details!,
+  );
+  assert.match(missingWrap.join(" "), /missing required attribute wrap/);
 });

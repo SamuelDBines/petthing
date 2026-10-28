@@ -79,10 +79,11 @@ export function validateProdigiLineItemAgainstProduct(
   details: ProdigiProductDetails,
 ): string[] {
   const errors: string[] = [];
-  for (const [name, value] of Object.entries(item.attributes)) {
-    const allowed = details.attributes[name];
-    if (!allowed?.length) {
-      errors.push(`${details.sku}: unknown attribute ${name}`);
+  for (const [name, allowed] of Object.entries(details.attributes)) {
+    if (!allowed.length) continue;
+    const value = item.attributes[name];
+    if (!value) {
+      errors.push(`${details.sku}: missing required attribute ${name} (validValues: ${allowed.join(", ")})`);
       continue;
     }
     if (!allowed.includes(value)) {

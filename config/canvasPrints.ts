@@ -70,7 +70,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 16,
     heightIn: 20,
     prodigiPrintArea: "default",
-    prodigiAttributes: { color: "black" },
+    prodigiAttributes: { color: "black", wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
   {
@@ -84,7 +84,7 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     widthIn: 20,
     heightIn: 30,
     prodigiPrintArea: "default",
-    prodigiAttributes: { color: "black" },
+    prodigiAttributes: { color: "black", wrap: "MirrorWrap" },
     areas: [{ printArea: "default", sheet: "canvas" }],
   },
 ];
