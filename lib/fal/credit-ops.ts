@@ -77,7 +77,7 @@ export async function markFalCreditExhausted(reason: string) {
     patch.falCreditAlertSentAt = now;
     const slaNote =
       slaOverdue > 0
-        ? `<p><strong>${slaOverdue}</strong> order(s) have waited over 24 hours — consider refunding manually.</p>`
+        ? `<p><strong>${slaOverdue}</strong> order(s) have waited over 24 hours. consider refunding manually.</p>`
         : "";
     await emailSam(
       `fal.ai credit ran out: ${waiting} order(s) waiting`,

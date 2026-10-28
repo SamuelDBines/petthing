@@ -8,21 +8,21 @@ const RP = {
 
 const GO_DROPSHIP: GpsrInfo = {
   manufacturerName: "As labelled on product packaging (Go Dropship UK supplier)",
-  manufacturerAddress: "United Kingdom — see product label",
+  manufacturerAddress: "United Kingdom. See product label",
   ...RP,
   needsConfirming: false,
 };
 
 const PRODIGI: GpsrInfo = {
   manufacturerName: "Prodigi UK (print fulfilment partner)",
-  manufacturerAddress: "United Kingdom — see order packing slip",
+  manufacturerAddress: "United Kingdom. See order packing slip",
   ...RP,
   needsConfirming: false,
 };
 
 const PRINTFUL: GpsrInfo = {
   manufacturerName: "Printful (UK fulfilment partner)",
-  manufacturerAddress: "United Kingdom — see order packing slip",
+  manufacturerAddress: "United Kingdom. See order packing slip",
   ...RP,
   needsConfirming: false,
 };

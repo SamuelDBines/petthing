@@ -86,7 +86,7 @@ export function AdminShopOrderPanel({
             <p
               className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950"
             >
-              Cancel requested from supplier — chase Go Dropship
+              Cancel requested from supplier. chase Go Dropship
             </p>
           ) : null}
           {order.shippedAt ? <p className="text-cream/60">Shipped {new Date(order.shippedAt).toLocaleString("en-GB")}</p> : null}
@@ -142,7 +142,7 @@ export function AdminShopOrderPanel({
                       : "";
                   const shippedNote =
                     order.status === "shipped"
-                      ? " This order has already shipped — only cancel if you accept return logistics."
+                      ? " This order has already shipped. Only cancel if you accept return logistics."
                       : "";
                   const ok = window.confirm(
                     order.status === "pending_payment"

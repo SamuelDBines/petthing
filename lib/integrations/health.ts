@@ -102,7 +102,7 @@ export function integrationHealth(): IntegrationHealthRow[] {
       id: "godropship",
       label: "Go Dropship",
       status: envPresent("GODROPSHIP_ORDERS_EMAIL") ? "connected" : "optional_missing",
-      detail: "No public API — CSV emailed to supplier inbox",
+      detail: "No public API. CSV emailed to supplier inbox",
     },
     ...emailRows(),
     {

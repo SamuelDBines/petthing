@@ -70,7 +70,7 @@ async function main() {
           gallery: source.gallery.map((img) => ({
             ...img,
             path: img.path.replace("/jinglefold/", "/fixmonger/").replace(`/${REUSE[sku]}`, `/${sku}`),
-            alt: `Fixmonger ${sku} — ${img.alt}`,
+            alt: `Fixmonger ${sku}, ${img.alt}`,
           })),
           source: `reuse:jinglefold:${REUSE[sku]}`,
         };

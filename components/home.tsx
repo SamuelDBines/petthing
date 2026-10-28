@@ -17,8 +17,8 @@ const FAQS = [
   ["What if I don’t like them?", "We’ll regenerate free of charge. If you’re still unhappy, we’ll refund the portrait order."],
   ["Who can see the pictures?", "Only you, via a private link. We don’t publish a gallery. Share buttons use a watermarked preview."],
   ["When are files deleted?", "One-off photos go 7 days after delivery. A season pass keeps them for up to a year so the next season can use them. Finished portraits go after 30 days."],
-  ["Do you print?", "Yes. When your gallery is ready you can order UK-posted prints and gifts — puzzles, canvas, classic frames, mugs, and more — from the same portraits."],
-  ["Is this only for one season?", "No. We run themed collections through the year — pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
+  ["Do you print?", "Yes. When your gallery is ready you can order UK-posted prints and gifts. Puzzles, canvas, classic frames, mugs, and more. From the same portraits."],
+  ["Is this only for one season?", "No. We run themed collections through the year. Pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
   ["Are the portraits real photos?", "No. They are AI-generated art styled from your uploads. We label them clearly on your gallery and in emails."],
   ["What is the season pass?", "A yearly plan for a family or group. You get a Classic set each season, starting with the one that’s open. One-off orders stay available for pets, couples, and a single season."],
 ];

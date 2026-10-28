@@ -70,7 +70,7 @@ const CFPM_SIZES: CfpmSize[] = [
     priceId: "cfpm_16x20",
     widthPx: 3600,
     heightPx: 4800,
-    detail: "Classic frame and mount — a statement size for walls. UK delivery included.",
+    detail: "Classic frame and mount: a statement size for walls. UK delivery included.",
   },
   {
     key: "18x24",
@@ -182,7 +182,7 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
   {
     id: "poster_a2_matte",
     name: "A2 matte art print",
-    detail: "Unframed EMA fine art poster — ready for your own frame. UK delivery included.",
+    detail: "Unframed EMA fine art poster. Ready for your own frame. UK delivery included.",
     pricePence: pawtraitryPrintPricePence("poster_a2_matte"),
     skuEnv: "PRODIGI_SKU_POSTER_A2",
     defaultSku: "GLOBAL-FAP-A2",
@@ -196,7 +196,7 @@ export const PAWTRAITRY_PHYSICAL_PRINTS: PrintProduct[] = [
   {
     id: "greeting_card_a5",
     name: "A5 greetings card",
-    detail: "Folded fine-art card — your portrait on the front, Pawtraitry on the back. UK delivery included.",
+    detail: "Folded fine-art card. Your portrait on the front, Pawtraitry on the back. UK delivery included.",
     pricePence: pawtraitryPrintPricePence("greeting_card_a5"),
     skuEnv: "PRODIGI_SKU_GREETING_A5",
     defaultSku: "CLASSIC-GRE-FEDR-A5-BLA",

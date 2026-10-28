@@ -5,7 +5,7 @@ import type { AnalyticsDashboard } from "@/lib/analytics/types";
 import { BOUNCE_RATE_TOOLTIP } from "@/lib/analytics/labels";
 
 function formatDelta(delta: number | null) {
-  if (delta == null || !Number.isFinite(delta)) return "—";
+  if (delta == null || !Number.isFinite(delta)) return "n/a";
   const pct = Math.round(delta * 100);
   if (pct === 0) return "0%";
   return `${pct > 0 ? "↑" : "↓"} ${Math.abs(pct)}%`;

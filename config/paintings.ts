@@ -24,7 +24,7 @@ export const HAND_PAINTED_TIERS: Tier[] = [
     quality: "hd",
     includesCard: false,
     popular: false,
-    blurb: "A real artist paints your pet from your photos — not AI.",
+    blurb: "A real artist paints your pet from your photos. Not AI.",
     points: ["12×16 inch canvas", "Artist proof for your approval", "10–27 business days"],
   },
   {
@@ -70,7 +70,7 @@ export type HandPaintedStatus =
   | "delivered";
 
 export const HAND_PAINTED_STATUS_LABELS: Record<HandPaintedStatus, string> = {
-  awaiting_admin: "Paid — draft email ready",
+  awaiting_admin: "Paid. Draft email ready",
   sent_to_artist: "Sent to artist",
   proof_received: "Proof received",
   proof_sent_to_customer: "Awaiting customer proof approval",

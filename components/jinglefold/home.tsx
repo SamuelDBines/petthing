@@ -18,9 +18,9 @@ import { ProductCard } from "@/components/shop/product-card";
 import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 
 const FAQ: [string, string][] = [
-  ["When should I order for Christmas?", "See the cut-off banner — personalised prints have earlier dates than ready-made decor."],
+  ["When should I order for Christmas?", "See the cut-off banner. Personalised prints have earlier dates than ready-made decor."],
   ["Do I see my artwork before paying?", "Yes. Personalised items include a preview step before checkout."],
-  ["Where do decor items ship from?", "UK warehouse — typically 3–5 working days."],
+  ["Where do decor items ship from?", "UK warehouse. Typically 3–5 working days."],
   ["Can I return personalised items?", "Because they are made for you, personalised goods are non-returnable unless faulty."],
 ];
 

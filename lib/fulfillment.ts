@@ -262,7 +262,7 @@ export async function markChristmasPaid(preorderId: string, args: PaidArgs) {
       { stripeLivemode: args.stripeLivemode ?? false, requestHost: null },
       {
         to: target.email,
-        subject: `Christmas pre-order confirmed — ${APP_NAME}`,
+        subject: `Christmas pre-order confirmed: ${APP_NAME}`,
         html: christmasEmail(),
         storeId: target.storeId,
       },

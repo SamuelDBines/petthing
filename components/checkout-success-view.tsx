@@ -244,7 +244,7 @@ export function CheckoutSuccessView({
                 ) : (
                   <li>
                     <span className="inline-flex min-h-11 items-center rounded-full border border-dashed border-line px-5 text-sm text-muted">
-                      Framed prints, canvas &amp; gifts — open your gallery when ready
+                      Framed prints, canvas &amp; gifts. open your gallery when ready
                     </span>
                   </li>
                 )}

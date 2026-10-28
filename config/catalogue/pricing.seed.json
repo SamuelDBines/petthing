@@ -45,7 +45,7 @@
    "competitor_low": 1.99,
    "competitor_high": 30,
    "competitor_source": "Pawmorial £1.99 unlock https://pawmorial.co.uk/ai-portraits ; Crown & Paw from £30 https://crownandpaw.co.uk/collections/custom-pet-portraits",
-   "estimates": "AI images per buyer incl. previews (estimate); $1=£0.75 (estimate)",
+   "estimates": "AI images per buyer incl. Previews (estimate); $1=£0.75 (estimate)",
    "pricing_rule": "manual price",
    "note": ""
   },
@@ -81,7 +81,7 @@
    "competitor_low": 1.99,
    "competitor_high": 30,
    "competitor_source": "Pawmorial £1.99 unlock https://pawmorial.co.uk/ai-portraits ; Crown & Paw from £30 https://crownandpaw.co.uk/collections/custom-pet-portraits",
-   "estimates": "AI images per buyer incl. previews (estimate); $1=£0.75 (estimate)",
+   "estimates": "AI images per buyer incl. Previews (estimate); $1=£0.75 (estimate)",
    "pricing_rule": "manual price",
    "note": "compare-at = sum of single-style prices (genuine reference)"
   },
@@ -117,7 +117,7 @@
    "competitor_low": 1.99,
    "competitor_high": 30,
    "competitor_source": "Pawmorial £1.99 unlock https://pawmorial.co.uk/ai-portraits ; Crown & Paw from £30 https://crownandpaw.co.uk/collections/custom-pet-portraits",
-   "estimates": "AI images per buyer incl. previews (estimate); $1=£0.75 (estimate)",
+   "estimates": "AI images per buyer incl. Previews (estimate); $1=£0.75 (estimate)",
    "pricing_rule": "manual price",
    "note": "compare-at = sum of single-style prices (genuine reference)"
   },
@@ -661,7 +661,7 @@
    "competitor_source": "Amazon UK search results 26 Oct 2026 https://www.amazon.co.uk/s?k=windscreen+frost+cover",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -697,7 +697,7 @@
    "competitor_source": "Amazon UK search results 26 Oct 2026 https://www.amazon.co.uk/s?k=windscreen+frost+cover",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "capped at competitor price - below target; sell in bundle or drop",
-   "note": "DROP v23: off-niche — keep: 1 point under target"
+   "note": "DROP v23: off-niche. Keep: 1 point under target"
   },
   {
    "store": "Fixmonger",
@@ -733,7 +733,7 @@
    "competitor_source": "Amazon UK search results 26 Oct 2026 https://www.amazon.co.uk/s?k=extendable+snow+brush+ice+scraper",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "capped at competitor price - below target; sell in bundle or drop",
-   "note": "DROP v23: off-niche — slightly above most Amazon 5-in-1s; position as premium"
+   "note": "DROP v23: off-niche. Slightly above most Amazon 5-in-1s; position as premium"
   },
   {
    "store": "Fixmonger",
@@ -769,7 +769,7 @@
    "competitor_source": "Amazon UK search results 26 Oct 2026 https://www.amazon.co.uk/s?k=extendable+snow+brush+ice+scraper",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "capped at competitor price - below target; sell in bundle or drop",
-   "note": "DROP v23: off-niche — sell mainly inside the winter car kit"
+   "note": "DROP v23: off-niche. Sell mainly inside the winter car kit"
   },
   {
    "store": "Fixmonger",
@@ -841,7 +841,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -877,7 +877,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -913,7 +913,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -949,7 +949,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -985,7 +985,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -1021,7 +1021,7 @@
    "competitor_source": "not checked (Amazon rate-limited)",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "priced to target - competitor not checked",
-   "note": "DROP v23: off-niche —"
+   "note": "DROP v23: off-niche:"
   },
   {
    "store": "Fixmonger",
@@ -1093,7 +1093,7 @@
    "competitor_source": "Amazon UK search results 26 Oct 2026 https://www.amazon.co.uk/s?k=car+rear+window+sun+shade+2+pack",
    "estimates": "Go Dropship price assumed VAT-inclusive, not reclaimed (unverified)",
    "pricing_rule": "capped at competitor price - below target; sell in bundle or drop",
-   "note": "DROP v23: off-niche — impulse add-on only"
+   "note": "DROP v23: off-niche. Impulse add-on only"
   },
   {
    "store": "Fixmonger",
@@ -1129,7 +1129,7 @@
    "competitor_source": null,
    "estimates": "same as components",
    "pricing_rule": "manual price",
-   "note": "DROP v23: off-niche — bundle; compare-at = sum of single prices"
+   "note": "DROP v23: off-niche. Bundle; compare-at = sum of single prices"
   },
   {
    "store": "Fixmonger",
@@ -1201,7 +1201,7 @@
    "competitor_source": null,
    "estimates": "",
    "pricing_rule": "manual price",
-   "note": "DROP v23: off-niche — bundle; compare-at = sum of single prices"
+   "note": "DROP v23: off-niche. Bundle; compare-at = sum of single prices"
   },
   {
    "store": "Christmas store",

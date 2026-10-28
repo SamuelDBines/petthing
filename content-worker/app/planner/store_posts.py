@@ -13,9 +13,9 @@ from app.db.models import ContentKind, QueueStatus
 from app.queue.service import create_queue_item
 
 STORE_HOOKS = {
-    "pawtraitry": "Custom pet portraits with a human review — digital delivery and UK prints.",
-    "fixmonger": "British winter fixes that actually work — frost covers, draught curtains, honest kits.",
-    "jinglefold": "Personalised Christmas decor with a preview before you pay — baubles, stockings, tree bundles.",
+    "pawtraitry": "Custom pet portraits with a human review: digital delivery and UK prints.",
+    "fixmonger": "British winter fixes that actually work: frost covers, draught curtains, honest kits.",
+    "jinglefold": "Personalised Christmas decor with a preview before you pay: baubles, stockings, tree bundles.",
 }
 
 
@@ -28,7 +28,7 @@ async def generate_store_catalog_post(db: Session, settings: Settings, store_id:
     copies = {
         "instagram": f"{hook} Shop UK delivery. #{store_id}",
         "facebook": hook,
-        "pinterest": f"{hook} — tap through for the full range.",
+        "pinterest": f"{hook} Tap through for the full range.",
         "tiktok": f"{hook} Link in bio.",
     }
     item = create_queue_item(

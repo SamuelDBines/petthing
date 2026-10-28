@@ -48,10 +48,10 @@ export async function cancelShopOrder(
     throw new Error("Order is already closed");
   }
   if (order.status === "delivered") {
-    throw new Error("Cannot cancel a delivered order — issue a refund instead");
+    throw new Error("Cannot cancel a delivered order. Issue a refund instead");
   }
   if (order.status === "shipped" && !options?.confirmShippedCancel) {
-    throw new Error("Order has shipped — pass confirmShippedCancel to cancel and refund");
+    throw new Error("Order has shipped. Pass confirmShippedCancel to cancel and refund");
   }
 
   const shouldRefund = options?.refund ?? true;
@@ -87,7 +87,7 @@ export async function cancelShopOrder(
 async function emailGoDropshipBatch(storeId: string, batchId: string, orders: ShopOrder[], csv: string) {
   if (!storeAllowsSupplierOrderEmail(storeId)) {
     await alertAdmin(
-      "Go Dropship batch (test store — supplier email skipped)",
+      "Go Dropship batch (test store. Supplier email skipped)",
       `<p>Batch ${batchId} for ${storeId} with ${orders.length} orders would have been emailed. Store is not in LIVE_STORES.</p>`,
       storeId,
     );
@@ -97,7 +97,7 @@ async function emailGoDropshipBatch(storeId: string, batchId: string, orders: Sh
   if (supplierEmail) {
     await sendEmail({
       to: supplierEmail,
-      subject: `Go Dropship order batch ${batchId.slice(0, 8)} — ${orders.length} orders`,
+      subject: `Go Dropship order batch ${batchId.slice(0, 8)}: ${orders.length} orders`,
       html: `<p>Automated export from catalogue shop (${storeId}).</p><p>Orders: ${orders.length}</p>`,
       attachments: [{ filename: `godropship-${batchId.slice(0, 8)}.csv`, content: Buffer.from(csv, "utf8") }],
       storeId,

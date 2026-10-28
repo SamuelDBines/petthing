@@ -52,7 +52,7 @@ export function stripeSecretKeyForStore(
       throw new Error(`Store "${storeId}" is live on this host but STRIPE_LIVE_SECRET_KEY is not set.`);
     }
     if (!stripeLiveKeyOptInEnabled(env)) {
-      throw new Error(`Store "${storeId}" is live — set STRIPE_LIVE_MODE=true with STRIPE_LIVE_SECRET_KEY.`);
+      throw new Error(`Store "${storeId}" is live. set STRIPE_LIVE_MODE=true with STRIPE_LIVE_SECRET_KEY.`);
     }
     assertStripeSecretKeyAllowed(key, env);
     return key;

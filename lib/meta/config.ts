@@ -61,13 +61,13 @@ export function metaGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
     if (pixel && !capi) {
       warnings.push({
         storeId: store.id,
-        message: `META_CAPI_TOKEN_${store.id.replace(/-/g, "_").toUpperCase()} missing — server Purchase events will not send`,
+        message: `META_CAPI_TOKEN_${store.id.replace(/-/g, "_").toUpperCase()} missing. server Purchase events will not send`,
       });
     }
     if (capi && !pixel) {
       warnings.push({
         storeId: store.id,
-        message: `META_CAPI_TOKEN set but META_PIXEL_ID_${store.id.replace(/-/g, "_").toUpperCase()} missing — CAPI events need a pixel id`,
+        message: `META_CAPI_TOKEN set but META_PIXEL_ID_${store.id.replace(/-/g, "_").toUpperCase()} missing. CAPI events need a pixel id`,
       });
     }
     if (pixel && !/^[0-9]+$/.test(pixel)) {

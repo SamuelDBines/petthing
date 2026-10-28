@@ -94,7 +94,7 @@ export const INTEGRATION_ENV: Record<IntegrationId, EnvRequirement[]> = {
     {
       key: "GODROPSHIP_ORDERS_EMAIL",
       optional: true,
-      description: "CSV order inbox (no supplier API — email automation)",
+      description: "CSV order inbox (no supplier API. Email automation)",
     },
   ],
   artinbulk_email: [
@@ -246,7 +246,7 @@ export function validateGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
       warnings.push({
         scope: profile.storeId,
         message:
-          "PRODIGI_SANDBOX_API_KEY missing — test-store Prodigi sync/submit calls are skipped with “sandbox key missing” until set",
+          "PRODIGI_SANDBOX_API_KEY missing. Test-store Prodigi sync/submit calls are skipped with “sandbox key missing” until set",
       });
     }
   }

@@ -369,7 +369,7 @@ export function AdminDashboard({
           <p className="mt-1 text-cream/80">
             {stats.falCredit.waiting} portrait order(s) waiting for credit
             {stats.falCredit.slaOverdue > 0 ? ` · ${stats.falCredit.slaOverdue} over 24h` : ""}.
-            Checkout still works — top up fal.ai to resume generation.
+            Checkout still works. top up fal.ai to resume generation.
           </p>
           <p className="mt-2">
             <a className="underline" href="https://fal.ai/dashboard/billing" target="_blank" rel="noreferrer">
@@ -406,8 +406,8 @@ export function AdminDashboard({
                       <td className="py-2">{storeLabel(row.storeId)}</td>
                       <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs ${row.storeLive ? "bg-moss/30 text-ink" : "bg-line/40"}`}>{row.storeLive ? "Live" : "Test"}</span></td>
                       <td>{row.todayRevenue}</td>
-                      <td>{row.todayRevenueLive ?? "—"}</td>
-                      <td>{row.todayRevenueTest ?? "—"}</td>
+                      <td>{row.todayRevenueLive ?? "n/a"}</td>
+                      <td>{row.todayRevenueTest ?? "n/a"}</td>
                       <td>{row.reviewQueue}</td>
                       <td>{row.shopPaidQueue}</td>
                       <td>{row.generating}</td>
@@ -694,7 +694,7 @@ export function AdminDashboard({
 
       {tab === "hand_painted" ? (
         <section className="mt-6 space-y-4" data-testid="admin-hand-painted-panel">
-          <p className="text-sm text-cream/70">Paid hand-painted orders — copy the supplier email draft and send manually to ArtInBulk.</p>
+          <p className="text-sm text-cream/70">Paid hand-painted orders. copy the supplier email draft and send manually to ArtInBulk.</p>
           {handPainted.length === 0 ? <p>No hand-painted orders yet.</p> : null}
           {handPainted.map((row) => (
             <article key={row.orderId} className="rounded-2xl border border-line p-4">

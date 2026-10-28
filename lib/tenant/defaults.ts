@@ -57,7 +57,7 @@ const JINGLEFOLD_THEME: typeof THEMES = [
       {
         id: "cosy-classic",
         name: "Cosy classic",
-        blurb: "Warm candlelight and muted reds — elegant, not loud.",
+        blurb: "Warm candlelight and muted reds. Elegant, not loud.",
         thumbnail: "",
         swatch: "#8b3a3a",
       },
@@ -105,7 +105,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
     brand: {
       appName: "Pawtraitry",
       tagline:
-        "Premium AI pet portraits from your photos — a thoughtful gift for cat and dog lovers, all year round.",
+        "Premium AI pet portraits from your photos. A thoughtful gift for cat and dog lovers, all year round.",
       siteDomain: "pawtraitry.com",
       supportEmail: "hello@pawtraitry.com",
       legalTradingName: "Pawtraitry",
@@ -168,7 +168,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
     ],
     brand: {
       appName: "Fixmonger",
-      tagline: "Keep windows open — pets in, bugs out, all year.",
+      tagline: "Keep windows open: pets in, bugs out, all year.",
       siteDomain: "fixmonger.co.uk",
       supportEmail: "hello@fixmonger.co.uk",
       legalTradingName: "Fixmonger",

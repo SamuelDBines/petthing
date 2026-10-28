@@ -30,7 +30,7 @@ SET config = jsonb_set(
   jsonb_set(
     config,
     '{brand,tagline}',
-    '"Keep windows open — pets in, bugs out, all year."'::jsonb,
+    '"Keep windows open: pets in, bugs out, all year."'::jsonb,
     true
   ),
   '{catalog,freeUkShipping}',
@@ -39,6 +39,6 @@ SET config = jsonb_set(
 )
 WHERE id = 'fixmonger'
   AND (
-    config->'brand'->>'tagline' IS DISTINCT FROM 'Keep windows open — pets in, bugs out, all year.'
+    config->'brand'->>'tagline' IS DISTINCT FROM 'Keep windows open: pets in, bugs out, all year.'
     OR coalesce(config->'catalog'->>'freeUkShipping', 'false') IS DISTINCT FROM 'true'
   );

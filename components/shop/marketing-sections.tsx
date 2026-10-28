@@ -7,7 +7,7 @@ import { marketingConsentGranted, metaCheckoutAttribution, trackMetaEvent } from
 
 const TRUST_ITEMS = [
   "UK warehouse fulfilment on ready-made decor",
-  "Tracked delivery — typical 3–5 working days",
+  "Tracked delivery. Typical 3–5 working days",
   "30-day returns on unused items",
   "Secure checkout powered by Stripe",
 ];
@@ -29,15 +29,15 @@ export function TrustRow() {
 
 export function HowPersonalisedWorks() {
   const steps = [
-    ["Upload", "Add a clear photo of your pet or family — up to six angles."],
+    ["Upload", "Add a clear photo of your pet or family. Up to six angles."],
     ["Preview", "Pick a festive style and approve the artwork before you pay."],
     ["We print", "Prodigi or Printful fulfil in the UK with tracked delivery."],
-    ["Hang it", "Your private link stays yours — share only if you want to."],
+    ["Hang it", "Your private link stays yours. Share only if you want to."],
   ];
   return (
     <section id="how-it-works" className="mx-auto max-w-6xl px-4 py-14">
       <h2 className="display text-3xl text-cream">How personalised orders work</h2>
-      <p className="mt-2 max-w-2xl text-muted">No surprises — you see the artwork before checkout.</p>
+      <p className="mt-2 max-w-2xl text-muted">No surprises. you see the artwork before checkout.</p>
       <ol className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map(([title, body], index) => (
           <li key={title} className="rounded-2xl border border-line bg-bark p-5">
@@ -100,7 +100,7 @@ export function EmailCapture({ storeName }: { storeName: string }) {
       setError(body.error || "Could not join the list.");
       return;
     }
-    setNote("Thanks — we will only email about seasons and delivery windows.");
+    setNote("Thanks. We will only email about seasons and delivery windows.");
     setEmail("");
   }
   return (

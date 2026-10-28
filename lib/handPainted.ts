@@ -19,11 +19,11 @@ export function buildSupplierEmailDraft(args: {
   brandName: string;
 }) {
   return [
-    `Subject: ArtInBulk hand-painted order — ${args.order.id.slice(0, 8)}`,
+    `Subject: ArtInBulk hand-painted order. ${args.order.id.slice(0, 8)}`,
     "",
     "Hi ArtInBulk team,",
     "",
-    "Please quote and schedule the following hand-painted pet portrait (paid on our site — do not start until we confirm):",
+    "Please quote and schedule the following hand-painted pet portrait (paid on our site. Do not start until we confirm):",
     "",
     `Customer email: ${args.order.email}`,
     `Canvas size: ${args.sizeLabel}`,
@@ -73,7 +73,7 @@ export async function createHandPaintedWorkflow(order: Order, brandName: string)
   if (supplierTo) {
     await sendEmail({
       to: supplierTo,
-      subject: `Hand-painted order ${order.id.slice(0, 8)} — ${brandName}`,
+      subject: `Hand-painted order ${order.id.slice(0, 8)}. ${brandName}`,
       html: `<pre style="white-space:pre-wrap;font-family:system-ui,sans-serif">${draft}</pre>`,
     });
   } else {

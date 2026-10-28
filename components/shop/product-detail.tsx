@@ -106,8 +106,8 @@ export function ShopProductDetail({ product, crossSells, cutoffNote }: Props) {
               <h2 className="font-medium text-cream">Product safety (GPSR)</h2>
               {product.gpsr ? (
                 <dl className="mt-2 space-y-2 text-muted">
-                  <div><dt className="font-medium text-cream">Manufacturer</dt><dd>{product.gpsr.manufacturerName} — {product.gpsr.manufacturerAddress}</dd></div>
-                  <div><dt className="font-medium text-cream">Responsible person (UK/EU)</dt><dd>{product.gpsr.responsiblePersonName} — {product.gpsr.responsiblePersonAddress}</dd></div>
+                  <div><dt className="font-medium text-cream">Manufacturer</dt><dd>{product.gpsr.manufacturerName}, {product.gpsr.manufacturerAddress}</dd></div>
+                  <div><dt className="font-medium text-cream">Responsible person (UK/EU)</dt><dd>{product.gpsr.responsiblePersonName}, {product.gpsr.responsiblePersonAddress}</dd></div>
                   {product.gpsr.safetyWarnings ? <div><dt className="font-medium text-cream">Warnings</dt><dd>{product.gpsr.safetyWarnings}</dd></div> : null}
                   {product.gpsr.allergens ? <div><dt className="font-medium text-cream">Allergens</dt><dd>{product.gpsr.allergens}</dd></div> : null}
                   {product.gpsr.needsConfirming ? <p className="text-xs text-muted/80">Supplier details flagged for confirmation in admin.</p> : null}

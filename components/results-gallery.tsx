@@ -249,7 +249,7 @@ export function ResultsGallery({ token }: { token: string }) {
       {showPrints ? (
       <section id="prints" className="mt-6 rounded-[2rem] border border-line p-5">
         <h2 className="text-3xl">Prints &amp; gifts, posted in the UK</h2>
-        <p className="mt-2 text-sm text-cream/70">Prices include UK delivery. Larger sizes need a high-resolution portrait — unavailable sizes are hidden.</p>
+        <p className="mt-2 text-sm text-cream/70">Prices include UK delivery. Larger sizes need a high-resolution portrait; unavailable sizes are hidden.</p>
         <label className="mt-3 block text-sm">Portrait for physical products
           <select className="field mt-1" value={assetId} onChange={(event) => setAssetId(event.target.value)}>
             {data.images.map((image) => <option key={image.id} value={image.id}>{image.styleName}</option>)}
@@ -288,7 +288,7 @@ export function ResultsGallery({ token }: { token: string }) {
                 checkout({ kind: "print", token, productId: classicProductId, assetId, addGreetingCard: addGreetingCard || undefined })
               }
             >
-              Order framed print · {classicPricePence ? formatGbp(classicPricePence) : "—"}
+              Order framed print · {classicPricePence ? formatGbp(classicPricePence) : "n/a"}
             </button>
           </div>
         ) : null}
@@ -313,7 +313,7 @@ export function ResultsGallery({ token }: { token: string }) {
                 {product.previewImage ? (
                   <PrintMockupImage
                     src={product.previewImage}
-                    alt={product.previewAlt ?? `Pet portrait — ${product.name}`}
+                    alt={product.previewAlt ?? `Pet portrait. ${product.name}`}
                   />
                 ) : null}
                 <span className="block text-xl">{product.name}</span>
@@ -339,7 +339,7 @@ export function ResultsGallery({ token }: { token: string }) {
         ) : null}
 
         <ul className="mt-3 text-sm text-cream/70">
-          {data.prints?.map((print) => <li key={print.id}>{print.product}: {print.status}{print.error ? ` — ${print.error}` : ""}</li>)}
+          {data.prints?.map((print) => <li key={print.id}>{print.product}: {print.status}{print.error ? `. ${print.error}` : ""}</li>)}
         </ul>
       </section>
       ) : null}

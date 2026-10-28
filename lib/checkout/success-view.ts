@@ -75,17 +75,17 @@ export function checkoutSuccessCopy(phase: CheckoutSuccessPhase, kind: CheckoutS
     case "confirming":
       return {
         title: "Confirming your payment",
-        lead: "Stripe is finishing up. This usually takes a few seconds — we'll refresh automatically.",
+        lead: "Stripe is finishing up. This usually takes a few seconds. We'll refresh automatically.",
       };
     case "generating":
       return {
-        title: "Payment received — portraits in progress",
+        title: "Payment received: portraits in progress",
         lead: "Your portraits are queued and will be ready soon. Most orders finish within a few minutes, then we email your private gallery link.",
       };
     case "ready":
       return {
         title: "Your gallery is ready",
-        lead: "Open your private link below. We've also emailed it — check spam and add orders@pawtraitry.com to your contacts.",
+        lead: "Open your private link below. We've also emailed it. Check spam and add orders@pawtraitry.com to your contacts.",
       };
     case "review":
       return {
@@ -95,7 +95,7 @@ export function checkoutSuccessCopy(phase: CheckoutSuccessPhase, kind: CheckoutS
     case "failed":
       return {
         title: "Something went wrong",
-        lead: "We couldn't finish your portraits. Reply to your confirmation email or contact us — we'll regenerate or refund.",
+        lead: "We couldn't finish your portraits. Reply to your confirmation email or contact us. We'll regenerate or refund.",
       };
     case "refunded":
       return {
@@ -105,7 +105,7 @@ export function checkoutSuccessCopy(phase: CheckoutSuccessPhase, kind: CheckoutS
     case "expired_unpaid":
       return {
         title: "Checkout wasn't completed",
-        lead: "This session expired or payment didn't go through. You can return to create and try again — you won't be charged twice for an unfinished checkout.",
+        lead: "This session expired or payment didn't go through. You can return to create and try again. You won't be charged twice for an unfinished checkout.",
       };
     case "christmas_booked":
       return {

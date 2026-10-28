@@ -25,7 +25,7 @@ export async function buildAdminDigestHtml() {
     const portraitOrders = await store.listOrders(id);
     const failedPartner = portraitOrders.filter((o) => o.partnerFulfillment?.status === "failed").length;
 
-    let visitors = "—";
+    let visitors = "n/a";
     const day = londonDay();
     if (store.getAnalyticsRollups) {
       const daily = await store.getAnalyticsRollups(id, day, day);

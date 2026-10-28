@@ -145,11 +145,11 @@ export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
                 {data.people.map((person) => (
                   <tr key={person.personKey} className="border-t border-line">
                     <td className="py-2"><Link className="underline" href={`/admin/customers/${encodeURIComponent(person.personKey)}`}>{person.email}</Link></td>
-                    <td>{person.name ?? "—"}</td>
+                    <td>{person.name ?? "n/a"}</td>
                     <td>{person.storeIds.join(", ")}</td>
                     <td>{person.firstSeenAt.slice(0, 10)}</td>
                     <td>{person.signupSources.join(", ")}</td>
-                    <td>{person.utmSource ?? "—"}{person.utmCampaign ? ` / ${person.utmCampaign}` : ""}</td>
+                    <td>{person.utmSource ?? "n/a"}{person.utmCampaign ? ` / ${person.utmCampaign}` : ""}</td>
                     <td>{person.marketingConsent ? "Yes" : "No"}</td>
                     <td>{person.orderCount}</td>
                     <td>{formatGbp(person.totalSpentPence)}</td>

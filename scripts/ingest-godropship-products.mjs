@@ -170,7 +170,7 @@ async function buildBundleComposite(store, sku, components, bySku) {
     width: CANVAS,
     height: CANVAS,
     bytes: buf.length,
-    alt: `${sku} bundle — ${itemCount} items`,
+    alt: `${sku} bundle, ${itemCount} items`,
   };
 }
 
@@ -202,7 +202,7 @@ async function ingestProduct(store, product, bySku) {
       width: meta.width,
       height: meta.height,
       bytes: meta.bytes,
-      alt: `${name} — image ${i + 1}`,
+      alt: `${name}, image ${i + 1}`,
     });
   }
 

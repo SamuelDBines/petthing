@@ -37,7 +37,7 @@ async function main() {
     });
     if (result.sent) {
       console.log(
-        `${storeId}/${kind}: sent provider=${result.provider} id=${result.relayId ?? result.messageId ?? "—"} status=${result.status ?? "ok"}`,
+        `${storeId}/${kind}: sent provider=${result.provider} id=${result.relayId ?? result.messageId ?? "n/a"} status=${result.status ?? "ok"}`,
       );
     } else {
       console.log(`${storeId}/${kind}: not sent (gate, suppression, or no provider)`);

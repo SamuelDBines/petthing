@@ -15,18 +15,18 @@ import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
 const FAQ: [string, string][] = [
   [
     "Can I leave windows open with pets inside?",
-    "Our cut-to-fit polyester mesh helps keep insects out while you ventilate. It is not cat-proof or claw-proof — our Cat-safe windows range is coming soon as an own-brand, pet-grade option.",
+    "Our cut-to-fit polyester mesh helps keep insects out while you ventilate. It is not cat-proof or claw-proof. Our Cat-safe windows range is coming soon as an own-brand, pet-grade option.",
   ],
-  ["Where do you ship from?", "Go Dropship UK — free delivery, typically 3–5 working days."],
+  ["Where do you ship from?", "Go Dropship UK. Free delivery, typically 3–5 working days."],
   ["Is the mesh pet-safe?", "We never claim polyester fly mesh is claw-proof. Use it for insects and ventilation, not as a pet barrier."],
-  ["Can I return something?", "Unused items in original packaging — see Returns & refunds."],
+  ["Can I return something?", "Unused items in original packaging. See Returns & refunds."],
 ];
 
 const SECTIONS: { id: string; title: string; blurb: string; categories: string[] }[] = [
   {
     id: "catsafe",
     title: "Cat-safe windows",
-    blurb: "Own-brand, pet-grade screens — sourcing now. Join the list below for launch news.",
+    blurb: "Own-brand, pet-grade screens. Sourcing now. Join the list below for launch news.",
     categories: [],
   },
   {
@@ -50,7 +50,7 @@ const SECTIONS: { id: string; title: string; blurb: string; categories: string[]
   {
     id: "kits",
     title: "Door kits",
-    blurb: "Thermal plus mesh for the same doorway — priced as a pair.",
+    blurb: "Thermal plus mesh for the same doorway. Priced as a pair.",
     categories: ["bundles"],
   },
 ];
@@ -67,7 +67,7 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-pumpkin">Fixmonger</p>
           <h1 className="mt-3 display text-4xl leading-tight text-cream sm:text-5xl">
-            Keep windows open — pets in, bugs out, all year.
+            Keep windows open. pets in, bugs out, all year.
           </h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
             Magnetic door curtains, window insect mesh, and draught excluders from a UK warehouse partner. Free UK
@@ -112,9 +112,9 @@ export function FixmongerHome({ products }: { products: StorefrontCatalogueProdu
 
       <section id="catsafe" className="mx-auto max-w-6xl px-4 py-10">
         <div className="rounded-2xl border border-dashed border-line bg-bark/40 px-6 py-8 text-center">
-          <h2 className="display text-2xl text-cream">Cat-safe windows — coming soon</h2>
+          <h2 className="display text-2xl text-cream">Cat-safe windows, coming soon</h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted">
-            We are sourcing a pet-grade, own-brand window screen. Until then, our cut-to-fit insect mesh is for bugs —
+            We are sourcing a pet-grade, own-brand window screen. Until then, our cut-to-fit insect mesh is for bugs,
             not claws. We will never call standard polyester mesh cat-proof.
           </p>
         </div>

@@ -31,7 +31,7 @@ export function AdminHealthPanel() {
               <span className="text-cream">{row.label}</span>
               <span className="text-muted">
                 {row.status}
-                {row.detail ? ` — ${row.detail}` : ""}
+                {row.detail ? `. ${row.detail}` : ""}
               </span>
             </li>
           ))}
@@ -56,7 +56,7 @@ export function AdminHealthPanel() {
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-muted">
             {missing.map((m) => (
               <li key={`${m.scope}:${m.key}`}>
-                <strong className="text-cream">{m.key}</strong> ({m.scope}) — {m.description}
+                <strong className="text-cream">{m.key}</strong> ({m.scope}). {m.description}
               </li>
             ))}
           </ul>

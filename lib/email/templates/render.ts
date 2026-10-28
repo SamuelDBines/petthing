@@ -108,7 +108,7 @@ function buildContent(
           : { label: `Visit ${appName}`, href: origin };
       return {
         subject: `Your ${appName} order confirmation`,
-        preheader: `Order ${payload.orderRef ?? ""} confirmed — we're on it.`,
+        preheader: `Order ${payload.orderRef ?? ""} confirmed. We're on it.`,
         bodyHtml: `${p(hi)}${p(thanks)}${orderTable(payload)}${p(followUp)}`,
         cta,
       };
@@ -116,15 +116,15 @@ function buildContent(
     case "portrait_ready":
       return {
         subject: `Your ${appName} preview is ready`,
-        preheader: "Your private gallery link is inside — download before it expires.",
-        bodyHtml: `${p(hi)}${p(`Your personalised ${appName} portraits are ready to view and download.`)}${p("The link is private — don't share it if you want to keep full-resolution files to yourself.")}`,
+        preheader: "Your private gallery link is inside. Download before it expires.",
+        bodyHtml: `${p(hi)}${p(`Your personalised ${appName} portraits are ready to view and download.`)}${p("The link is private. Don't share it if you want to keep full-resolution files to yourself.")}`,
         cta: { label: "Open your gallery", href: payload.galleryUrl ?? `${origin}/results/sample` },
       };
     case "shipped":
       return {
         subject: `Your ${appName} order is on its way`,
         preheader: payload.trackingNumber ? `Tracking: ${payload.trackingNumber}` : "Your parcel has left our UK partner.",
-        bodyHtml: `${p(hi)}${p(`Good news — your ${appName} order has been dispatched.`)}${trackingBlock(payload)}${linesList(payload)}`,
+        bodyHtml: `${p(hi)}${p(`Good news: your ${appName} order has been dispatched.`)}${trackingBlock(payload)}${linesList(payload)}`,
         cta: payload.trackingUrl
           ? { label: "Track your parcel", href: payload.trackingUrl }
           : { label: `Visit ${appName}`, href: origin },
@@ -132,22 +132,22 @@ function buildContent(
     case "delivered_review":
       return {
         subject: `How was your ${appName} order?`,
-        preheader: "Tell us how everything looked — we read every reply.",
-        bodyHtml: `${p(hi)}${p(`We hope your order arrived safely. If anything isn't right, reply within 30 days for unused returns.`)}${linesList(payload)}${p("A quick photo and a sentence helps other shoppers — reply to this email anytime.")}`,
+        preheader: "Tell us how everything looked. We read every reply.",
+        bodyHtml: `${p(hi)}${p(`We hope your order arrived safely. If anything isn't right, reply within 30 days for unused returns.`)}${linesList(payload)}${p("A quick photo and a sentence helps other shoppers. Reply to this email anytime.")}`,
         cta: { label: `Shop ${appName} again`, href: origin },
       };
     case "welcome":
       return {
         subject: `Welcome to ${appName}`,
         preheader: storeWelcomePreheader(storeId),
-        bodyHtml: `${p(hi)}${p(welcomeBody(storeId, appName))}${p(`You'll hear from us at ${appName} with practical tips and occasional offers — always with an easy unsubscribe.`)}`,
+        bodyHtml: `${p(hi)}${p(welcomeBody(storeId, appName))}${p(`You'll hear from us at ${appName} with practical tips and occasional offers. Always with an easy unsubscribe.`)}`,
         cta: { label: `Explore ${appName}`, href: origin },
       };
     case "abandoned_checkout":
       return {
         subject: `Still thinking about your ${appName} basket?`,
-        preheader: "Your items are still waiting — checkout takes a minute.",
-        bodyHtml: `${p(hi)}${p(`You started checkout but didn't finish payment.`)}${linesList(payload)}${p("Your basket is saved — complete checkout when you're ready.")}`,
+        preheader: "Your items are still waiting. Checkout takes a minute.",
+        bodyHtml: `${p(hi)}${p(`You started checkout but didn't finish payment.`)}${linesList(payload)}${p("Your basket is saved. Complete checkout when you're ready.")}`,
         cta: { label: "Return to your cart", href: payload.cartUrl ?? `${origin}/shop/cart` },
       };
     default:
@@ -156,19 +156,19 @@ function buildContent(
 }
 
 function storeWelcomePreheader(storeId: EmailStoreId) {
-  if (storeId === "fixmonger") return "Windows open, bugs out — screening tips from Fixmonger.";
+  if (storeId === "fixmonger") return "Windows open, bugs out. Screening tips from Fixmonger.";
   if (storeId === "jinglefold") return "Personalised Christmas updates from Jinglefold.";
   return "Portrait tips and gentle reminders from Pawtraitry.";
 }
 
 function welcomeBody(storeId: EmailStoreId, appName: string) {
   if (storeId === "fixmonger") {
-    return `Welcome to ${appName}. We're here to help you keep windows and doors open without letting insects — or the cold — win.`;
+    return `Welcome to ${appName}. We're here to help you keep windows and doors open without letting insects. or the cold. win.`;
   }
   if (storeId === "jinglefold") {
     return `Welcome to ${appName}. We'll share seasonal deadlines, styling ideas, and personalised gift inspiration.`;
   }
-  return `Welcome to ${appName}. We'll send portrait inspiration, order updates, and occasional offers — never spam.`;
+  return `Welcome to ${appName}. We'll send portrait inspiration, order updates, and occasional offers. never spam.`;
 }
 
 function orderTable(payload: BrandedEmailPayload) {
@@ -216,10 +216,10 @@ function linesList(payload: BrandedEmailPayload) {
 
 function trackingBlock(payload: BrandedEmailPayload) {
   if (!payload.trackingNumber && !payload.carrier) {
-    return p("Your parcel is on its way — tracking will follow if your carrier provides it.");
+    return p("Your parcel is on its way. Tracking will follow if your carrier provides it.");
   }
   return p(
-    `Carrier: <strong>${escape(payload.carrier ?? "UK carrier")}</strong><br />Tracking: <strong>${escape(payload.trackingNumber ?? "—")}</strong>`,
+    `Carrier: <strong>${escape(payload.carrier ?? "UK carrier")}</strong><br />Tracking: <strong>${escape(payload.trackingNumber ?? "n/a")}</strong>`,
   );
 }
 

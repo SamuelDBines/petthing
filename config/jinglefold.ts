@@ -44,7 +44,7 @@ export const JINGLEFOLD_PERSONALISED_PRODUCTS = [
     cutoffKind: "prodigi_bauble" as JinglefoldCutoffKind,
     supplier: "prodigi" as const,
     name: "Personalised shatterproof bauble",
-    detail: "Your photo on a shatterproof tree bauble — made in the UK via Prodigi.",
+    detail: "Your photo on a shatterproof tree bauble. Made in the UK via Prodigi.",
   },
   {
     id: "jf_alum_sq",
@@ -89,7 +89,7 @@ export const JINGLEFOLD_PERSONALISED_PRODUCTS = [
     cutoffKind: "printful_stocking" as JinglefoldCutoffKind,
     supplier: "printful" as const,
     name: "Personalised Christmas stocking",
-    detail: "Printful UK fulfilment — upload your photo for a cosy stocking.",
+    detail: "Printful UK fulfilment. Upload your photo for a cosy stocking.",
   },
   {
     id: "jf_plas_baub_3",
@@ -98,7 +98,7 @@ export const JINGLEFOLD_PERSONALISED_PRODUCTS = [
     cutoffKind: "prodigi_bauble" as JinglefoldCutoffKind,
     supplier: "prodigi" as const,
     name: "Personalised bauble trio",
-    detail: "Three matching shatterproof baubles — one design, three trees.",
+    detail: "Three matching shatterproof baubles. One design, three trees.",
   },
 ] as const;
 
@@ -136,7 +136,7 @@ export const JINGLEFOLD_PERSONALISED_CONSENT =
 
 export const JINGLEFOLD_CLP_BY_SKU: Record<string, string> = {
   "GEM-76735":
-    "Scented candles — CLP hazard information: may cause an allergic skin reaction. Keep away from children and pets. Never leave a burning candle unattended. Dispose of contents/container in accordance with local regulations. See supplier label on the product for full UFI and hazard pictograms.",
+    "Scented candles. CLP hazard information: may cause an allergic skin reaction. Keep away from children and pets. Never leave a burning candle unattended. Dispose of contents/container in accordance with local regulations. See supplier label on the product for full UFI and hazard pictograms.",
 };
 
 export function jinglefoldShippingPence(subtotalPence: number) {

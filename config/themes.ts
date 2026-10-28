@@ -38,7 +38,7 @@ export const THEMES: ThemeDefinition[] = [
     deadlineLabel: "Delivered before Halloween",
     heroTitle: "Your photo, dressed for Halloween.",
     heroBody:
-      "Send a few snaps of the pet, the kids, or the two of you. We paint family-friendly seasonal portraits and cards — recognisable faces, no spooky surprises, ready before 31 October.",
+      "Send a few snaps of the pet, the kids, or the two of you. We paint family-friendly seasonal portraits and cards: recognisable faces, no spooky surprises, ready before 31 October.",
     styles: [
       {
         id: "victorian-portrait",
@@ -93,7 +93,7 @@ export const THEMES: ThemeDefinition[] = [
     deadlineLabel: "Ready for Christmas Eve",
     heroTitle: "The same faces, now in the Christmas set.",
     heroBody:
-      "Christmas portraits open on 1 November. Pre-order and we start from the photos you already trust us with — or send new ones when the theme opens.",
+      "Christmas portraits open on 1 November. Pre-order and we start from the photos you already trust us with, or send new ones when the theme opens.",
     styles: [
       {
         id: "snow-window",

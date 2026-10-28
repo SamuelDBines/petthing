@@ -47,7 +47,7 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
   const product = personalisedProductForPricingSku(pricingSku);
   if (!product) throw new Error(`Unknown personalised SKU ${pricingSku}`);
   const shipping = order.shipping;
-  if (!shipping) throw new Error("Shipping address missing — customer must complete Stripe checkout with UK address");
+  if (!shipping) throw new Error("Shipping address missing. Customer must complete Stripe checkout with UK address");
 
   const imageUrl = await resultAssetUrl(order);
   const now = new Date().toISOString();
@@ -154,7 +154,7 @@ export async function syncPartnerFulfillment(order: Order): Promise<PartnerFulfi
         withEmailDelivery(orderEmailDelivery(order), {
           to: order.email,
           subject: `Your ${config.brand.appName} order is on its way`,
-          html: `<p>Tracking: <strong>${remote.trackingNumber}</strong>${remote.trackingUrl ? ` — <a href="${remote.trackingUrl}">Track parcel</a>` : ""}</p>`,
+          html: `<p>Tracking: <strong>${remote.trackingNumber}</strong>${remote.trackingUrl ? `: <a href="${remote.trackingUrl}">Track parcel</a>` : ""}</p>`,
           storeId: order.storeId,
         }),
       );

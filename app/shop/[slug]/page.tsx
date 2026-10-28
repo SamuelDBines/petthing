@@ -44,7 +44,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
   const past = cutoffIso ? isPastCutoff(cutoffIso) : false;
   const cutoffNote = cutoffIso
     ? past
-      ? "May arrive after Christmas — order only if you are happy with late delivery."
+      ? "May arrive after Christmas. Order only if you are happy with late delivery."
       : `Order by ${formatLondonDate(cutoffIso, { day: "numeric", month: "short" })} for Christmas delivery (estimate).`
     : null;
 

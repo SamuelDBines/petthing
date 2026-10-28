@@ -148,7 +148,7 @@ export async function sendShopOrderCancelledEmail(
   await sendEmail(
     withEmailDelivery(orderEmailDelivery(order), {
       to: order.email,
-      subject: `Order cancelled — ${config.brand.appName}`,
+      subject: `Order cancelled: ${config.brand.appName}`,
       html: `<p>Your ${config.brand.appName} order has been cancelled.</p>${supplierNote}${refundNote}`,
       storeId: order.storeId,
     }),
@@ -167,7 +167,7 @@ export async function sendShopRefundEmail(order: ShopOrder, amountPence: number)
   await sendEmail(
     withEmailDelivery(orderEmailDelivery(order), {
       to: order.email,
-      subject: `Refund issued — ${config.brand.appName}`,
+      subject: `Refund issued: ${config.brand.appName}`,
       html: `<p>We've processed a refund of <strong>${formatGbp(amountPence)}</strong>.</p>`,
       storeId: order.storeId,
     }),

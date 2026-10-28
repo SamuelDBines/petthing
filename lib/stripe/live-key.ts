@@ -10,7 +10,7 @@ export function stripeSecretKeyIsLive(key: string) {
 export function assertStripeSecretKeyAllowed(key: string, env: NodeJS.ProcessEnv = process.env) {
   if (stripeSecretKeyIsLive(key) && !stripeLiveKeyOptInEnabled(env)) {
     throw new Error(
-      "STRIPE_SECRET_KEY is a live key — set STRIPE_LIVE_MODE=true to opt in (staging should keep test keys).",
+      "STRIPE_SECRET_KEY is a live key. Set STRIPE_LIVE_MODE=true to opt in (staging should keep test keys).",
     );
   }
 }
