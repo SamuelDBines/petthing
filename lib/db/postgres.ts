@@ -320,6 +320,43 @@ export const postgresStore = {
     if (!row) throw new Error("Order not found");
     return toOrder(row);
   },
+  async claimPawtraitryBasketFulfilment(orderId: string) {
+    const client = getSql();
+    const claimedAt = new Date().toISOString();
+    type OrderRow = typeof orders.$inferSelect;
+    const rows = await client<OrderRow[]>`
+      update orders as o
+      set product_meta = jsonb_set(
+        coalesce(o.product_meta, '{}'::jsonb),
+        '{basketFulfilment}',
+        coalesce(o.product_meta->'basketFulfilment', '{}'::jsonb)
+          || jsonb_build_object('status', 'running', 'claimedAt', ${claimedAt}::text, 'lastError', null)
+          || case
+            when o.product_meta->'basketFulfilment'->>'requestedAt' is not null then '{}'::jsonb
+            else jsonb_build_object('requestedAt', ${claimedAt}::text)
+          end,
+        true
+      )
+      where o.id = ${orderId}::uuid
+        and o.store_id = 'pawtraitry'
+        and o.status = 'delivered'
+        and jsonb_array_length(coalesce(o.product_meta->'checkoutBasket'->'physical', '[]'::jsonb)) > 0
+        and coalesce(o.product_meta->'basketFulfilment'->>'status', '') <> 'done'
+        and (
+          o.product_meta->'basketFulfilment' is null
+          or o.product_meta->'basketFulfilment'->>'status' is null
+          or o.product_meta->'basketFulfilment'->>'status' in ('pending', 'failed')
+          or (
+            o.product_meta->'basketFulfilment'->>'status' = 'running'
+            and (o.product_meta->'basketFulfilment'->>'claimedAt')::timestamptz
+              < now() - interval '30 minutes'
+          )
+        )
+      returning o.*
+    `;
+    const row = rows[0];
+    return row ? toOrder(row) : null;
+  },
   async getOrder(id: string) {
     const [row] = await db().select().from(orders).where(eq(orders.id, id)).limit(1);
     return row ? toOrder(row) : null;

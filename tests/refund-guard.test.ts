@@ -1,3 +1,10 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+process.env.LOCAL_DATA_DIR = mkdtempSync(join(tmpdir(), "petthing-refund-guard-"));
+process.env.EMAIL_PROVIDER = "none";
+
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -26,7 +33,7 @@ function deliveredOrder(id: string): Order {
     digitalSupplyConsentAt: "2026-01-01T00:00:00.000Z",
     utm: {},
     referralCodeUsed: null,
-    ownReferralCode: `PAW-${id.slice(0, 6)}`,
+    ownReferralCode: `PAW-RG-${id}`,
     resultsToken: `results-${id}`,
     uploadToken: `upload-${id}`,
     generationCostGbp: 0,

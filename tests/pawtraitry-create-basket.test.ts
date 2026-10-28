@@ -120,6 +120,12 @@ test("basket print idempotency skips units already submitted", () => {
   assert.equal(count, 1);
 });
 
+test("mini tier hides A2 poster and caps large canvases", () => {
+  const mini = printProductIdsAvailableForTier(getTier("mini"));
+  assert.ok(!mini.includes("poster_a2_matte"));
+  assert.ok(!mini.includes("canvas_stretched_24x32"));
+});
+
 test("deluxe tier offers more print products than mini after upscale gating", () => {
   const mini = printProductIdsAvailableForTier(getTier("mini"));
   const classic = printProductIdsAvailableForTier(getTier("classic"));
@@ -129,7 +135,16 @@ test("deluxe tier offers more print products than mini after upscale gating", ()
   assert.ok(mini.includes("mug_11oz_white"));
 });
 
-test("fal print upscale default cost is about six tenths of a penny GBP", () => {
+test("fal print upscale default cost uses conservative two cent USD fallback", () => {
+  const prev = process.env.FAL_UPSCALE_COST_USD;
+  delete process.env.FAL_UPSCALE_COST_USD;
+  assert.equal(falPrintUpscaleCostGbp(), falPrintUpscaleCostGbp(null));
   assert.ok(falPrintUpscaleCostGbp() > 0);
-  assert.ok(falPrintUpscaleCostGbp() < 0.02);
+  if (prev === undefined) delete process.env.FAL_UPSCALE_COST_USD;
+  else process.env.FAL_UPSCALE_COST_USD = prev;
+});
+
+test("fal print upscale bills from inference seconds when provided", () => {
+  const billed = falPrintUpscaleCostGbp(25);
+  assert.ok(billed > falPrintUpscaleCostGbp());
 });

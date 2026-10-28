@@ -3,6 +3,7 @@ import {
   autoAdvanceShippedShopOrders,
   retryFailedPartnerSubmits,
 } from "@/lib/ops/order-watchdog";
+import { processPawtraitryBasketFulfilmentWatchdog } from "@/lib/pawtraitry/basket-fulfilment-runner";
 import { syncOpenProdigiPrints } from "@/lib/ops/prodigi-print-sync";
 import { assertCron } from "@/lib/runtime";
 import { syncAllOpenPartnerOrders } from "@/lib/jinglefold/fulfillment";
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   const partnerRetried = await retryFailedPartnerSubmits("jinglefold");
   const printsSynced = await syncOpenProdigiPrints();
   const delivered = await autoAdvanceShippedShopOrders();
+  const pawtraitryBasket = await processPawtraitryBasketFulfilmentWatchdog();
   return Response.json({
     ok: true,
     stuck,
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
     partnerRetried,
     printsSynced,
     delivered,
+    pawtraitryBasket,
   });
 }
 

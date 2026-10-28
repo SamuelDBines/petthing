@@ -244,7 +244,6 @@ export function PawtraitryCreateBasketStep({
               <button
                 type="button"
                 className="rounded-full bg-pumpkin px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-                disabled={!stylesOk}
                 onClick={onContinue}
               >
                 Continue

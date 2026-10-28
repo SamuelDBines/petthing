@@ -6,6 +6,29 @@ import type { Quality, Tier } from "@/config/pricing";
 import { FAL_PRINT_UPSCALE_SCALE } from "@/lib/pawtraitry/print-upscale-config";
 import { productMeetsGuaranteedPortrait } from "@/lib/pawtraitry/print-resolution-client";
 
+const MINI_FRAMED_SIZE_KEYS = new Set(["a3", "16x20"]);
+
+export function productWithinMiniPhysicalCap(product: PrintProduct, tier: Tier) {
+  if (tier.id !== "mini") return true;
+  if (product.id === "poster_a2_matte") return false;
+  if (product.group === "poster") {
+    const size = product.prodigiAttributes?.size;
+    if (size === "a2" || size === "a1") return false;
+  }
+  if (product.group === "canvas") {
+    const w = product.widthIn ?? 0;
+    const h = product.heightIn ?? 0;
+    if (Math.max(w, h) > 20 || Math.min(w, h) > 16) return false;
+  }
+  return true;
+}
+
+export function productAvailableForTier(product: PrintProduct, tier: Tier) {
+  if (!productWithinMiniPhysicalCap(product, tier)) return false;
+  const dims = guaranteedPortraitDimensionsForPhysical(tier);
+  return productMeetsGuaranteedPortrait(product, dims.width, dims.height);
+}
+
 export type PawtraitryCreateProductOffer = {
   id: PrintProductId | "classic_framed";
   name: string;
@@ -36,11 +59,6 @@ export function guaranteedPortraitDimensionsForPhysical(tier: Tier) {
   };
 }
 
-export function productAvailableForTier(product: PrintProduct, tier: Tier) {
-  const dims = guaranteedPortraitDimensionsForPhysical(tier);
-  return productMeetsGuaranteedPortrait(product, dims.width, dims.height);
-}
-
 export function printProductIdsAvailableForTier(tier: Tier): PrintProductId[] {
   const ids: PrintProductId[] = [];
   for (const offer of pawtraitryCreateProductOffers(tier)) {
@@ -61,6 +79,7 @@ export function printProductIdsAvailableForTier(tier: Tier): PrintProductId[] {
 export function pawtraitryCreateProductOffers(tier: Tier): PawtraitryCreateProductOffer[] {
   const offers: PawtraitryCreateProductOffer[] = [];
   const framedSizes = CLASSIC_FRAMED_UI.sizes.filter((size) => {
+    if (tier.id === "mini" && !MINI_FRAMED_SIZE_KEYS.has(size.key)) return false;
     const productId = classicFramedProductId(size.key, CLASSIC_FRAMED_UI.colors[0]!.id);
     if (!productId) return false;
     return productAvailableForTier(getPrint(productId), tier);

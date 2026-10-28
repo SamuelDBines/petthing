@@ -70,6 +70,14 @@ export type Order = {
       costGbp: number;
       completedAt: string;
     };
+    /** Checkout-basket print fulfilment (upscale + Prodigi), claimed atomically per order. */
+    basketFulfilment?: {
+      status: "pending" | "running" | "done" | "failed";
+      requestedAt?: string;
+      claimedAt?: string;
+      completedAt?: string;
+      lastError?: string | null;
+    };
   } | null;
   shipping?: Shipping | null;
   partnerFulfillment?: {

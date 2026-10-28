@@ -4,9 +4,16 @@ import { usdToGbp } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
 
 import { FAL_PRINT_UPSCALE_MODEL, FAL_PRINT_UPSCALE_SCALE } from "@/lib/pawtraitry/print-upscale-config";
-export function falPrintUpscaleCostGbp() {
-  const usd = Number(process.env.FAL_UPSCALE_COST_USD || "0.006");
-  return usdToGbp(Number.isFinite(usd) ? usd : 0.006);
+
+const FAL_UPSCALE_USD_PER_SECOND = 0.00111;
+const FAL_UPSCALE_DEFAULT_USD = 0.02;
+
+export function falPrintUpscaleCostGbp(inferenceSeconds?: number | null) {
+  if (typeof inferenceSeconds === "number" && inferenceSeconds > 0) {
+    return usdToGbp(inferenceSeconds * FAL_UPSCALE_USD_PER_SECOND);
+  }
+  const usd = Number(process.env.FAL_UPSCALE_COST_USD || String(FAL_UPSCALE_DEFAULT_USD));
+  return usdToGbp(Number.isFinite(usd) ? usd : FAL_UPSCALE_DEFAULT_USD);
 }
 
 async function falFetch(url: string, init?: RequestInit) {
@@ -22,14 +29,39 @@ async function falFetch(url: string, init?: RequestInit) {
   });
 }
 
+async function downloadUpscaledJpeg(url: string) {
+  const file = await fetch(url);
+  if (!file.ok) throw new Error("Could not download upscaled image");
+  const jpeg = await sharp(Buffer.from(await file.arrayBuffer()))
+    .rotate()
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+  const meta = await sharp(jpeg).rotate().metadata();
+  return {
+    bytes: jpeg,
+    width: meta.width ?? 0,
+    height: meta.height ?? 0,
+  };
+}
+
+function inferenceSecondsFromStatus(status: Record<string, unknown>) {
+  const metrics = status.metrics as { inference_time?: number } | undefined;
+  if (typeof metrics?.inference_time === "number" && metrics.inference_time > 0) return metrics.inference_time;
+  const direct = status.inference_time;
+  if (typeof direct === "number" && direct > 0) return direct;
+  return null;
+}
+
 async function pollFalUpscale(requestId: string, statusUrl: string, responseUrl: string) {
+  let inferenceSeconds: number | null = null;
   for (let attempt = 0; attempt < 90; attempt += 1) {
     const statusResponse = await falFetch(falQueueStatusUrl(requestId, statusUrl, FAL_PRINT_UPSCALE_MODEL));
     if (!statusResponse.ok) {
       await new Promise((r) => setTimeout(r, 1500));
       continue;
     }
-    const status = (await statusResponse.json()) as { status?: string; error?: string };
+    const status = (await statusResponse.json()) as Record<string, unknown> & { status?: string; error?: string };
+    inferenceSeconds = inferenceSecondsFromStatus(status) ?? inferenceSeconds;
     if (status.status === "IN_QUEUE" || status.status === "IN_PROGRESS") {
       await new Promise((r) => setTimeout(r, 1500));
       continue;
@@ -46,20 +78,18 @@ async function pollFalUpscale(requestId: string, statusUrl: string, responseUrl:
     const raw = (await resultResponse.json()) as {
       image?: { url?: string };
       images?: { url?: string }[];
-      data?: { image?: { url?: string }; images?: { url?: string }[] };
+      data?: { image?: { url?: string }; images?: { url?: string }[]; metrics?: { inference_time?: number } };
+      metrics?: { inference_time?: number };
     };
     const payload = raw.data ?? raw;
+    inferenceSeconds =
+      inferenceSecondsFromStatus(payload as Record<string, unknown>) ??
+      inferenceSecondsFromStatus(raw as Record<string, unknown>) ??
+      inferenceSeconds;
     const url = payload.image?.url ?? payload.images?.[0]?.url;
     if (!url) throw new Error("fal upscale returned no image url");
-    const file = await fetch(url);
-    if (!file.ok) throw new Error("Could not download upscaled image");
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const meta = await sharp(bytes).rotate().metadata();
-    return {
-      bytes,
-      width: meta.width ?? 0,
-      height: meta.height ?? 0,
-    };
+    const image = await downloadUpscaledJpeg(url);
+    return { ...image, inferenceSeconds };
   }
   throw new Error("Timed out waiting for fal upscale");
 }
@@ -71,7 +101,7 @@ async function upscaleWithSharp(sourceBytes: Buffer) {
   const bytes = await sharp(sourceBytes)
     .rotate()
     .resize(w * FAL_PRINT_UPSCALE_SCALE, h * FAL_PRINT_UPSCALE_SCALE, { kernel: sharp.kernel.lanczos3 })
-    .jpeg({ quality: 92 })
+    .jpeg({ quality: 92, mozjpeg: true })
     .toBuffer();
   const out = await sharp(bytes).rotate().metadata();
   return { bytes, width: out.width ?? w * FAL_PRINT_UPSCALE_SCALE, height: out.height ?? h * FAL_PRINT_UPSCALE_SCALE };
@@ -109,6 +139,8 @@ export async function upscalePortraitForPrint(args: {
       body: JSON.stringify({
         image_url: args.imageUrl,
         scale: FAL_PRINT_UPSCALE_SCALE,
+        output_format: "jpeg",
+        tile: 400,
       }),
     });
     if (!response.ok) {
@@ -117,8 +149,9 @@ export async function upscalePortraitForPrint(args: {
     }
     const body = (await response.json()) as { request_id?: string; status_url?: string; response_url?: string };
     const parsed = parseFalSubmitBody(body);
-    result = await pollFalUpscale(parsed.requestId, parsed.statusUrl, parsed.responseUrl);
-    costGbp = falPrintUpscaleCostGbp();
+    const polled = await pollFalUpscale(parsed.requestId, parsed.statusUrl, parsed.responseUrl);
+    result = polled;
+    costGbp = falPrintUpscaleCostGbp(polled.inferenceSeconds);
     await store.addSpend(costGbp, order?.storeId ?? "pawtraitry");
   } else {
     result = await upscaleWithSharp(args.sourceBytes);

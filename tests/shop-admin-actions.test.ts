@@ -1,3 +1,10 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+process.env.LOCAL_DATA_DIR = mkdtempSync(join(tmpdir(), "petthing-shop-admin-"));
+process.env.EMAIL_PROVIDER = "none";
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
@@ -9,7 +16,6 @@ import {
 
 /** Avoid real SES/Relay sends when AWS or mail env is configured on the runner. */
 test.beforeEach(() => {
-  process.env.EMAIL_PROVIDER = "none";
   delete process.env.AWS_ACCESS_KEY_ID;
   delete process.env.AWS_SECRET_ACCESS_KEY;
   delete process.env.AWS_SES_REGION;

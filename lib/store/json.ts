@@ -12,6 +12,7 @@ import { BUILTIN_STORES, DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { configFromRow } from "@/lib/tenant/resolve";
 import type { StoreRow } from "@/lib/tenant/types";
 import { jobIsClaimable, LOCK_MS } from "@/lib/queue";
+import { basketFulfilmentClaimable } from "@/lib/pawtraitry/basket-fulfilment-lock";
 import { localDataPath } from "@/lib/localPaths";
 import { londonDay } from "@/lib/runtime";
 
@@ -409,6 +410,23 @@ export const jsonStore = {
       const order = db.orders.find((item) => item.id === id);
       if (!order) throw new Error("Order not found");
       Object.assign(order, patch);
+      return structuredClone(order);
+    }),
+  claimPawtraitryBasketFulfilment: (orderId: string) =>
+    withDb((db) => {
+      const order = db.orders.find((item) => item.id === orderId);
+      if (!order || !basketFulfilmentClaimable(order)) return null;
+      const claimedAt = new Date().toISOString();
+      const prev = order.productMeta?.basketFulfilment;
+      order.productMeta = {
+        ...order.productMeta,
+        basketFulfilment: {
+          status: "running",
+          claimedAt,
+          requestedAt: prev?.requestedAt ?? claimedAt,
+          lastError: null,
+        },
+      };
       return structuredClone(order);
     }),
   getOrder: (id: string) => withDb((db) => structuredClone(db.orders.find((item) => item.id === id) ?? null)),

@@ -197,11 +197,8 @@ export async function deliverOrder(orderId: string) {
     stripeLivemode: order.stripeLivemode,
   });
   if (order.storeId === "pawtraitry") {
-    const fresh = await store.getOrder(orderId);
-    if (fresh) {
-      const { fulfillPawtraitryCheckoutBasket } = await import("@/lib/pawtraitry/basket-fulfillment");
-      await fulfillPawtraitryCheckoutBasket(fresh);
-    }
+    const { requestPawtraitryBasketFulfilment } = await import("@/lib/pawtraitry/basket-fulfilment-runner");
+    await requestPawtraitryBasketFulfilment(orderId);
   }
 }
 

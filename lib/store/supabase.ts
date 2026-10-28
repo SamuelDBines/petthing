@@ -293,6 +293,25 @@ export const supabaseStore = {
     assertOk(error);
     return orderFrom(data);
   },
+  async claimPawtraitryBasketFulfilment(orderId: string) {
+    const order = await this.getOrder(orderId);
+    if (!order) return null;
+    const { basketFulfilmentClaimable } = await import("@/lib/pawtraitry/basket-fulfilment-lock");
+    if (!basketFulfilmentClaimable(order)) return null;
+    const claimedAt = new Date().toISOString();
+    const prev = order.productMeta?.basketFulfilment;
+    return this.updateOrder(orderId, {
+      productMeta: {
+        ...order.productMeta,
+        basketFulfilment: {
+          status: "running",
+          claimedAt,
+          requestedAt: prev?.requestedAt ?? claimedAt,
+          lastError: null,
+        },
+      },
+    });
+  },
   async getOrder(id: string) {
     const { data, error } = await client().from("orders").select("*").eq("id", id).maybeSingle();
     assertOk(error);
