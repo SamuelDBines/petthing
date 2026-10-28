@@ -7,6 +7,15 @@ import {
   shopOrderRefundablePence,
 } from "../lib/shop/admin-order-actions";
 
+/** Avoid real SES/Relay sends when AWS or mail env is configured on the runner. */
+test.beforeEach(() => {
+  process.env.EMAIL_PROVIDER = "none";
+  delete process.env.AWS_ACCESS_KEY_ID;
+  delete process.env.AWS_SECRET_ACCESS_KEY;
+  delete process.env.AWS_SES_REGION;
+  delete process.env.RELAYEMAIL_API_KEY;
+});
+
 test("canEditShopShipping allows paid and submitted", () => {
   assert.equal(canEditShopShipping({ status: "paid" } as never), true);
   assert.equal(canEditShopShipping({ status: "submitted_to_supplier" } as never), true);
