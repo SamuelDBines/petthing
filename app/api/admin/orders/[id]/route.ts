@@ -2,16 +2,18 @@ import { z } from "zod";
 import { requireAdminPost } from "@/lib/adminAuth";
 import { resultsEmail, sendEmail } from "@/lib/email";
 import { refundOrder } from "@/lib/fulfillment";
-import { deliverOrder, regenerateStyle, runQueue } from "@/lib/generation";
+import { deliverOrder, regenerateMissingPortraits, regenerateStyle, runQueue } from "@/lib/generation";
+import { countResultImages, orderHasFullPortraitSet } from "@/lib/generation/progress";
+import { getTier } from "@/config/pricing";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { submitJinglefoldPhysicalOrder } from "@/lib/jinglefold/fulfillment";
 import { withTransientRetries } from "@/lib/transientErrors";
 import { jsonError, parseBody } from "@/lib/http";
-import { loadStoreConfig } from "@/lib/tenant/context";
 import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
 
 const schema = z.object({
-  action: z.enum(["approve", "regenerate", "refund", "resend", "resubmit_partner"]),
+  action: z.enum(["approve", "regenerate", "regenerate_missing", "refund", "resend", "resubmit_partner"]),
   styleId: z.string().optional(),
 });
 
@@ -27,7 +29,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   if (parsed.data.action === "approve") {
     if (order.status !== "review" && order.status !== "failed") return jsonError("Only orders in review can be approved.");
-    await deliverOrder(id);
+    const config = await loadStoreConfig(order.storeId);
+    const tier = getTier(order.tierId, config.catalog.tiers);
+    const jobs = await store.listJobs(id);
+    const assets = await store.listAssets(id);
+    if (!orderHasFullPortraitSet(tier, jobs, assets)) {
+      const generated = countResultImages(assets);
+      return jsonError(`Cannot approve: only ${generated} of ${tier.imageCount} portraits exist.`, 400);
+    }
+    try {
+      await deliverOrder(id);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Delivery failed", 400);
+    }
+  }
+  if (parsed.data.action === "regenerate_missing") {
+    try {
+      await regenerateMissingPortraits(id);
+      await runQueue();
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Regenerate failed", 400);
+    }
   }
   if (parsed.data.action === "regenerate") {
     if (!parsed.data.styleId) return jsonError("Choose a style to regenerate.");

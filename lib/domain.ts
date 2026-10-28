@@ -96,6 +96,7 @@ export type Job = {
   attempts: number;
   providerRequestId: string | null;
   providerMeta?: { statusUrl: string; responseUrl: string } | null;
+  falPaidSubmits?: number;
   lastError: string | null;
   costGbp: number;
   priority: boolean;

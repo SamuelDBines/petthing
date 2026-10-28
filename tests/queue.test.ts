@@ -75,6 +75,14 @@ test("a queued job is claimable and a future retry is not", () => {
 test("a locked running job stays with its worker until the lock expires", () => {
   assert.equal(jobIsClaimable(job({ status: "running", lockedUntil: "2026-10-18T12:15:00.000Z" }), order(), now), false);
   assert.equal(jobIsClaimable(job({ status: "submitted", lockedUntil: "2026-10-18T12:05:00.000Z" }), order(), now), true);
+  assert.equal(
+    jobIsClaimable(job({ status: "submitted", nextRunAt: "2026-10-18T12:20:00.000Z", lockedUntil: null }), order(), now),
+    false,
+  );
+  assert.equal(
+    jobIsClaimable(job({ status: "submitted", nextRunAt: "2026-10-18T12:08:00.000Z", lockedUntil: null }), order(), now),
+    true,
+  );
   const fresh = job({ status: "running", lockedUntil: null, updatedAt: new Date(now - 1000).toISOString() });
   assert.equal(jobIsClaimable(fresh, order(), now), false);
   const stale = job({ status: "running", lockedUntil: null, updatedAt: new Date(now - LOCK_MS - 1000).toISOString() });

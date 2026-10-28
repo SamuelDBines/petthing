@@ -14,12 +14,27 @@ import { isGenerationOutputRetryError } from "@/lib/fal/image-output";
 import { isFalProviderError } from "@/lib/fal/provider-errors";
 import { flagOrderPhotoSafetyReview, orderNeedsPhotoSafetyReview } from "@/lib/order-photo-review";
 import { isTransientError } from "@/lib/transientErrors";
-import { retryDelayMs } from "@/lib/queue";
+import {
+  FAL_POLL_INTERVAL_MS,
+  retryDelayMs,
+} from "@/lib/queue";
+import {
+  countResultImages,
+  jobsNeedingResults,
+  orderHasFullPortraitSet,
+  portraitGenerationProgress,
+} from "@/lib/generation/progress";
 import { getStore } from "@/lib/store";
 import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
-const MAX_FAL_SUBMITS_PER_ORDER = 3;
+/** Paid fal queue submits allowed per portrait job (accepted request_id only). */
+export const MAX_FAL_PAID_SUBMITS_PER_JOB = 2;
+const INLINE_QUEUE_POLL_MS = 60_000;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 export async function orderPublicUrls(order: Order) {
   const config = await loadStoreConfig(order.storeId);
@@ -109,6 +124,12 @@ export async function deliverOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order || order.status === "refunded" || order.status === "delivered") return;
+  const tier = await tierForOrder(order);
+  const [jobs, assets] = await Promise.all([store.listJobs(orderId), store.listAssets(orderId)]);
+  if (!orderHasFullPortraitSet(tier, jobs, assets)) {
+    const generated = countResultImages(assets);
+    throw new Error(`Cannot deliver: only ${generated} of ${tier.imageCount} portraits are ready.`);
+  }
   const { isJinglefoldPersonalisedPhysical, submitJinglefoldPhysicalOrder } = await import(
     "@/lib/jinglefold/fulfillment"
   );
@@ -119,7 +140,6 @@ export async function deliverOrder(orderId: string) {
       return;
     }
   }
-  const assets = await store.listAssets(orderId);
   for (const asset of assets.filter((item) => item.kind === "result")) {
     const previewPath = `${orderId}/previews/${asset.id}.jpg`;
     if (assets.some((item) => item.storagePath === previewPath)) continue;
@@ -163,6 +183,9 @@ async function finishIfDone(orderId: string) {
   if (jobs.some((job) => !settled(job.status))) return;
   const order = await store.getOrder(orderId);
   if (!order || order.status === "refunded") return;
+  const tier = await tierForOrder(order);
+  const assets = await store.listAssets(orderId);
+  const progress = portraitGenerationProgress(tier, jobs, assets);
   const failed = jobs.some((job) => job.status === "failed" || job.status === "dead");
   if (failed) {
     if (order.status === "delivered") {
@@ -179,6 +202,19 @@ async function finishIfDone(orderId: string) {
         order.storeId,
       );
     }
+    return;
+  }
+  if (!progress.complete) {
+    await store.updateOrder(orderId, {
+      status: "review",
+      failureReason: `Only ${progress.generated} of ${progress.expected} portraits generated`,
+    });
+    const { origin } = await orderPublicUrls(order);
+    await alertAdmin(
+      "Portrait order incomplete",
+      `<p>${order.email}: ${progress.generated}/${progress.expected} images. Regenerate missing before approval.</p><p><a href="${origin}/admin">Admin</a></p>`,
+      order.storeId,
+    );
     return;
   }
   if (order.status === "delivered") {
@@ -242,21 +278,12 @@ async function processJob(jobId: string) {
     let requestId = job.providerRequestId;
     let queueMeta: { statusUrl: string; responseUrl: string } | null = job.providerMeta ?? null;
     if (!requestId) {
-      const paidSubmits = order.falPaidSubmits ?? 0;
-      if (provider.id !== "placeholder" && paidSubmits >= MAX_FAL_SUBMITS_PER_ORDER) {
-        await store.updateOrder(order.id, {
-          status: "review",
-          failureReason: "fal generation cap reached — manual review required",
-        });
+      const paidSubmits = job.falPaidSubmits ?? 0;
+      if (provider.id !== "placeholder" && paidSubmits >= MAX_FAL_PAID_SUBMITS_PER_JOB) {
         await store.updateJob(job.id, {
           status: "dead",
-          lastError: "fal paid submission cap reached for this order",
+          lastError: `fal paid submission cap (${MAX_FAL_PAID_SUBMITS_PER_JOB}) reached for this portrait`,
         });
-        await alertAdmin(
-          "Portrait order needs manual attention (fal cap)",
-          `<p>Order ${order.id} hit ${MAX_FAL_SUBMITS_PER_ORDER} fal submissions.</p>`,
-          order.storeId,
-        );
         return;
       }
       const { prompt, negative } = buildPrompt({
@@ -279,20 +306,23 @@ async function processJob(jobId: string) {
         quality: tier.quality,
         seed: seedFrom(`${job.id}:${job.attempts}:${paidSubmits}`),
       });
+      if (!submitted.requestId) throw new Error("fal did not accept the generation request");
       requestId = submitted.requestId;
       queueMeta = submitted.providerMeta;
-      if (provider.id !== "placeholder") {
-        await store.updateOrder(order.id, { falPaidSubmits: paidSubmits + 1 });
-      }
       await store.updateJob(job.id, {
         providerRequestId: requestId,
         providerMeta: queueMeta,
         status: "submitted",
+        falPaidSubmits: provider.id !== "placeholder" ? paidSubmits + 1 : paidSubmits,
       });
     }
     const polled = await provider.poll(requestId, queueMeta);
     if (polled.state === "pending") {
-      await store.updateJob(job.id, { status: "submitted" });
+      await store.updateJob(job.id, {
+        status: "submitted",
+        lockedUntil: null,
+        nextRunAt: new Date(Date.now() + FAL_POLL_INTERVAL_MS).toISOString(),
+      });
       return;
     }
     if (polled.state === "failed") throw new Error(polled.error);
@@ -339,6 +369,7 @@ async function processJob(jobId: string) {
     const dead = !transient && !outputRetry && attempts >= MAX_ATTEMPTS;
     const backoff = retryDelayMs(transient ? Math.min(attempts, 3) : attempts) * (transient ? 2 : 1);
     const keepRequest = transient && !outputRetry;
+    const retrySoon = outputRetry ? FAL_POLL_INTERVAL_MS : backoff;
     await store.updateJob(job.id, {
       status: dead ? "dead" : "queued",
       attempts,
@@ -346,7 +377,7 @@ async function processJob(jobId: string) {
       providerRequestId: keepRequest ? job.providerRequestId : null,
       providerMeta: keepRequest ? job.providerMeta ?? null : null,
       lockedUntil: null,
-      nextRunAt: dead ? null : new Date(Date.now() + backoff).toISOString(),
+      nextRunAt: dead ? null : new Date(Date.now() + retrySoon).toISOString(),
     });
   }
   await finishIfDone(order.id);
@@ -363,9 +394,44 @@ export async function runQueue(limit = process.env.VERCEL ? 3 : 12) {
   const claimed = await store.claimJobs(limit);
   for (const job of claimed) {
     if ((await store.todaySpend()) >= maxDailySpendGbp()) break;
-    await processJob(job.id);
+    const deadline = Date.now() + INLINE_QUEUE_POLL_MS;
+    while (Date.now() < deadline) {
+      await processJob(job.id);
+      const fresh = (await store.listJobs(job.orderId)).find((row) => row.id === job.id);
+      if (!fresh || fresh.status === "done" || fresh.status === "dead" || fresh.status === "queued") break;
+      if (fresh.status === "submitted") {
+        const waitUntil = fresh.nextRunAt ? Date.parse(fresh.nextRunAt) : Date.now() + FAL_POLL_INTERVAL_MS;
+        const wait = Math.min(Math.max(0, waitUntil - Date.now()), deadline - Date.now());
+        if (wait > 0) await sleep(wait);
+        continue;
+      }
+      break;
+    }
   }
   return { processed: claimed.length, halted: false, reason: null };
+}
+
+export async function regenerateMissingPortraits(orderId: string) {
+  const store = getStore();
+  const order = await store.getOrder(orderId);
+  if (!order) throw new Error("Order not found");
+  const jobs = await store.listJobs(orderId);
+  const assets = await store.listAssets(orderId);
+  const missing = jobsNeedingResults(jobs, assets);
+  if (!missing.length) throw new Error("All expected portraits already exist");
+  for (const row of missing) {
+    await store.updateJob(row.id, {
+      status: "queued",
+      attempts: 0,
+      providerRequestId: null,
+      providerMeta: null,
+      falPaidSubmits: 0,
+      lastError: null,
+      lockedUntil: null,
+      nextRunAt: null,
+    });
+  }
+  await store.updateOrder(orderId, { status: "generating", failureReason: null });
 }
 
 export async function regenerateStyle(orderId: string, styleId: string) {
@@ -386,6 +452,8 @@ export async function regenerateStyle(orderId: string, styleId: string) {
       status: "queued",
       attempts: 0,
       providerRequestId: null,
+      providerMeta: null,
+      falPaidSubmits: 0,
       lastError: null,
       lockedUntil: null,
       nextRunAt: null,

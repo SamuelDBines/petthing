@@ -12,6 +12,7 @@ import { signInWithGoogle } from "@/app/admin/google-sign-in-action";
 
 type OrderRow = Order & {
   prints: PrintOrder[];
+  portraitProgress?: { generated: number; expected: number; complete: boolean };
 };
 
 type Stats = {
@@ -534,6 +535,14 @@ export function AdminDashboard({
                     <td>{order.email}{order.priority ? " · priority" : ""}<br />{order.failureReason ? <span className="text-danger">{order.failureReason}</span> : null}</td>
                     <td>
                       <span data-testid="order-pipeline-status">{orderPipelineStatus(order, order.prints)}</span>
+                      {order.portraitProgress && order.portraitProgress.expected > 0 ? (
+                        <span
+                          className={`mt-1 block text-xs ${order.portraitProgress.complete ? "text-cream/60" : "text-amber-200"}`}
+                          data-testid="portrait-generation-progress"
+                        >
+                          {order.portraitProgress.generated} of {order.portraitProgress.expected} generated
+                        </span>
+                      ) : null}
                       {order.prints.map((print) => (
                         <span key={print.id} className="mt-1 block text-cream/60">{print.productId}: {printSummary(print)}</span>
                       ))}
@@ -551,7 +560,31 @@ export function AdminDashboard({
                       {order.productMeta?.photoSafetyReviewRequired ? (
                         <span className="block text-amber-200">Manual photo safety review</span>
                       ) : null}
-                      {order.status === "review" ? <button className="block rounded-full bg-pumpkin px-3 py-1 text-ink" onClick={() => act(order.id, "approve")} data-testid="approve-order">Approve</button> : null}
+                      {order.status === "review" ? (
+                        <button
+                          className="block rounded-full bg-pumpkin px-3 py-1 text-ink disabled:opacity-40"
+                          onClick={() => act(order.id, "approve")}
+                          data-testid="approve-order"
+                          disabled={order.portraitProgress ? !order.portraitProgress.complete : false}
+                          title={
+                            order.portraitProgress && !order.portraitProgress.complete
+                              ? "All tier portraits must be generated before approval"
+                              : undefined
+                          }
+                        >
+                          Approve
+                        </button>
+                      ) : null}
+                      {order.portraitProgress && !order.portraitProgress.complete ? (
+                        <button
+                          className="block text-amber-200"
+                          type="button"
+                          onClick={() => act(order.id, "regenerate_missing")}
+                          data-testid="regenerate-missing-portraits"
+                        >
+                          Regenerate missing
+                        </button>
+                      ) : null}
                       <select className="field" value={styleId[order.id] || order.styleIds[0] || ""} onChange={(event) => setStyleId({ ...styleId, [order.id]: event.target.value })}>
                         {order.styleIds.map((id) => <option key={id} value={id}>{id}</option>)}
                       </select>
