@@ -31,6 +31,11 @@ async function prepare(file: File) {
 }
 
 export function CreateWizard() {
+  const offer = useSearchParams().get("offer") ?? "one_off";
+  return <CreateWizardInner key={offer} />;
+}
+
+function CreateWizardInner() {
   const params = useSearchParams();
   const [step, setStep] = useState(1);
   const [subject, setSubject] = useState<SubjectType>("pet");
@@ -195,7 +200,7 @@ export function CreateWizard() {
     <main className="mx-auto max-w-xl px-4 py-8" data-testid="create-wizard">
       <p className="text-sm text-gold">Step {step} of {totalSteps}</p>
       <h1 className="mt-2 text-4xl">{seasonPass ? "Start the season pass" : "Make the portraits"}</h1>
-      {seasonPass ? <p className="mt-3 text-cream/75">A family or group, once a year. This season is included. Pick {SEASON_PASS.tierId === "classic" ? "two" : "the"} styles for it.</p> : null}
+      {seasonPass ? <p className="mt-3 text-cream/75">A family or group, once a year. This season is included. Pick {SEASON_PASS.tierId === "classic" ? "two" : "the"} styles for it. <a href="/create" className="underline">Want a single portrait instead?</a></p> : null}
       {params.get("cancelled") ? <p className="mt-3 text-sm">Checkout was cancelled. Your photos were not kept if you didn’t pay.</p> : null}
       {paused ? <p className="mt-4 rounded-2xl bg-gold/10 p-4">Sales are paused. You can look around, but payment is closed.</p> : null}
       {error ? <p className="mt-4 rounded-2xl border border-danger p-4 text-sm text-danger">{error}</p> : null}
