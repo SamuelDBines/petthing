@@ -5,15 +5,14 @@ import { getPrint } from "@/config/prints";
 import { EXTRA_IMAGES_PER_STYLE } from "@/config/pricing";
 import { getTheme } from "@/config/themes";
 import { putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
-import type { Order, Shipping } from "@/lib/domain";
+import type { Order, PrintOrder, Shipping } from "@/lib/domain";
 import { alertAdmin, christmasEmail, sendEmail } from "@/lib/email";
 import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
 import { enqueueForOrder, enqueuePlan, scheduleOrderGeneration } from "@/lib/generation";
 import { submitPrintOrder } from "@/lib/prodigi";
-import { composeCanvasPortrait } from "@/lib/canvasSheet";
+import { composePrintArea } from "@/lib/print-compose";
 import { isHandPaintedTierId } from "@/config/paintings";
 import { createHandPaintedWorkflow } from "@/lib/handPainted";
-import { composePrint } from "@/lib/puzzleSheet";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 import { getStripeForStore, paymentIntentId } from "@/lib/stripe";
@@ -155,25 +154,40 @@ function shippingFrom(session: Stripe.Checkout.Session): Shipping | null {
 
 export async function markPrintPaid(printId: string, session: Stripe.Checkout.Session, args: PaidArgs) {
   const store = getStore();
-  const print = (await store.listPrints()).find((item) => item.id === printId);
-  if (!print || print.status === "submitted") return;
-  const order = await store.getOrder(print.orderId);
+  const printIds = [printId];
+  const addonPrintId = session.metadata?.addonPrintId?.trim();
+  if (addonPrintId && addonPrintId !== printId) printIds.push(addonPrintId);
+
   const shipping = shippingFrom(session);
+  const prints: PrintOrder[] = [];
+  for (const id of printIds) {
+    const row = (await store.listPrints()).find((item) => item.id === id);
+    if (!row || row.status === "submitted") continue;
+    prints.push(row);
+  }
+  if (!prints.length) return;
+
+  const order = await store.getOrder(prints[0]!.orderId);
   if (!shipping || shipping.countryCode !== "GB") {
-    await store.updatePrint(print.id, { status: "failed", error: "UK shipping only at launch.", shipping });
+    for (const row of prints) {
+      await store.updatePrint(row.id, { status: "failed", error: "UK shipping only at launch.", shipping });
+    }
     await alertAdmin(
       "Print order needs a UK address",
-      `<p>${order?.email ?? print.orderId}</p>`,
+      `<p>${order?.email ?? prints[0]!.orderId}</p>`,
       order?.storeId,
     );
     return;
   }
-  await store.updatePrint(print.id, {
-    status: "paid",
-    shipping,
-    stripePaymentIntentId: args.paymentIntentId,
-    error: null,
-  });
+
+  for (const row of prints) {
+    await store.updatePrint(row.id, {
+      status: "paid",
+      shipping,
+      stripePaymentIntentId: args.paymentIntentId,
+      error: null,
+    });
+  }
   if (order) {
     await store.updateOrder(order.id, {
       processedSessions: order.processedSessions.includes(args.sessionId)
@@ -182,49 +196,52 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
       payments: rememberPayment(order, args, "print"),
     });
   }
-  try {
-    const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
-    const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;
-    if (!portrait) throw new Error("The chosen portrait is missing");
-    const product = getPrint(print.productId);
-    const assets = [];
-    for (const area of product.areas) {
-      const bytes =
-        area.sheet === "canvas"
-          ? await composeCanvasPortrait({
-              buffer: portrait.bytes,
-              widthIn: product.widthIn ?? 12,
-              heightIn: product.heightIn ?? 16,
-            })
-          : await composePrint(portrait.bytes, area.sheet as "board" | "lid");
-      const storagePath = `prints/${print.id}/${area.sheet}.jpg`;
-      await putBlob("results", storagePath, bytes, "image/jpeg");
-      assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
+
+  let emailed = false;
+  for (const row of prints) {
+    try {
+      await fulfillPrintToProdigi(row, order, shipping);
+      if (order && !emailed) {
+        emailed = true;
+        await sendEmail(
+          withEmailDelivery(orderEmailDelivery(order), {
+            to: order.email,
+            subject: `Your ${APP_NAME} print is with the printer`,
+            html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
+            storeId: order.storeId,
+          }),
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Prodigi failed";
+      await store.updatePrint(row.id, { status: "failed", error: message });
+      await alertAdmin("Prodigi order failed", `<p>${message}</p>`, order?.storeId);
     }
-    const result = await submitPrintOrder({
-      storeId: order?.storeId ?? "pawtraitry",
-      stripeLivemode: order?.stripeLivemode,
-      product,
-      shipping,
-      assets,
-      merchantReference: print.id,
-    });
-    await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: result.prodigiOrderId, error: null });
-    if (order) {
-      await sendEmail(
-        withEmailDelivery(orderEmailDelivery(order), {
-          to: order.email,
-          subject: `Your ${APP_NAME} print is with the printer`,
-          html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
-          storeId: order.storeId,
-        }),
-      );
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Prodigi failed";
-    await store.updatePrint(print.id, { status: "failed", error: message });
-    await alertAdmin("Prodigi order failed", `<p>${message}</p>`, order?.storeId);
   }
+}
+
+async function fulfillPrintToProdigi(print: PrintOrder, order: Order | null | undefined, shipping: Shipping) {
+  const store = getStore();
+  const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
+  const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;
+  if (!portrait) throw new Error("The chosen portrait is missing");
+  const product = getPrint(print.productId);
+  const assets = [];
+  for (const area of product.areas) {
+    const bytes = await composePrintArea(product, area, portrait.bytes);
+    const storagePath = `prints/${print.id}/${area.printArea}.jpg`;
+    await putBlob("results", storagePath, bytes, "image/jpeg");
+    assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
+  }
+  const result = await submitPrintOrder({
+    storeId: order?.storeId ?? "pawtraitry",
+    stripeLivemode: order?.stripeLivemode,
+    product,
+    shipping,
+    assets,
+    merchantReference: print.id,
+  });
+  await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: result.prodigiOrderId, error: null });
 }
 
 export async function markChristmasPaid(preorderId: string, args: PaidArgs) {

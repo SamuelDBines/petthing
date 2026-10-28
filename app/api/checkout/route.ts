@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import { allPrintProductIds, getPrint, PRINTS, type PrintProductId } from "@/config/prints";
+import { allPrintProductIds, getPrint, GREETING_CARD_PRINT_ID, PRINTS, type PrintProductId } from "@/config/prints";
 import {
   CHRISTMAS_PREORDER_PENCE,
   EXTRA_STYLES_COUNT,
@@ -57,6 +57,7 @@ const schema = z.discriminatedUnion("kind", [
     productId: z.enum(allPrintProductIds() as [string, ...string[]]),
     assetId: z.string().uuid(),
     addPetBaubleBump: z.boolean().optional(),
+    addGreetingCard: z.boolean().optional(),
   }),
   z.object({ kind: z.literal("christmas"), email: z.string().email(), token: z.string().optional() }),
 ]);
@@ -272,6 +273,7 @@ export async function POST(request: Request) {
   if (body.kind === "print") {
     const order = await store.getOrderByToken(body.token);
     if (!order || order.status !== "delivered") return jsonError("That gallery is not ready.", 404);
+    if (order.storeId !== "pawtraitry") return jsonError("Print orders are not available for this shop.", 404);
     const asset = (await store.listAssets(order.id)).find((item) => item.id === body.assetId && item.kind === "result");
     if (!asset) return jsonError("Choose one of your portraits.");
     if (!getStripeForStore(order.storeId, requestHost)) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
@@ -307,6 +309,34 @@ export async function POST(request: Request) {
     const lineItems = [line(`${brand.appName} · ${product.name}`, product.pricePence)];
     const promos = storeConfig.catalog.pawtraitryPromos;
     const canvasProduct = product.id.startsWith("canvas_");
+    let addonPrintId = "";
+    if (body.addGreetingCard && product.id !== GREETING_CARD_PRINT_ID) {
+      const cardProduct = getPrint(GREETING_CARD_PRINT_ID);
+      let greetingPrint = existingPrints.find(
+        (item) =>
+          item.assetId === asset.id &&
+          item.productId === cardProduct.id &&
+          item.status === "pending_payment",
+      );
+      if (!greetingPrint) {
+        greetingPrint = {
+          id: randomUUID(),
+          orderId: order.id,
+          productId: cardProduct.id,
+          assetId: asset.id,
+          stripeCheckoutSessionId: null,
+          stripePaymentIntentId: null,
+          prodigiOrderId: null,
+          status: "pending_payment",
+          shipping: null,
+          error: null,
+          createdAt: new Date().toISOString(),
+        };
+        await store.addPrint(greetingPrint);
+      }
+      addonPrintId = greetingPrint.id;
+      lineItems.push(line(`${brand.appName} · ${cardProduct.name}`, cardProduct.pricePence));
+    }
     if (body.addPetBaubleBump) {
       lineItems.push(line("Personalised pet bauble add-on", PAWTRAITRY_BUMP_PRICE_PENCE));
     }
@@ -325,7 +355,13 @@ export async function POST(request: Request) {
       kind: "print",
       email: order.email,
       lineItems,
-      metadata: { kind: "print", orderId: order.id, printId: print.id, storeId: order.storeId },
+      metadata: {
+        kind: "print",
+        orderId: order.id,
+        printId: print.id,
+        addonPrintId,
+        storeId: order.storeId,
+      },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `print-${print.id}`,

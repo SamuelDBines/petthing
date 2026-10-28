@@ -15,7 +15,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 16,
     prodigiPrintArea: "default",
     prodigiAttributes: { wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
   {
     id: "canvas_stretched_12x16",
@@ -29,7 +31,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 16,
     prodigiPrintArea: "default",
     prodigiAttributes: { wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
   {
     id: "canvas_stretched_16x20",
@@ -43,7 +47,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 20,
     prodigiPrintArea: "default",
     prodigiAttributes: { wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
   {
     id: "canvas_stretched_24x32",
@@ -57,7 +63,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 32,
     prodigiPrintArea: "default",
     prodigiAttributes: { wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
   {
     id: "canvas_framed_slim_16x20",
@@ -71,7 +79,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 20,
     prodigiPrintArea: "default",
     prodigiAttributes: { color: "black", wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
   {
     id: "canvas_framed_20x30",
@@ -85,7 +95,9 @@ export const CANVAS_PRINTS: PrintProduct[] = [
     heightIn: 30,
     prodigiPrintArea: "default",
     prodigiAttributes: { color: "black", wrap: "MirrorWrap" },
-    areas: [{ printArea: "default", sheet: "canvas" }],
+    group: "canvas",
+    previewImage: "/examples/pet-after.jpg",
+    areas: [{ printArea: "default", composer: "canvas_inches", sheet: "canvas" }],
   },
 ];
 

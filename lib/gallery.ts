@@ -1,8 +1,13 @@
-import { PRINTS, printName } from "@/config/prints";
+import { printName } from "@/config/prints";
 import { CHRISTMAS_PREORDER_PENCE, EXTRA_STYLES_COUNT, EXTRA_STYLES_PENCE, getTier } from "@/config/pricing";
 import { PAWTRAITRY_BUMP_PRICE_PENCE } from "@/config/pawtraitry-promos";
 import { getTheme } from "@/config/themes";
-import { signedBlobUrl } from "@/lib/blobs";
+import { readBlob, signedBlobUrl } from "@/lib/blobs";
+import { readPortraitDimensions } from "@/lib/print-compose/resolution";
+import {
+  galleryPrintOffersForPortrait,
+  greetingCardAddOnOffer,
+} from "@/lib/pawtraitry-gallery-prints";
 import { getStore } from "@/lib/store";
 import { loadStoreConfig } from "@/lib/tenant/context";
 
@@ -35,12 +40,21 @@ export async function galleryForToken(token: string, base?: string) {
   const images = [];
   for (const asset of resultAssets) {
     const preview = assets.find((item) => item.kind === "preview" && item.storagePath.endsWith(`${asset.id}.jpg`));
+    let printOffers: ReturnType<typeof galleryPrintOffersForPortrait> | undefined;
+    if (order.storeId === "pawtraitry") {
+      const portraitBytes = await readBlob(asset.bucket, asset.storagePath);
+      if (portraitBytes) {
+        const dims = await readPortraitDimensions(portraitBytes.bytes);
+        printOffers = galleryPrintOffersForPortrait(dims.width, dims.height);
+      }
+    }
     images.push({
       id: asset.id,
       styleId: asset.styleId,
       styleName: theme?.styles.find((style) => style.id === asset.styleId)?.name ?? "Portrait",
       url: await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
       previewUrl: preview ? await signedBlobUrl(preview.bucket, preview.storagePath, 60 * 60 * 24 * 7, false, base) : null,
+      printOffers,
     });
   }
 
@@ -82,12 +96,8 @@ export async function galleryForToken(token: string, base?: string) {
         remaining,
         bonusImages: remaining.length === 0,
       },
-      prints: PRINTS.map((product) => ({
-        id: product.id,
-        name: product.name,
-        detail: product.detail,
-        pricePence: product.pricePence,
-      })),
+      prints: images.find((image) => image.id === resultAssets[0]?.id)?.printOffers ?? [],
+      greetingCardAddOn: order.storeId === "pawtraitry" ? greetingCardAddOnOffer() : null,
       christmasPence: CHRISTMAS_PREORDER_PENCE,
       petBaubleBumpPence: PAWTRAITRY_BUMP_PRICE_PENCE,
       freeBaubleWithCanvasEnabled: promos?.freeBaubleWithCanvasEnabled ?? false,

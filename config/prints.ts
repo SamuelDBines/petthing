@@ -1,9 +1,28 @@
 import { PAWTRAITRY_SKU_BY_PRINT_ID, pawtraitryPrintPricePence, type PawtraitryPrintId } from "@/config/catalogue/pawtraitry-skus";
 import { CANVAS_PRINTS, canvasPrintIds } from "@/config/canvasPrints";
+import { PAWTRAITRY_PHYSICAL_PRINTS } from "@/config/pawtraitryPhysicalPrints";
 
 export type PrintProductId = PawtraitryPrintId;
 
+export type PrintComposer =
+  | "puzzle_board"
+  | "puzzle_lid"
+  | "canvas_inches"
+  | "cover"
+  | "mug_wrap"
+  | "greeting_card";
+
+/** @deprecated use composer on PrintAreaSpec */
 export type PrintSheet = "board" | "lid" | "canvas";
+
+export type PrintAreaSpec = {
+  printArea: string;
+  composer: PrintComposer;
+  widthPx?: number;
+  heightPx?: number;
+  /** Legacy puzzle areas */
+  sheet?: PrintSheet;
+};
 
 export type PrintProduct = {
   id: PrintProductId;
@@ -19,7 +38,9 @@ export type PrintProduct = {
   prodigiPrintArea?: string;
   /** Prodigi v4 order/quote item attributes (e.g. wrap, color). */
   prodigiAttributes?: Record<string, string>;
-  areas: { printArea: string; sheet: PrintSheet }[];
+  areas: PrintAreaSpec[];
+  group?: string;
+  previewImage?: string;
 };
 
 export const PUZZLE_252 = {
@@ -44,14 +65,16 @@ const PUZZLE_PRINTS: PrintProduct[] = [
     skuEnv: "PRODIGI_SKU_PUZZLE",
     defaultSku: "JIGSAW-PUZZLE-252",
     copies: 1,
+    group: "puzzle",
+    previewImage: "/examples/pet-after.jpg",
     areas: [
-      { printArea: "jigsaw", sheet: "board" },
-      { printArea: "lid", sheet: "lid" },
+      { printArea: "jigsaw", composer: "puzzle_board", sheet: "board" },
+      { printArea: "lid", composer: "puzzle_lid", sheet: "lid" },
     ],
   },
 ];
 
-export const PRINTS: PrintProduct[] = [...PUZZLE_PRINTS, ...CANVAS_PRINTS];
+export const PRINTS: PrintProduct[] = [...PUZZLE_PRINTS, ...CANVAS_PRINTS, ...PAWTRAITRY_PHYSICAL_PRINTS];
 
 export function getPrint(id: PrintProductId) {
   const product = PRINTS.find((item) => item.id === id);
@@ -64,9 +87,15 @@ export function printName(id: string) {
 }
 
 export function allPrintProductIds(): PrintProductId[] {
-  return ["puzzle_252", ...canvasPrintIds()] as PrintProductId[];
+  return PRINTS.map((p) => p.id);
 }
 
 export function printSku(product: PrintProduct) {
   return process.env[product.skuEnv] || product.defaultSku;
+}
+
+export const GREETING_CARD_PRINT_ID = "greeting_card_a5" as const;
+
+export function greetingCardPricePence() {
+  return pawtraitryPrintPricePence(GREETING_CARD_PRINT_ID);
 }

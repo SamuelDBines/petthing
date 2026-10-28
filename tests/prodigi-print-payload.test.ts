@@ -26,6 +26,16 @@ test("prodigiItemAttributes merges per-SKU implicit attrs and explicit choices",
   assert.equal(prodigiItemAttributes(puzzle).size, "252 pieces");
   assert.equal(prodigiItemAttributes(puzzle).substrateWeight, undefined);
 
+  const cfpm = PRINTS.find((p) => p.id === "cfpm_a3_black")!;
+  const cfpmAttrs = prodigiItemAttributes(cfpm);
+  assert.equal(cfpmAttrs.color, "black");
+  assert.equal(cfpmAttrs.size, "a3");
+  assert.equal(cfpmAttrs.frame, "Classic");
+  assert.equal(cfpmAttrs.substrateWeight, "200gsm");
+
+  const mug = PRINTS.find((p) => p.id === "mug_11oz_white")!;
+  assert.equal(prodigiItemAttributes(mug).size, "313ml / 11oz");
+
   const slim = PRINTS.find((p) => p.id === "canvas_slim_12x16")!;
   const slimAttrs = prodigiItemAttributes(slim);
   assert.equal(slimAttrs.wrap, "MirrorWrap");

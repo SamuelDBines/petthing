@@ -375,6 +375,116 @@
   },
   {
    "store": "Pawtraitry",
+   "sku": "PT-CFPM-A3",
+   "name": "Classic framed print A3",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 79.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CFPM-A2",
+   "name": "Classic framed print A2",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 109.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CFPM-16X20",
+   "name": "Classic framed print 16x20in",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 99.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CFPM-18X24",
+   "name": "Classic framed print 18x24in",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 114.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CFPM-A1",
+   "name": "Classic framed print A1",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 149.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CFPM-24X36",
+   "name": "Classic framed print 24x36in",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 164.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-MUG-11",
+   "name": "11oz white mug",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 19.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CUSH-18",
+   "name": "18x18 faux suede cushion",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 34.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-COAST-4",
+   "name": "Cork coasters set of 4",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 29.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-POST-A2",
+   "name": "A2 matte art print",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 34.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
+   "sku": "PT-CARD-A5",
+   "name": "A5 greetings card",
+   "type": "pod",
+   "supplier": "Prodigi (UK)",
+   "recommended_price": 5.99,
+   "pricing_rule": "manual price",
+   "note": "Sam approved retail GBP incl UK delivery"
+  },
+  {
+   "store": "Pawtraitry",
    "sku": "PT-HAND-1216",
    "name": "Hand-painted oil 12x16in (ArtInBulk)",
    "type": "pod",

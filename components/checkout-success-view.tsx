@@ -238,13 +238,13 @@ export function CheckoutSuccessView({
                       href={`${payload.resultsPath}#prints`}
                       className="inline-flex min-h-11 items-center rounded-full border border-line px-5 text-sm font-medium"
                     >
-                      Canvas &amp; puzzle prints
+                      Framed prints, canvas &amp; gifts
                     </Link>
                   </li>
                 ) : (
                   <li>
                     <span className="inline-flex min-h-11 items-center rounded-full border border-dashed border-line px-5 text-sm text-muted">
-                      Canvas &amp; prints — open your gallery when ready
+                      Framed prints, canvas &amp; gifts — open your gallery when ready
                     </span>
                   </li>
                 )}
