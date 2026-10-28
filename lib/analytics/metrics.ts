@@ -10,8 +10,10 @@ export const INTERACTION_EVENT_TYPES = new Set([
   "checkout_expired",
 ]);
 
-export function sessionIsBounce(session: Pick<VisitorSessionRow, "pageviewCount" | "durationMs" | "hadInteraction">) {
-  return session.pageviewCount <= 1 && !session.hadInteraction && session.durationMs < 10_000;
+export function sessionIsBounce(session: Pick<VisitorSessionRow, "pageviewCount" | "durationMs" | "hadInteraction" | "maxScrollDepth">) {
+  const engaged =
+    session.hadInteraction || session.maxScrollDepth >= 25 || session.durationMs >= 10_000;
+  return session.pageviewCount <= 1 && !engaged;
 }
 
 export function countVisitorsByNewReturning(sessions: VisitorSessionRow[]) {
@@ -68,8 +70,16 @@ export function computeFunnelConversions(
 
 export function avgSessionDurationMs(sessions: VisitorSessionRow[]) {
   if (!sessions.length) return 0;
-  const total = sessions.reduce((sum, session) => sum + session.durationMs, 0);
+  const total = sessions.reduce((sum, session) => sum + effectiveSessionDurationMs(session), 0);
   return Math.round(total / sessions.length);
+}
+
+export function effectiveSessionDurationMs(session: VisitorSessionRow) {
+  if (session.durationMs > 0) return session.durationMs;
+  if (session.endedAt) {
+    return Math.max(0, Date.parse(session.endedAt) - Date.parse(session.startedAt));
+  }
+  return 0;
 }
 
 export function pagesPerSession(sessions: VisitorSessionRow[]) {

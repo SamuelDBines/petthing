@@ -1,6 +1,7 @@
 import { getStore } from "@/lib/store";
 import { listEmailSignups as listPgEmailSignups, listSuppressedEmails } from "@/lib/db/crm-methods";
 import { mergePersonDetail, mergePersons, signupSparkline } from "@/lib/crm/merge-persons";
+import { fetchCrmEntitiesForEmail } from "@/lib/crm/person-queries";
 import type { PersonRow } from "@/lib/crm/types";
 
 export async function loadCrmDataset(storeFilter: string | "all", includeExcluded = false) {
@@ -25,6 +26,11 @@ export async function loadCrmDataset(storeFilter: string | "all", includeExclude
 }
 
 export async function loadPersonDetail(email: string, storeFilter: string | "all", includeExcluded = false) {
+  const suppressed = await listSuppressedEmails();
+  if (process.env.DATABASE_URL) {
+    const { orders, shopOrders, preorders, signups } = await fetchCrmEntitiesForEmail(email, storeFilter);
+    return mergePersonDetail(email, { orders, shopOrders, preorders, signups, suppressed, includeExcluded });
+  }
   const { mergeArgs } = await loadCrmDataset(storeFilter, includeExcluded);
   return mergePersonDetail(email, mergeArgs);
 }
@@ -44,8 +50,8 @@ export function filterPeople(
     if (args.q && !person.email.includes(args.q.trim().toLowerCase())) return false;
     if (args.store && args.store !== "all" && !person.storeIds.includes(args.store)) return false;
     if (args.status && args.status !== "all" && person.status !== args.status) return false;
-    if (args.consent === "yes" && !person.marketingConsent) return false;
-    if (args.consent === "no" && person.marketingConsent) return false;
+    if (args.consent === "yes" && (!person.marketingConsent || person.unsubscribed)) return false;
+    if (args.consent === "no" && person.marketingConsent && !person.unsubscribed) return false;
     if (args.from && person.firstSeenAt.slice(0, 10) < args.from) return false;
     if (args.to && person.firstSeenAt.slice(0, 10) > args.to) return false;
     return true;

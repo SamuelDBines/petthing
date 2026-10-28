@@ -6,6 +6,16 @@ function workerBase() {
   return raw.replace(/\/$/, "");
 }
 
+function frameableResponse(upstream: Response, body: ArrayBuffer | null) {
+  const headers = new Headers(upstream.headers);
+  headers.delete("x-frame-options");
+  headers.delete("content-security-policy");
+  headers.delete("content-security-policy-report-only");
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  headers.set("Content-Security-Policy", "frame-ancestors 'self'");
+  return new Response(body, { status: upstream.status, headers });
+}
+
 async function proxy(request: Request, pathSegments: string[]) {
   if (!(await isAdmin())) return jsonError("Sign in required", 401);
   const url = new URL(request.url);
@@ -25,10 +35,11 @@ async function proxy(request: Request, pathSegments: string[]) {
     init.body = await request.arrayBuffer();
   }
   const upstream = await fetch(target, init);
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: upstream.headers,
-  });
+  if (request.method === "HEAD") {
+    return frameableResponse(upstream, null);
+  }
+  const body = await upstream.arrayBuffer();
+  return frameableResponse(upstream, body);
 }
 
 export async function GET(request: Request, context: { params: Promise<{ path?: string[] }> }) {

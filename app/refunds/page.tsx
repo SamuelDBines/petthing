@@ -34,13 +34,11 @@ export default async function Page() {
             For physical goods you may cancel within 14 days starting the day after delivery, without giving a reason. Email{" "}
             <a href={`mailto:${copy.supportEmail}`}>{copy.supportEmail}</a> with your order number. Return items within 14 days of telling us, unused and in resaleable condition with original packaging where reasonable. We refund within 14 days of receiving the goods (or evidence of return postage).
           </p>
-          {copy.personalisedExempt ? (
-            <h2 className="mt-8 text-2xl">Personalised items</h2>
-          ) : null}
-          {copy.personalisedExempt ? (
-            <p className="mt-3">
-              Personalised Jinglefold ornaments and Pawtraitry portrait products made to your photos are bespoke. You lose the 14-day cancellation right once production begins, but faulty or misdescribed items are covered by your statutory rights.
-            </p>
+          {copy.personalisedReturnsText ? (
+            <>
+              <h2 className="mt-8 text-2xl">Personalised items</h2>
+              <p className="mt-3">{copy.personalisedReturnsText}</p>
+            </>
           ) : null}
           <h2 className="mt-8 text-2xl">Return postage</h2>
           <p className="mt-3">

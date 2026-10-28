@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
     return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
   });
-  const adminLogins = (await adminAuditDbMethods.listAdminLoginEvents(50)).map((row) => ({
+  const adminLogins = (await adminAuditDbMethods.listAdminLoginEvents(12)).map((row) => ({
     email: row.email,
     createdAt: row.createdAt,
     ipHash: hashIpForDisplay(row.ip),

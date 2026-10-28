@@ -42,7 +42,10 @@ export function configFromRow(id: string, config: Partial<StoreConfig> | null, d
     domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]),
     brand: {
       ...merged.brand,
-      supportEmail: supportEmailForStore(id, merged.brand.supportEmail),
+      supportEmail: supportEmailForStore(id, {
+        domains: domainsForStore(id, [...dbDomains, ...(config?.domains ?? [])]),
+        brandFallback: merged.brand.supportEmail,
+      }),
     },
   };
 }

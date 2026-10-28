@@ -41,6 +41,9 @@ export function SiteFooter({ brand }: BrandProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <p>© 2026 {name}. Your photos stay private to your order.</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1">
+            {brand?.supportEmail ? (
+              <a href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>
+            ) : null}
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/refunds">Returns &amp; refunds</Link>

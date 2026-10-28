@@ -24,6 +24,8 @@ export type VisitorCollectPayload = {
     metadata?: Record<string, unknown>;
   };
   leave?: boolean;
+  heartbeat?: boolean;
+  pageview?: boolean;
 };
 
 export type AnalyticsCollectContext = {

@@ -63,6 +63,7 @@ export function ShopSiteFooter({ brand }: { brand: StoreBrand }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <p className="text-muted">© 2026 {brand.appName}. Prices include UK VAT where applicable.</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1">
+            <a href={`mailto:${brand.supportEmail}`} className="text-muted hover:text-cream">{brand.supportEmail}</a>
             <Link href="/terms" className="text-muted hover:text-cream">Terms</Link>
             <Link href="/privacy" className="text-muted hover:text-cream">Privacy</Link>
             <Link href="/refunds" className="text-muted hover:text-cream">Returns &amp; refunds</Link>

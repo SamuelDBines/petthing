@@ -28,6 +28,8 @@ const schema = z.object({
     })
     .optional(),
   leave: z.boolean().optional(),
+  heartbeat: z.boolean().optional(),
+  pageview: z.boolean().optional(),
   event: z
     .object({
       type: z.string().min(1).max(64),

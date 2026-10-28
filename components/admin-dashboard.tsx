@@ -70,8 +70,6 @@ type StoreEdit = {
   queueHalted: boolean;
 };
 
-type LoginEvent = { id: string; email: string; ip: string; createdAt: string };
-
 type AdminDashboardProps = {
   initialAuthed?: boolean;
   oauthEnabled?: boolean;
@@ -85,7 +83,6 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(initialAuthed);
-  const [loginEvents, setLoginEvents] = useState<LoginEvent[]>([]);
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
@@ -131,9 +128,6 @@ export function AdminDashboard({
     setStores(storesBody.stores ?? []);
     setAdminStore(storesBody.selected ?? "all");
     setAuthed(true);
-    void fetch("/api/admin/login-audit")
-      .then((r) => (r.ok ? r.json() : { events: [] }))
-      .then((body) => setLoginEvents(body.events ?? []));
   }
 
   async function loadAnalytics(query?: URLSearchParams) {
@@ -358,18 +352,6 @@ export function AdminDashboard({
         </div>
       </div>
       {error ? <p className="mt-3 text-sm">{error}</p> : null}
-      {loginEvents.length ? (
-        <section className="mt-4 rounded-3xl border border-line p-4 text-sm" data-testid="admin-login-audit">
-          <h2 className="font-medium">Recent admin sign-ins</h2>
-          <ul className="mt-2 space-y-1 text-cream/70">
-            {loginEvents.slice(0, 8).map((row) => (
-              <li key={row.id}>
-                {row.email} · {new Date(row.createdAt).toLocaleString("en-GB")} · {row.ip || "—"}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
       {stats ? (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">

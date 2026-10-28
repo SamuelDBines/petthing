@@ -75,7 +75,7 @@ export async function listEmailSignups(storeId?: string | "all") {
 export async function unsubscribeEmail(email: string) {
   const key = normalizeEmail(email);
   if (!process.env.DATABASE_URL) return;
-  await getSql()`update email_signups set unsubscribed_at = now() where lower(email) = ${key}`;
+  await getSql()`update email_signups set unsubscribed_at = now(), marketing_consent = false where lower(email) = ${key}`;
 }
 
 export async function anonymizeEmailRecords(email: string) {

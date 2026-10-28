@@ -40,6 +40,16 @@ function Sparkline({ series }: { series: { day: string; count: number }[] }) {
   return <svg viewBox="0 0 100 100" className="h-8 w-24" aria-hidden><polyline fill="none" stroke="currentColor" strokeWidth="3" points={points} /></svg>;
 }
 
+function loginMethodLabel(email: string) {
+  if (email === "password-login") return "Password";
+  return "Google";
+}
+
+function loginIdentity(email: string) {
+  if (email === "password-login") return "Admin password";
+  return email;
+}
+
 export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
   const [subTab, setSubTab] = useState<"people" | "admin">("people");
   const [data, setData] = useState<CustomersPayload | null>(null);
@@ -162,18 +172,30 @@ export function AdminCustomersPanel({ adminStore }: { adminStore: string }) {
           </div>
         </>
       ) : (
-        <table className="w-full text-left text-sm">
-          <thead className="text-cream/60"><tr><th>Email</th><th>Last login</th><th>IP hash</th></tr></thead>
-          <tbody>
-            {data.adminLogins.map((row) => (
-              <tr key={`${row.email}-${row.createdAt}`} className="border-t border-line">
-                <td className="py-2">{row.email}</td>
-                <td>{new Date(row.createdAt).toLocaleString("en-GB")}</td>
-                <td>{row.ipHash}</td>
+        <div className="overflow-x-auto rounded-3xl border border-line p-4">
+          <h2 className="text-xl">Recent admin sign-ins</h2>
+          <p className="mt-1 text-sm text-cream/60">Last 12 sign-ins (hashed IP only).</p>
+          <table className="mt-4 w-full min-w-[480px] text-left text-sm">
+            <thead className="text-cream/60">
+              <tr>
+                <th className="pb-2">Time</th>
+                <th className="pb-2">Method</th>
+                <th className="pb-2">Identity</th>
+                <th className="pb-2">IP hash</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.adminLogins.map((row) => (
+                <tr key={`${row.email}-${row.createdAt}`} className="border-t border-line">
+                  <td className="py-2 whitespace-nowrap">{new Date(row.createdAt).toLocaleString("en-GB")}</td>
+                  <td className="py-2">{loginMethodLabel(row.email)}</td>
+                  <td className="py-2">{loginIdentity(row.email)}</td>
+                  <td className="py-2 font-mono text-xs">{row.ipHash}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import * as schema from "@/db/schema";
 import type { AnalyticsCollectContext, VisitorCollectPayload } from "@/lib/analytics/types";
 import type { VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
-import { INTERACTION_EVENT_TYPES } from "@/lib/analytics/metrics";
+import { INTERACTION_EVENT_TYPES, sessionIsBounce } from "@/lib/analytics/metrics";
 import { mergeRollups, rollupDay } from "@/lib/analytics/rollup";
 import {
   browserFromUserAgent,
@@ -100,6 +100,11 @@ function clickIdsFromPayload(payload: VisitorCollectPayload) {
   };
 }
 
+function touchDurationMs(sessionRow: VisitorSessionRow, payload: VisitorCollectPayload, now: Date) {
+  const elapsed = now.getTime() - new Date(sessionRow.startedAt).getTime();
+  return Math.max(sessionRow.durationMs, payload.durationMs ?? 0, elapsed);
+}
+
 export async function collectVisitorAnalytics(
   storeId: string,
   payload: VisitorCollectPayload,
@@ -137,6 +142,14 @@ export async function collectVisitorAnalytics(
       .limit(1);
     const isNew = !prior.length;
     const hadInteraction = Boolean(payload.event && INTERACTION_EVENT_TYPES.has(payload.event.type));
+    const initialDuration = payload.durationMs ?? 0;
+    const initialScroll = payload.scrollDepth ?? 0;
+    const bounced = sessionIsBounce({
+      pageviewCount: 1,
+      durationMs: initialDuration,
+      hadInteraction,
+      maxScrollDepth: initialScroll,
+    });
     await adb().insert(visitorSessions).values({
       id: sessionId,
       storeId,
@@ -158,10 +171,10 @@ export async function collectVisitorAnalytics(
       countryCode,
       startedAt: now,
       pageviewCount: 1,
-      bounced: true,
+      bounced,
       hadInteraction,
-      durationMs: payload.durationMs ?? 0,
-      maxScrollDepth: payload.scrollDepth ?? 0,
+      durationMs: initialDuration,
+      maxScrollDepth: initialScroll,
       rageClicks: payload.rageClick ? 1 : 0,
       jsErrors: payload.jsError ? 1 : 0,
       slowLoads: payload.slowLoadMs && payload.slowLoadMs > 4000 ? 1 : 0,
@@ -171,17 +184,24 @@ export async function collectVisitorAnalytics(
     });
     await recordFunnelEvent(storeId, sessionId, visitorId, payload.path, "landing");
   } else {
-    const nextPageviews = sessionRow.pageviewCount + 1;
+    const heartbeat = Boolean(payload.heartbeat);
+    const leave = Boolean(payload.leave);
+    const pathChanged = Boolean(payload.path && payload.path !== sessionRow.exitPath);
+    const incrementPageview =
+      Boolean(payload.pageview) || (pathChanged && !heartbeat && !leave && !payload.event);
+
+    const pageviewCount = sessionRow.pageviewCount + (incrementPageview ? 1 : 0);
     const hadInteraction =
       sessionRow.hadInteraction ||
       Boolean(payload.event && INTERACTION_EVENT_TYPES.has(payload.event.type));
-    const durationMs = Math.max(payload.durationMs ?? 0, sessionRow.durationMs);
-    const bounced = nextPageviews <= 1 && !hadInteraction && durationMs < 10_000;
+    const maxScrollDepth = Math.max(sessionRow.maxScrollDepth, payload.scrollDepth ?? 0);
+    const durationMs = touchDurationMs(sessionRow, payload, now);
+    const bounced = sessionIsBounce({ pageviewCount, durationMs, hadInteraction, maxScrollDepth });
     await adb()
       .update(visitorSessions)
       .set({
-        exitPath: payload.path,
-        pageviewCount: nextPageviews,
+        exitPath: payload.path || sessionRow.exitPath,
+        pageviewCount,
         bounced,
         hadInteraction,
         durationMs,
@@ -189,7 +209,7 @@ export async function collectVisitorAnalytics(
         rageClicks: sql`${visitorSessions.rageClicks} + ${payload.rageClick ? 1 : 0}`,
         jsErrors: sql`${visitorSessions.jsErrors} + ${payload.jsError ? 1 : 0}`,
         slowLoads: sql`${visitorSessions.slowLoads} + ${payload.slowLoadMs && payload.slowLoadMs > 4000 ? 1 : 0}`,
-        endedAt: payload.leave ? now : sessionRow.endedAt ? new Date(sessionRow.endedAt) : null,
+        endedAt: now,
         excludedFromMetrics: traffic.excluded || sessionRow.excludedFromMetrics,
         exclusionReason: traffic.reason ?? sessionRow.exclusionReason,
       })
