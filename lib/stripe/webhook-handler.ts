@@ -2,7 +2,8 @@ import type Stripe from "stripe";
 import { alertAdmin } from "@/lib/email";
 import { fulfillCheckoutSession, noteFailedPayment, noteSeasonCanceled, noteSeasonRenewed } from "@/lib/fulfillment";
 import { kickOrderGeneration } from "@/lib/generation";
-import { stripeApiLivemodeFromEnv } from "@/lib/stripe/live-key";
+import { storeExpectsStripeLivemode } from "@/lib/go-live/live-stores";
+import { storeIdFromMetadata } from "@/lib/stripe/ownership";
 import {
   chargeBelongsToUs,
   checkoutSessionMetadataIsOurs,
@@ -37,10 +38,22 @@ const CHARGE_ALERT_TYPES = new Set([
   "radar.early_fraud_warning.created",
 ]);
 
-function livemodeMatchesKey(event: Stripe.Event) {
-  const keyMode = stripeApiLivemodeFromEnv();
-  if (keyMode === null) return true;
-  return event.livemode === keyMode;
+function storeIdFromEvent(event: Stripe.Event): string | null {
+  if (CHECKOUT_SESSION_TYPES.has(event.type)) {
+    return storeIdFromMetadata((event.data.object as Stripe.Checkout.Session).metadata ?? undefined);
+  }
+  if (CHARGE_ALERT_TYPES.has(event.type)) {
+    const charge = event.data.object as Stripe.Charge;
+    return storeIdFromMetadata(charge.metadata ?? undefined);
+  }
+  return null;
+}
+
+/** Process only when Stripe event livemode matches the store's LIVE_STORES mode. */
+function livemodeMatchesStore(event: Stripe.Event) {
+  const storeId = storeIdFromEvent(event);
+  if (!storeId) return true;
+  return event.livemode === storeExpectsStripeLivemode(storeId);
 }
 
 export async function handleStripeWebhookEvent(
@@ -52,7 +65,7 @@ export async function handleStripeWebhookEvent(
   const notify = deps.alertAdmin ?? alertAdmin;
   const scheduleAfter = deps.after ?? ((fn: () => void) => fn());
 
-  if (!livemodeMatchesKey(event)) {
+  if (!livemodeMatchesStore(event)) {
     return { status: "ignored", reason: "livemode_mismatch" };
   }
 

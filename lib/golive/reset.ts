@@ -11,7 +11,11 @@ export class GoliveResetBlockedError extends Error {
 }
 
 export function resolveStoreScope(storeArg: string) {
-  if (storeArg === "all") return BUILTIN_STORES.map((store) => store.id);
+  if (storeArg === "all") {
+    throw new Error(
+      "Resetting all stores at once is disabled. Pass --store=pawtraitry (or fixmonger / jinglefold) for one store.",
+    );
+  }
   const match = BUILTIN_STORES.find((store) => store.id === storeArg || store.slug === storeArg);
   if (!match) throw new Error(`Unknown store: ${storeArg}`);
   return [match.id];

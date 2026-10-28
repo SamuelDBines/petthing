@@ -14,12 +14,9 @@ export function siteNoindexEnabled(options?: NextHeaderOptions) {
   return raw === "true" || raw === "1" || raw === "yes";
 }
 
-export function optionalGlobalHeaders(options?: NextHeaderOptions) {
-  const headers: { key: string; value: string }[] = [];
-  if (siteNoindexEnabled(options)) {
-    headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });
-  }
-  return headers;
+export function optionalGlobalHeaders(_options?: NextHeaderOptions) {
+  // X-Robots-Tag and per-store indexing are set at request time in middleware + metadata.
+  return [] as { key: string; value: string }[];
 }
 
 export function mergeHeaderSets(...groups: { key: string; value: string }[][]) {

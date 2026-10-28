@@ -2,6 +2,7 @@ import { z } from "zod";
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { isAdmin } from "@/lib/adminAuth";
 import { jsonError, parseBody } from "@/lib/http";
+import { isStoreLive } from "@/lib/go-live/live-stores";
 import { getStore } from "@/lib/store";
 import { adminCookieOptions } from "@/lib/admin/cookies";
 import { cookies } from "next/headers";
@@ -13,6 +14,7 @@ export async function GET() {
   const stores = await Promise.all(
     rows.map(async (row) => ({
       ...row,
+      storeLive: isStoreLive(row.id),
       settings: await store.getSettings(row.id),
     })),
   );

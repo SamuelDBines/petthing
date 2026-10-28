@@ -20,8 +20,8 @@ export const instant = false;
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 
-function stagingNoindex(host: string) {
-  return pageRobotsNoindex(host);
+function stagingNoindex(storeId: string, host: string) {
+  return pageRobotsNoindex(storeId, host);
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
   const host = h.get("x-forwarded-host") || h.get("host") || "";
   const base = `https://${config.brand.siteDomain}`;
-  const noindex = stagingNoindex(host);
+  const noindex = stagingNoindex(config.id, host);
   const domainVerify = metaDomainVerification(config.id, process.env, config.brand);
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || base),

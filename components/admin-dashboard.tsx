@@ -20,6 +20,8 @@ type OrderRow = Order & {
 
 type Stats = {
   todayRevenue: string;
+  todayRevenueLive?: string;
+  todayRevenueTest?: string;
   todayOrders: number;
   todaySpendGbp: number;
   createStarts: number;
@@ -34,7 +36,10 @@ type Stats = {
   };
   storeBreakdown?: {
     storeId: string;
+    storeLive?: boolean;
     todayRevenue: string;
+    todayRevenueLive?: string;
+    todayRevenueTest?: string;
     reviewQueue: number;
     shopPaidQueue: number;
     generating: number;
@@ -53,6 +58,7 @@ type Tab = "orders" | "sales" | "content" | "analytics" | "customers" | "hand_pa
 type StoreOption = {
   id: string;
   slug: string;
+  storeLive?: boolean;
   domains?: string[];
   config: { brand: { appName: string; tagline?: string; supportEmail?: string } };
   settings?: { salesPaused: boolean; queueHalted: boolean };
@@ -336,7 +342,7 @@ export function AdminDashboard({
             <select className="field ml-2" value={adminStore} onChange={(event) => void switchStore(event.target.value)}>
               <option value="all">All stores</option>
               {stores.map((store) => (
-                <option key={store.id} value={store.id}>{store.config.brand.appName}</option>
+                <option key={store.id} value={store.id}>{store.config.brand.appName}{store.storeLive ? " (Live)" : " (Test)"}</option>
               ))}
             </select>
           </label>
@@ -355,7 +361,7 @@ export function AdminDashboard({
       {stats ? (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today</p><p className="text-2xl">{stats.todayRevenue}</p><p className="text-sm">{stats.todayOrders} orders</p></article>
+            <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Today</p><p className="text-2xl">{stats.todayRevenue}</p><p className="text-sm">{stats.todayOrders} orders</p>{adminStore === "all" && stats.todayRevenueLive && stats.todayRevenueTest ? <p className="text-xs text-cream/60 mt-1">Live {stats.todayRevenueLive} · Test {stats.todayRevenueTest}</p> : null}</article>
             <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Generation today</p><p className="text-2xl">£{stats.todaySpendGbp.toFixed(2)}</p><p className="text-sm">cap £{sales?.today.generationCapGbp ?? 25}</p></article>
             <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Review queue</p><p className="text-2xl">{reviewCount}</p></article>
             <article className="rounded-3xl border border-line p-4"><p className="text-sm text-cream/60">Start → paid</p><p className="text-2xl">{conversion}%</p><p className="text-sm">{stats.paid} / {stats.createStarts}</p></article>
@@ -373,12 +379,15 @@ export function AdminDashboard({
             <div className="mt-3 overflow-x-auto rounded-3xl border border-line p-4" data-testid="admin-store-breakdown">
               <p className="text-sm text-cream/60">Today by store</p>
               <table className="mt-2 w-full text-left text-sm">
-                <thead className="text-cream/60"><tr><th>Store</th><th>Revenue</th><th>Review</th><th>Shop paid</th><th>Generating</th></tr></thead>
+                <thead className="text-cream/60"><tr><th>Store</th><th>Mode</th><th>Revenue</th><th>Live</th><th>Test</th><th>Review</th><th>Shop paid</th><th>Generating</th></tr></thead>
                 <tbody>
                   {stats.storeBreakdown.map((row) => (
                     <tr key={row.storeId} className="border-t border-line">
                       <td className="py-2">{storeLabel(row.storeId)}</td>
+                      <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs ${row.storeLive ? "bg-moss/30 text-ink" : "bg-line/40"}`}>{row.storeLive ? "Live" : "Test"}</span></td>
                       <td>{row.todayRevenue}</td>
+                      <td>{row.todayRevenueLive ?? "—"}</td>
+                      <td>{row.todayRevenueTest ?? "—"}</td>
                       <td>{row.reviewQueue}</td>
                       <td>{row.shopPaidQueue}</td>
                       <td>{row.generating}</td>
@@ -766,7 +775,7 @@ export function AdminDashboard({
             if (!edit) return null;
             return (
               <article key={store.id} className="rounded-3xl border border-line p-4">
-                <h2 className="text-xl">{store.config.brand.appName}</h2>
+                <h2 className="text-xl flex items-center gap-2">{store.config.brand.appName}<span className={`rounded-full px-2 py-0.5 text-xs font-normal ${store.storeLive ? "bg-moss/30 text-ink" : "bg-line/40"}`}>{store.storeLive ? "Live" : "Test"}</span></h2>
                 <label className="mt-3 block text-sm">Domains
                   <input
                     className="field mt-1 w-full"

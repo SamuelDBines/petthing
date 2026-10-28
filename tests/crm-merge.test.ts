@@ -41,6 +41,10 @@ test("resolveStoreScope accepts slug or id", () => {
   assert.deepEqual(resolveStoreScope("fixmonger"), ["fixmonger"]);
 });
 
+test("resolveStoreScope rejects all", () => {
+  assert.throws(() => resolveStoreScope("all"), /disabled/);
+});
+
 test("GoliveResetBlockedError is named for safety handling", () => {
   const error = new GoliveResetBlockedError("blocked");
   assert.equal(error.name, "GoliveResetBlockedError");

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { canonicalAdminOrigin, isCanonicalAdminHost } from "@/lib/admin/canonical";
 import { catalogueProductSlugExists } from "@/lib/catalogue/slug-index";
 import { should404UnknownShopProduct } from "@/lib/catalogue/shop-routes";
+import { pageRobotsNoindex } from "@/lib/seo/page-robots";
 import { resolveStoreIdFromHost } from "@/lib/tenant/resolve";
 
 export function middleware(request: NextRequest) {
@@ -53,6 +54,9 @@ export function middleware(request: NextRequest) {
   });
   if (process.env.NODE_ENV !== "production" && storeQuery) {
     response.cookies.set("ps_dev_store", storeQuery, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 });
+  }
+  if (pageRobotsNoindex(storeId, host)) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;
 }

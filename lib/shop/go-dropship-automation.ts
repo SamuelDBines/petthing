@@ -10,9 +10,12 @@ export async function autoSubmitGoDropshipBatch(storeId: string) {
   return submitGoDropshipOrders(orders);
 }
 
+import { isStoreLive } from "@/lib/go-live/live-stores";
+
 export async function autoSubmitAllCatalogueStores() {
   let total = 0;
   for (const storeId of ["fixmonger", "jinglefold"]) {
+    if (!isStoreLive(storeId)) continue;
     const result = await autoSubmitGoDropshipBatch(storeId);
     total += result.submitted;
   }

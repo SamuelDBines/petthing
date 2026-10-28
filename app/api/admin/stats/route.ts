@@ -1,6 +1,7 @@
 import { adminStoreFilter } from "@/lib/admin/storeScope";
 import { portraitRevenuePence, shopRevenuePence, formatRevenue } from "@/lib/admin/metrics";
 import { isAdmin } from "@/lib/adminAuth";
+import { isStoreLive } from "@/lib/go-live/live-stores";
 import { BUILTIN_STORES } from "@/lib/tenant/defaults";
 import { londonDay } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
@@ -18,9 +19,13 @@ export async function GET() {
     store.listShopOrders ? store.listShopOrders(storeId) : Promise.resolve([]),
   ]);
 
-  const portraitToday = portraitRevenuePence(orders, day);
-  const shopToday = shopRevenuePence(shopOrders, day);
-  const todayRevenuePence = portraitToday + shopToday;
+  const portraitTodayLive = portraitRevenuePence(orders, day, "live");
+  const portraitTodayTest = portraitRevenuePence(orders, day, "test");
+  const shopTodayLive = shopRevenuePence(shopOrders, day, "live");
+  const shopTodayTest = shopRevenuePence(shopOrders, day, "test");
+  const todayRevenueLivePence = portraitTodayLive + shopTodayLive;
+  const todayRevenueTestPence = portraitTodayTest + shopTodayTest;
+  const todayRevenuePence = todayRevenueLivePence + todayRevenueTestPence;
 
   const paidTodayPortrait = orders.filter(
     (order) =>
@@ -51,9 +56,14 @@ export async function GET() {
               store.listOrders(id),
               store.listShopOrders ? store.listShopOrders(id) : Promise.resolve([]),
             ]);
+            const livePence = portraitRevenuePence(o, day, "live") + shopRevenuePence(s, day, "live");
+            const testPence = portraitRevenuePence(o, day, "test") + shopRevenuePence(s, day, "test");
             return {
               storeId: id,
-              todayRevenue: formatRevenue(portraitRevenuePence(o, day) + shopRevenuePence(s, day)),
+              storeLive: isStoreLive(id),
+              todayRevenue: formatRevenue(livePence + testPence),
+              todayRevenueLive: formatRevenue(livePence),
+              todayRevenueTest: formatRevenue(testPence),
               reviewQueue: o.filter((x) => x.status === "review").length,
               shopPaidQueue: s.filter((x) => x.status === "paid").length,
               generating: o.filter((x) => x.status === "generating").length,
@@ -65,6 +75,10 @@ export async function GET() {
   return Response.json({
     todayRevenuePence,
     todayRevenue: formatRevenue(todayRevenuePence),
+    todayRevenueLivePence,
+    todayRevenueLive: formatRevenue(todayRevenueLivePence),
+    todayRevenueTestPence,
+    todayRevenueTest: formatRevenue(todayRevenueTestPence),
     todayOrders: paidTodayPortrait + paidTodayShop,
     todaySpendGbp,
     createStarts: await store.countEvents("create_start", undefined, storeId),

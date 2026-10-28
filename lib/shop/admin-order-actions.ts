@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import type { ShopOrder } from "@/lib/catalogue/types";
 import { alertAdmin } from "@/lib/email";
 import { sendEmail } from "@/lib/email";
+import { storeAllowsSupplierOrderEmail } from "@/lib/go-live/live-stores";
 import { withTransientRetries } from "@/lib/transientErrors";
 import { buildGoDropshipCsv } from "@/lib/suppliers/goDropship";
 import {
@@ -84,6 +85,14 @@ export async function cancelShopOrder(
 }
 
 async function emailGoDropshipBatch(storeId: string, batchId: string, orders: ShopOrder[], csv: string) {
+  if (!storeAllowsSupplierOrderEmail(storeId)) {
+    await alertAdmin(
+      "Go Dropship batch (test store — supplier email skipped)",
+      `<p>Batch ${batchId} for ${storeId} with ${orders.length} orders would have been emailed. Store is not in LIVE_STORES.</p>`,
+      storeId,
+    );
+    return;
+  }
   const supplierEmail = process.env.GODROPSHIP_ORDERS_EMAIL?.trim();
   if (supplierEmail) {
     await sendEmail({

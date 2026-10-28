@@ -15,7 +15,7 @@ import { createHandPaintedWorkflow } from "@/lib/handPainted";
 import { composePrint } from "@/lib/puzzleSheet";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
-import { getStripe, paymentIntentId } from "@/lib/stripe";
+import { getStripeForStore, paymentIntentId } from "@/lib/stripe";
 import { manualReviewEnabled } from "@/lib/runtime";
 import { reviewReadyEmail } from "@/lib/email";
 
@@ -197,6 +197,7 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
       assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
     }
     const result = await submitPrintOrder({
+      storeId: order?.storeId ?? "pawtraitry",
       product,
       shipping,
       assets,
@@ -320,7 +321,7 @@ export async function refundOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order) throw new Error("Order not found");
-  const stripe = getStripe();
+  const stripe = getStripeForStore(order.storeId);
   const prints = await store.listPrints(orderId);
   const intents = new Set<string>();
   for (const payment of order.payments) {

@@ -1,22 +1,57 @@
 import Stripe from "stripe";
+import {
+  stripeSecretKeyForStore,
+  stripeTestSecretKey,
+  stripeLiveWebhookSecret,
+  stripeTestWebhookSecret,
+} from "@/lib/go-live/live-stores";
 import { assertStripeSecretKeyAllowed } from "@/lib/stripe/live-key";
 
-let stripeClient: Stripe | null = null;
+const clientsByKey = new Map<string, Stripe>();
 
 export function __resetStripeClientForTests() {
-  stripeClient = null;
+  clientsByKey.clear();
 }
 
-export function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
-  if (!key) return null;
+function clientForKey(key: string) {
   assertStripeSecretKeyAllowed(key);
-  if (!stripeClient) stripeClient = new Stripe(key);
-  return stripeClient;
+  let client = clientsByKey.get(key);
+  if (!client) {
+    client = new Stripe(key);
+    clientsByKey.set(key, client);
+  }
+  return client;
+}
+
+/** Stripe client for a store (live vs test keys from LIVE_STORES). */
+export function getStripeForStore(storeId: string) {
+  const key = stripeSecretKeyForStore(storeId);
+  if (!key) return null;
+  return clientForKey(key);
+}
+
+/** Legacy entry — prefer getStripeForStore(storeId). Uses test key when storeId omitted. */
+export function getStripe(storeId?: string) {
+  if (storeId) return getStripeForStore(storeId);
+  const key = stripeTestSecretKey();
+  if (!key) return null;
+  return clientForKey(key);
+}
+
+export function stripeConfiguredForStore(storeId: string) {
+  try {
+    return Boolean(stripeSecretKeyForStore(storeId));
+  } catch {
+    return false;
+  }
 }
 
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim());
+  const testOk = Boolean(stripeTestSecretKey() && stripeTestWebhookSecret());
+  const liveOk = Boolean(
+    process.env.STRIPE_LIVE_SECRET_KEY?.trim() && stripeLiveWebhookSecret(),
+  );
+  return testOk || liveOk;
 }
 
 export function paymentIntentId(session: Stripe.Checkout.Session) {

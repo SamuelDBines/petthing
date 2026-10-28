@@ -22,7 +22,7 @@ import {
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
-import { getStripe } from "@/lib/stripe";
+import { getStripeForStore } from "@/lib/stripe";
 import { markShopOrderPaid } from "@/lib/shop/fulfillment";
 import type Stripe from "stripe";
 
@@ -36,6 +36,7 @@ const schema = z
   .merge(metaAttributionBodySchema);
 
 async function openSession(args: {
+  storeId: string;
   brand: import("@/lib/tenant/types").StoreBrand;
   origin: string;
   email: string;
@@ -45,7 +46,7 @@ async function openSession(args: {
   integrationStableKey: string;
   shippingPence: number;
 }) {
-  const stripe = getStripe();
+  const stripe = getStripeForStore(args.storeId);
   const success = `${args.origin}/shop/success?session_id={CHECKOUT_SESSION_ID}`;
   if (!stripe) {
     if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
   });
 
   const origin = publicOriginForStore(request, config.brand, storeId, config.domains);
-  const stripe = getStripe();
+  const stripe = getStripeForStore(storeId);
   if (stripe && shopOrder.stripeCheckoutSessionId) {
     const existingUrl = await openCheckoutSessionUrl(stripe, shopOrder.stripeCheckoutSessionId);
     if (existingUrl) {
@@ -176,6 +177,7 @@ export async function POST(request: Request) {
   }
   const metaCtx = metaContextFromBody(parsed.data);
   const opened = await openSession({
+    storeId,
     brand: config.brand,
     origin,
     email: shopOrder.email,

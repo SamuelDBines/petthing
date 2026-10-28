@@ -1,3 +1,4 @@
+import { isStoreLive, parseLiveStores, stripeLiveSecretKey, stripeLiveWebhookSecret, stripeTestSecretKey, stripeTestWebhookSecret } from "@/lib/go-live/live-stores";
 import { stripeLiveKeyOptInEnabled, stripeSecretKeyIsLive } from "@/lib/stripe/live-key";
 import { metaGoLiveWarnings } from "@/lib/meta/config";
 
@@ -41,16 +42,25 @@ export const GLOBAL_REQUIREMENTS: EnvRequirement[] = [
 export const INTEGRATION_ENV: Record<IntegrationId, EnvRequirement[]> = {
   postgres: [{ key: "DATABASE_URL", description: "Primary database" }],
   stripe: [
-    { key: "STRIPE_SECRET_KEY", description: "Stripe API secret" },
+    { key: "STRIPE_SECRET_KEY", description: "Stripe API secret (test fallback)" },
+    { key: "STRIPE_TEST_SECRET_KEY", optional: true, description: "Stripe test API secret (preferred on multi-store deploys)" },
+    { key: "STRIPE_LIVE_SECRET_KEY", optional: true, description: "Stripe live API secret (stores in LIVE_STORES)" },
     {
       key: "STRIPE_LIVE_MODE",
       optional: true,
-      description: "Set true when STRIPE_SECRET_KEY is sk_live_/rk_live_ (required for live keys)",
+      description: "Set true when using STRIPE_LIVE_SECRET_KEY (required for live keys)",
     },
   ],
-  stripe_webhook: [{ key: "STRIPE_WEBHOOK_SECRET", description: "Stripe webhook signing" }],
+  stripe_webhook: [
+    { key: "STRIPE_WEBHOOK_SECRET", description: "Stripe test webhook signing (fallback)" },
+    { key: "STRIPE_TEST_WEBHOOK_SECRET", optional: true, description: "Stripe test webhook signing" },
+    { key: "STRIPE_LIVE_WEBHOOK_SECRET", optional: true, description: "Stripe live webhook signing (LIVE_STORES)" },
+  ],
   fal: [{ key: "FAL_KEY", description: "fal.ai image generation" }],
-  prodigi: [{ key: "PRODIGI_API_KEY", description: "Prodigi print API" }],
+  prodigi: [
+    { key: "PRODIGI_API_KEY", description: "Prodigi live print API (LIVE_STORES)" },
+    { key: "PRODIGI_SANDBOX_API_KEY", optional: true, description: "Prodigi sandbox (test stores)" },
+  ],
   printful: [{ key: "PRINTFUL_API_KEY", description: "Printful API (Jinglefold stocking)" }],
   ses: [
     { key: "AWS_ACCESS_KEY_ID", description: "AWS credentials for SES" },
@@ -122,40 +132,86 @@ export function envPresent(key: string) {
   return Boolean(v && String(v).trim());
 }
 
+function pushMissing(
+  missing: Map<string, { scope: string; key: string; description: string }>,
+  scope: string,
+  key: string,
+  description: string,
+) {
+  missing.set(`${scope}:${key}`, { scope, key, description });
+}
+
+export function goLiveStoreProfiles(env: NodeJS.ProcessEnv = process.env) {
+  const live = parseLiveStores(env);
+  if (!live.size) return [];
+  return STORE_PROFILES.filter((p) => live.has(p.storeId));
+}
+
 export function validateGoLive(env: NodeJS.ProcessEnv = process.env) {
-  const missing: { scope: string; key: string; description: string }[] = [];
+  const missing = new Map<string, { scope: string; key: string; description: string }>();
   const check = (scope: string, reqs: EnvRequirement[]) => {
     for (const req of reqs) {
       if (req.optional) continue;
-      if (!env[req.key]?.trim()) missing.push({ scope, key: req.key, description: req.description });
+      if (!env[req.key]?.trim()) pushMissing(missing, scope, req.key, req.description);
     }
   };
   check("global", GLOBAL_REQUIREMENTS);
-  for (const profile of STORE_PROFILES) {
+
+  const profiles = goLiveStoreProfiles(env);
+  for (const profile of profiles) {
     for (const id of profile.integrations) {
+      if (id === "stripe") {
+        if (!stripeLiveSecretKey(env)) {
+          pushMissing(missing, profile.label, "STRIPE_LIVE_SECRET_KEY", "Live Stripe secret for LIVE_STORES checkout");
+        }
+        if (!stripeLiveKeyOptInEnabled(env)) {
+          pushMissing(missing, profile.label, "STRIPE_LIVE_MODE", "Must be true when LIVE_STORES uses live Stripe");
+        }
+        continue;
+      }
+      if (id === "stripe_webhook") {
+        if (!stripeLiveWebhookSecret(env)) {
+          pushMissing(missing, profile.label, "STRIPE_LIVE_WEBHOOK_SECRET", "Live Stripe webhook signing secret");
+        }
+        continue;
+      }
+      if (id === "prodigi" && isStoreLive(profile.storeId, env)) {
+        if (!env.PRODIGI_API_KEY?.trim()) {
+          pushMissing(missing, profile.label, "PRODIGI_API_KEY", "Prodigi live API key");
+        }
+        continue;
+      }
       for (const req of INTEGRATION_ENV[id]) {
         if (req.optional) continue;
+        if (req.key.startsWith("STRIPE_") || req.key.startsWith("PRODIGI_")) continue;
         if (!env[req.key]?.trim()) {
-          missing.push({
-            scope: `${profile.label} (${profile.storeId})`,
-            key: req.key,
-            description: req.description,
-          });
+          pushMissing(missing, `${profile.label} (${profile.storeId})`, req.key, req.description);
         }
       }
     }
   }
-  const unique = new Map<string, { scope: string; key: string; description: string }>();
-  for (const row of missing) unique.set(`${row.scope}:${row.key}`, row);
+
+  const live = parseLiveStores(env);
+  if (live.size > 0 && STORE_PROFILES.some((p) => !live.has(p.storeId))) {
+    if (!stripeTestSecretKey(env)) {
+      pushMissing(missing, "global", "STRIPE_TEST_SECRET_KEY", "Test Stripe secret for non-live stores (or STRIPE_SECRET_KEY)");
+    }
+    if (!stripeTestWebhookSecret(env)) {
+      pushMissing(
+        missing,
+        "global",
+        "STRIPE_TEST_WEBHOOK_SECRET",
+        "Test Stripe webhook secret for non-live stores (or STRIPE_WEBHOOK_SECRET)",
+      );
+    }
+  }
+
   const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
   if (key && stripeSecretKeyIsLive(key) && !stripeLiveKeyOptInEnabled(env)) {
-    unique.set("global:STRIPE_LIVE_MODE", {
-      scope: "global",
-      key: "STRIPE_LIVE_MODE",
-      description: "Must be true when using live Stripe secret keys",
-    });
+    pushMissing(missing, "global", "STRIPE_LIVE_MODE", "Must be true when using live Stripe secret keys");
   }
-  return { ok: unique.size === 0, missing: [...unique.values()] };
+
+  return { ok: missing.size === 0, missing: [...missing.values()] };
 }
 
 export function validateGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {

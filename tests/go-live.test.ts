@@ -12,6 +12,20 @@ test("validateGoLive reports missing keys in empty env slice", () => {
   if (prev) process.env.DATABASE_URL = prev;
 });
 
+test("validateGoLive only checks LIVE_STORES profiles", () => {
+  const prev = { LIVE_STORES: process.env.LIVE_STORES, STRIPE_LIVE_SECRET_KEY: process.env.STRIPE_LIVE_SECRET_KEY };
+  process.env.LIVE_STORES = "pawtraitry";
+  delete process.env.STRIPE_LIVE_SECRET_KEY;
+  const result = validateGoLive(process.env);
+  assert.equal(result.ok, false);
+  assert.ok(result.missing.some((m) => m.key === "STRIPE_LIVE_SECRET_KEY" && m.scope === "Pawtraitry"));
+  assert.ok(!result.missing.some((m) => m.scope.includes("Fixmonger")));
+  if (prev.LIVE_STORES === undefined) delete process.env.LIVE_STORES;
+  else process.env.LIVE_STORES = prev.LIVE_STORES;
+  if (prev.STRIPE_LIVE_SECRET_KEY === undefined) delete process.env.STRIPE_LIVE_SECRET_KEY;
+  else process.env.STRIPE_LIVE_SECRET_KEY = prev.STRIPE_LIVE_SECRET_KEY;
+});
+
 test("integrationHealth returns stripe row", () => {
   const rows = integrationHealth();
   assert.ok(rows.some((r) => r.id === "stripe"));

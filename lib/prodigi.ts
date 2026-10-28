@@ -1,21 +1,21 @@
 import { randomUUID } from "crypto";
 import { printSku, type PrintProduct } from "@/config/prints";
 import type { Shipping } from "@/lib/domain";
-import { prodigiApiKey } from "@/lib/prodigi/config";
+import { prodigiApiKeyForStore, prodigiUsesLiveApi } from "@/lib/prodigi/config";
 
-export function prodigiMocked() {
-  return !prodigiApiKey();
+export function prodigiMocked(storeId?: string) {
+  return !prodigiApiKeyForStore(storeId ?? "pawtraitry");
 }
 
-function baseUrl() {
-  if (process.env.PRODIGI_ENV === "live") return "https://api.prodigi.com/v4.0";
+function baseUrl(storeId: string) {
+  if (prodigiUsesLiveApi(storeId)) return "https://api.prodigi.com/v4.0";
   return "https://api.sandbox.prodigi.com/v4.0";
 }
 
-async function prodigi(path: string, init?: RequestInit) {
-  const key = prodigiApiKey();
-  if (!key) throw new Error("PRODIGI_API_KEY is not set");
-  const response = await fetch(`${baseUrl()}${path}`, {
+async function prodigi(storeId: string, path: string, init?: RequestInit) {
+  const key = prodigiApiKeyForStore(storeId);
+  if (!key) throw new Error("Prodigi API key is not set for this store");
+  const response = await fetch(`${baseUrl(storeId)}${path}`, {
     ...init,
     headers: {
       "X-API-Key": key,
@@ -34,15 +34,17 @@ export function assertPrinterCanFetch(url: string) {
 }
 
 export async function quotePrintShipping(args: {
+  storeId?: string;
   product: PrintProduct;
   countryCode: string;
   items?: number;
 }) {
-  if (prodigiMocked()) {
+  const storeId = args.storeId ?? "pawtraitry";
+  if (prodigiMocked(storeId)) {
     return { mocked: true, currency: "GBP", shipping: 499, subtotal: args.product.pricePence };
   }
   const sku = printSku(args.product);
-  const response = await prodigi("/quotes", {
+  const response = await prodigi(storeId, "/quotes", {
     method: "POST",
     body: JSON.stringify({
       shippingMethod: "Standard",
@@ -63,11 +65,11 @@ export async function quotePrintShipping(args: {
   };
 }
 
-export async function fetchProdigiOrder(orderId: string) {
-  if (prodigiMocked()) {
+export async function fetchProdigiOrder(orderId: string, storeId = "pawtraitry") {
+  if (prodigiMocked(storeId)) {
     return { status: "Complete", trackingNumber: `MOCK${orderId.slice(-6)}`, trackingUrl: null };
   }
-  const response = await prodigi(`/orders/${encodeURIComponent(orderId)}`);
+  const response = await prodigi(storeId, `/orders/${encodeURIComponent(orderId)}`);
   const payload = (await response.json().catch(() => ({}))) as {
     order?: { status?: { stage?: string }; shipments?: { tracking?: { number?: string; url?: string } }[] };
   };
@@ -81,6 +83,7 @@ export async function fetchProdigiOrder(orderId: string) {
 }
 
 export async function submitMerchandiseOrder(args: {
+  storeId?: string;
   sku: string;
   shipping: Shipping;
   assetUrl: string;
@@ -88,7 +91,8 @@ export async function submitMerchandiseOrder(args: {
   merchantReference: string;
   copies?: number;
 }) {
-  if (prodigiMocked()) {
+  const storeId = args.storeId ?? "jinglefold";
+  if (prodigiMocked(storeId)) {
     const id = `mock_prodigi_${randomUUID().slice(0, 8)}`;
     console.log(`[prodigi mock] ${args.merchantReference} → ${id} (${args.sku})`);
     return { prodigiOrderId: id };
@@ -118,7 +122,7 @@ export async function submitMerchandiseOrder(args: {
       },
     ],
   };
-  const response = await prodigi("/orders", { method: "POST", body: JSON.stringify(body) });
+  const response = await prodigi(storeId, "/orders", { method: "POST", body: JSON.stringify(body) });
   const payload = (await response.json().catch(() => ({}))) as { order?: { id?: string } };
   if (!response.ok) {
     throw new Error(`Prodigi order failed (${response.status}): ${JSON.stringify(payload).slice(0, 300)}`);
@@ -129,19 +133,21 @@ export async function submitMerchandiseOrder(args: {
 }
 
 export async function submitPrintOrder(args: {
+  storeId?: string;
   product: PrintProduct;
   shipping: Shipping;
   assets: { printArea: string; url: string }[];
   merchantReference: string;
 }) {
-  if (prodigiMocked()) {
+  const storeId = args.storeId ?? "pawtraitry";
+  if (prodigiMocked(storeId)) {
     const id = `mock_prodigi_${randomUUID().slice(0, 8)}`;
     console.log(`[prodigi mock] ${args.merchantReference} → ${id} (${args.product.id})`);
     return { prodigiOrderId: id };
   }
   for (const asset of args.assets) assertPrinterCanFetch(asset.url);
   const sku = printSku(args.product);
-  const productResponse = await prodigi(`/products/${encodeURIComponent(sku)}`);
+  const productResponse = await prodigi(storeId, `/products/${encodeURIComponent(sku)}`);
   if (productResponse.status === 404) {
     throw new Error(`Prodigi does not recognise SKU ${sku}. Set ${args.product.skuEnv} to a SKU from your catalogue.`);
   }
@@ -174,7 +180,7 @@ export async function submitPrintOrder(args: {
     ],
   };
 
-  const response = await prodigi("/orders", { method: "POST", body: JSON.stringify(body) });
+  const response = await prodigi(storeId, "/orders", { method: "POST", body: JSON.stringify(body) });
   const payload = (await response.json().catch(() => ({}))) as { order?: { id?: string } };
   if (!response.ok) {
     throw new Error(`Prodigi order failed (${response.status}): ${JSON.stringify(payload).slice(0, 300)}`);

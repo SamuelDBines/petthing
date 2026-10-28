@@ -34,7 +34,7 @@ test("sendMetaCapiEvent posts Purchase with hashed email when configured", async
       },
       customData: { value: 29.99, currency: "GBP", contentIds: ["classic"] },
     },
-    { ...process.env, META_PIXEL_ID_PAWTRAITRY: "123456789", META_CAPI_TOKEN_PAWTRAITRY: "token", META_FORCE_LIVE: "true" },
+    { ...process.env, LIVE_STORES: "pawtraitry", META_PIXEL_ID_PAWTRAITRY: "123456789", META_CAPI_TOKEN_PAWTRAITRY: "token", META_FORCE_LIVE: "true" },
   );
   __setMetaCapiFetchForTests(null);
   assert.equal(result.sent, true);

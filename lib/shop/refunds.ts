@@ -1,6 +1,6 @@
 import type { ShopOrder } from "@/lib/catalogue/types";
 import { sendShopRefundEmail } from "@/lib/shop/emails";
-import { getStripe } from "@/lib/stripe";
+import { getStripeForStore } from "@/lib/stripe";
 import { getStore } from "@/lib/store";
 
 export async function refundShopOrder(orderId: string, amountPence?: number) {
@@ -10,7 +10,7 @@ export async function refundShopOrder(orderId: string, amountPence?: number) {
   if (order.status === "refunded") throw new Error("Order already refunded");
   if (order.status === "pending_payment") throw new Error("Order was not paid");
 
-  const stripe = getStripe();
+  const stripe = getStripeForStore(order.storeId);
   const intentId = order.stripePaymentIntentId;
   const refundable = order.amountPence - (order.amountRefundedPence ?? 0);
   const refundPence = amountPence ?? refundable;

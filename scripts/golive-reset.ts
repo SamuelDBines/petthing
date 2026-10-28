@@ -3,7 +3,7 @@ import { spawnSync } from "child_process";
 import { goliveResetCounts, executeGoliveReset, resolveStoreScope, GoliveResetBlockedError } from "@/lib/golive/reset";
 
 function parseArgs(argv: string[]) {
-  let store = "all";
+  let store = "";
   let dryRun = true;
   let confirm = false;
   for (const arg of argv) {
@@ -19,6 +19,10 @@ function parseArgs(argv: string[]) {
 
 async function main() {
   const { store, dryRun, confirm } = parseArgs(process.argv.slice(2));
+  if (!store) {
+    console.error("Missing --store=<id> (e.g. --store=pawtraitry).");
+    process.exit(1);
+  }
   const storeIds = resolveStoreScope(store);
   const counts = await goliveResetCounts(storeIds);
   console.log(`Go-live reset scope: ${store} (${storeIds.join(", ")})`);

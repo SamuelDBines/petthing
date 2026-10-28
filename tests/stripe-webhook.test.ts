@@ -156,6 +156,38 @@ test("non-transient failure on our checkout returns ok after logging path", asyn
   assert.equal(alerts, 1);
 });
 
+test("livemode mismatch ignored when store is live but event is test", async () => {
+  const prev = process.env.LIVE_STORES;
+  process.env.LIVE_STORES = "pawtraitry";
+  let fulfilled = 0;
+  try {
+    const outcome = await handleStripeWebhookEvent(
+      {
+        id: "evt_livemode",
+        type: "checkout.session.completed",
+        livemode: false,
+        data: {
+          object: {
+            id: "cs_test_on_live_store",
+            metadata: { kind: "portrait", storeId: "pawtraitry", orderId: "ord_1" },
+            payment_status: "paid",
+          },
+        },
+      } as unknown as Stripe.Event,
+      {
+        fulfillCheckoutSession: async () => {
+          fulfilled += 1;
+        },
+      },
+    );
+    assert.equal(outcome.status, "ignored");
+    assert.equal(fulfilled, 0);
+  } finally {
+    if (prev === undefined) delete process.env.LIVE_STORES;
+    else process.env.LIVE_STORES = prev;
+  }
+});
+
 test("chargeBelongsToUs respects charge metadata storeId", async () => {
   const ours = await chargeBelongsToUs(
     { metadata: { storeId: "fixmonger" }, payment_intent: null } as unknown as Stripe.Charge,

@@ -74,6 +74,7 @@ export async function submitJinglefoldPhysicalOrder(order: Order) {
       const copies = pricingSku === "XMAS-PLAS-BAUB-3" ? 3 : 1;
       const result = await withTransientRetries(() =>
         submitMerchandiseOrder({
+          storeId: "jinglefold",
           sku,
           shipping,
           assetUrl: imageUrl,

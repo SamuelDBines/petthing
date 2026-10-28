@@ -28,7 +28,7 @@ import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import type { StoreBrand } from "@/lib/tenant/types";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
-import { getStripe } from "@/lib/stripe";
+import { getStripeForStore } from "@/lib/stripe";
 import type Stripe from "stripe";
 import { metaAttributionBodySchema, metaContextFromBody } from "@/lib/meta/api-schema";
 import { mergeCheckoutStripeMetadata } from "@/lib/meta/stripe-metadata";
@@ -61,6 +61,7 @@ const schema = z.discriminatedUnion("kind", [
 ]);
 
 async function openSession(args: {
+  storeId: string;
   brand: StoreBrand;
   origin: string;
   kind: string;
@@ -75,7 +76,7 @@ async function openSession(args: {
   allowPromotionCodes?: boolean;
   mode?: "payment" | "subscription";
 }) {
-  const stripe = getStripe();
+  const stripe = getStripeForStore(args.storeId);
   const success = `${args.origin}${args.successPath}`;
   if (!stripe) {
     if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
@@ -148,13 +149,14 @@ export async function POST(request: Request) {
     if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
     const jinglefoldPersonalised =
       order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised);
-    const stripe = getStripe();
+    const stripe = getStripeForStore(order.storeId);
     if (stripe && order.stripeCheckoutSessionId) {
       const existingUrl = await openCheckoutSessionUrl(stripe, order.stripeCheckoutSessionId);
       if (existingUrl) return Response.json({ url: existingUrl });
     }
     const metaCtx = body.kind === "portrait" ? metaContextFromBody(body) : null;
     const opened = await openSession({
+      storeId: order.storeId,
       brand,
       origin,
       kind: pass ? "season" : "portrait",
@@ -233,6 +235,7 @@ export async function POST(request: Request) {
     }
     if (!remaining.length && chosen.length !== EXTRA_STYLES_COUNT) return jsonError("Choose 3 styles for extra images.");
     const opened = await openSession({
+      storeId: order.storeId,
       brand,
       origin,
       kind: "extra",
@@ -265,7 +268,7 @@ export async function POST(request: Request) {
     if (!order || order.status !== "delivered") return jsonError("That gallery is not ready.", 404);
     const asset = (await store.listAssets(order.id)).find((item) => item.id === body.assetId && item.kind === "result");
     if (!asset) return jsonError("Choose one of your portraits.");
-    if (!getStripe()) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
+    if (!getStripeForStore(order.storeId)) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
     const product = getPrint(body.productId as PrintProductId);
     const existingPrints = await store.listPrints(order.id);
     let print = existingPrints.find(
@@ -290,7 +293,7 @@ export async function POST(request: Request) {
       };
       await store.addPrint(print);
     }
-    const stripe = getStripe();
+    const stripe = getStripeForStore(order.storeId);
     if (stripe && print.stripeCheckoutSessionId) {
       const existingUrl = await openCheckoutSessionUrl(stripe, print.stripeCheckoutSessionId);
       if (existingUrl) return Response.json({ url: existingUrl });
@@ -309,6 +312,7 @@ export async function POST(request: Request) {
       lineItems.push(line("Complimentary pet bauble (canvas promo)", 0));
     }
     const opened = await openSession({
+      storeId: order.storeId,
       brand,
       origin,
       kind: "print",
@@ -350,6 +354,7 @@ export async function POST(request: Request) {
     marketingConsent: false,
   });
   const opened = await openSession({
+    storeId,
     brand,
     origin,
     kind: "christmas",

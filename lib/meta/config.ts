@@ -1,3 +1,4 @@
+import { storeAllowsMetaAds } from "@/lib/go-live/live-stores";
 import { BUILTIN_STORES } from "@/lib/tenant/defaults";
 import type { StoreBrand } from "@/lib/tenant/types";
 
@@ -11,6 +12,7 @@ function readEnv(key: string, env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function metaPixelId(storeId: string, env: NodeJS.ProcessEnv = process.env, brand?: StoreBrand) {
+  if (!storeAllowsMetaAds(storeId, env)) return null;
   return (
     readEnv(envKey(storeId, "META_PIXEL_ID"), env) ||
     brand?.meta?.pixelId?.trim() ||
@@ -19,6 +21,7 @@ export function metaPixelId(storeId: string, env: NodeJS.ProcessEnv = process.en
 }
 
 export function metaCapiToken(storeId: string, env: NodeJS.ProcessEnv = process.env) {
+  if (!storeAllowsMetaAds(storeId, env)) return null;
   return readEnv(envKey(storeId, "META_CAPI_TOKEN"), env);
 }
 
@@ -41,6 +44,7 @@ export function metaConfiguredForStore(storeId: string, env: NodeJS.ProcessEnv =
 export function metaGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
   const warnings: { storeId: string; message: string }[] = [];
   for (const store of BUILTIN_STORES) {
+    if (!storeAllowsMetaAds(store.id, env)) continue;
     const pixel = metaPixelId(store.id, env, store.brand);
     const capi = metaCapiToken(store.id, env);
     if (pixel && !capi) {
