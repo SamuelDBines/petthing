@@ -58,7 +58,7 @@ test("publicOriginForStore falls back to canonical site domain in production", (
       line: "#000",
     },
   };
-  const request = new Request("https://pawtraitry.co.uk/", { headers: { host: "pawtraitry.co.uk" } });
+  const request = new Request("https://pawtraitry.com/", { headers: { host: "pawtraitry.com" } });
   const origin = publicOriginForStore(request, brand, "fixmonger", []);
   assert.equal(origin, "https://wildframe.studio");
   env.NODE_ENV = prev;

@@ -43,8 +43,8 @@ Set every variable below in Vercel (or your host) before taking real money. Do *
 | Variable | Purpose |
 | --- | --- |
 | `NEXT_PUBLIC_APP_NAME` | Customer-facing name (default Pawtraitry) |
-| `NEXT_PUBLIC_SITE_DOMAIN` | Canonical domain, e.g. `pawtraitry.co.uk` |
-| `NEXT_PUBLIC_APP_URL` | Full public URL, e.g. `https://pawtraitry.co.uk` — **required** so fal, Prodigi, and email links work |
+| `NEXT_PUBLIC_SITE_DOMAIN` | Canonical domain, e.g. `pawtraitry.com` |
+| `NEXT_PUBLIC_APP_URL` | Full public URL, e.g. `https://pawtraitry.com` — **required** so fal, Prodigi, and email links work |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | Shown on legal pages and in copy |
 | `REFERRAL_CODE_PREFIX` | Optional; default `PAW` |
 
@@ -108,7 +108,7 @@ Reference photos must be **HTTPS URLs** your host can sign (not localhost).
 | --- | --- |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Amazon SES (default mail provider) |
 | `AWS_SES_REGION` | SES region (default `eu-west-2`) |
-| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.co.uk>` after SES domain verification |
+| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.com>` after SES domain verification |
 | `RESEND_API_KEY` | Optional if `EMAIL_PROVIDER=resend` |
 
 ### Prodigi (UK print)
@@ -139,7 +139,7 @@ Puzzle orders need Stripe (shipping address), a public `NEXT_PUBLIC_APP_URL`, an
 | `PRODIGI_ENV=sandbox` | Puzzles not in real production | Set `live` with live API key after QA |
 | No SES / Resend keys | Emails only in `.data/outbox` | Verify SES domain, set `EMAIL_FROM` |
 | Cron not running | Slow or stuck queue | Plan that allows `vercel.json` schedule or external cron hitting `/api/cron/generate` with `CRON_SECRET` |
-| Domain not registered | DNS, email, Stripe branding | Register `pawtraitry.co.uk` / `.com` and point to host |
+| Domain not registered | DNS, email, Stripe branding | Register `pawtraitry.com` and point to host |
 
 ### Google admin sign-in (OAuth)
 

@@ -3,7 +3,7 @@ const trim = (value: string | undefined) => value?.trim() || "";
 
 export const APP_NAME = trim(process.env.NEXT_PUBLIC_APP_NAME) || "Pawtraitry";
 
-export const SITE_DOMAIN = trim(process.env.NEXT_PUBLIC_SITE_DOMAIN) || "pawtraitry.co.uk";
+export const SITE_DOMAIN = trim(process.env.NEXT_PUBLIC_SITE_DOMAIN) || "pawtraitry.com";
 
 export const TAGLINE =
   "Premium AI pet portraits from your photos — a thoughtful gift for cat and dog lovers, all year round.";

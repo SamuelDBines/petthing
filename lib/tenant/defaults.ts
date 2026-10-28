@@ -101,13 +101,13 @@ export const BUILTIN_STORES: StoreConfig[] = [
     id: "pawtraitry",
     slug: "pawtraitry",
     storeType: "portrait",
-    domains: ["pawtraitry.co.uk", "www.pawtraitry.co.uk", "pawtraitry.localhost", "localhost"],
+    domains: ["pawtraitry.com", "www.pawtraitry.com", "pawtraitry.localhost", "localhost"],
     brand: {
       appName: "Pawtraitry",
       tagline:
         "Premium AI pet portraits from your photos — a thoughtful gift for cat and dog lovers, all year round.",
-      siteDomain: "pawtraitry.co.uk",
-      supportEmail: "hello@pawtraitry.co.uk",
+      siteDomain: "pawtraitry.com",
+      supportEmail: "hello@pawtraitry.com",
       legalTradingName: "Pawtraitry",
       footerTradingDisclosure: FOOTER_TRADING_DISCLOSURE,
       emailFromName: "Pawtraitry",

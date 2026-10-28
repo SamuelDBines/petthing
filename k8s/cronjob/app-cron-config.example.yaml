@@ -7,7 +7,7 @@ metadata:
   name: app-cron-config
   namespace: production
 data:
-  APP_BASE_URL: "https://pawtraitry.co.uk"
+  APP_BASE_URL: "https://pawtraitry.com"
 ---
 apiVersion: v1
 kind: Secret

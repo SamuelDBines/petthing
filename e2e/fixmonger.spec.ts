@@ -36,6 +36,17 @@ test.describe("Fixmonger catalogue @mock", () => {
     await page.screenshot({ path: path.join(screenshotDir, "fixmonger-checkout-success.png"), fullPage: true });
   });
 
+  test("product card navigates to PDP", async ({ page }) => {
+    await page.goto("/?store=fixmonger");
+    const link = page.getByTestId("product-card-link").first();
+    await expect(link).toBeVisible();
+    const href = await link.getAttribute("href");
+    expect(href).toMatch(/^\/shop\//);
+    await link.click();
+    await page.waitForURL(/\/shop\/[^/?#]+/, { timeout: 15_000 });
+    await expect(page.getByTestId("shop-product-detail")).toBeVisible();
+  });
+
   test("screenshots @screenshots", async ({ page }) => {
     await page.goto("/?store=fixmonger");
     await expect(page.getByRole("button", { name: "Add to cart" }).first()).toBeVisible();

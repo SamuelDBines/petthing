@@ -31,7 +31,7 @@ test("stagingAllowsRecipient permits owner and example.com sinks", () => {
 
 test("resolveFromAddress uses per-store override env", async () => {
   const prev = process.env.EMAIL_FROM_FIXMONGER;
-  process.env.EMAIL_FROM = "Pawtraitry <hello@pawtraitry.co.uk>";
+  process.env.EMAIL_FROM = "Pawtraitry <hello@pawtraitry.com>";
   process.env.EMAIL_FROM_FIXMONGER = "Fixmonger <orders@fixmonger.co.uk>";
   const from = await resolveFromAddress("fixmonger");
   assert.equal(from, "Fixmonger <orders@fixmonger.co.uk>");
