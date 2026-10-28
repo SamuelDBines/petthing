@@ -1,5 +1,6 @@
 import type { CatalogueProduct, ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
 import type { RollupRow, VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
+import type { SignupSource } from "@/lib/crm/types";
 import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import type { PrintProductId } from "@/config/prints";
 import type { TierId } from "@/config/pricing";
@@ -188,4 +189,20 @@ export type Database = {
   analyticsRollups: RollupRow[];
   catalogueProducts: CatalogueProduct[];
   adminLoginEvents: { id: string; email: string; ip: string; createdAt: string }[];
+  emailSignups: {
+    id: string;
+    storeId: string;
+    email: string;
+    source: SignupSource;
+    name: string | null;
+    marketingConsent: boolean;
+    marketingConsentAt: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    referrer: string | null;
+    excludedFromMetrics: boolean;
+    unsubscribedAt: string | null;
+    createdAt: string;
+  }[];
 };

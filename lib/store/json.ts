@@ -49,6 +49,7 @@ function emptyDb(): Database {
     analyticsRollups: [],
     catalogueProducts: [],
     adminLoginEvents: [],
+    emailSignups: [],
   };
 }
 
@@ -79,6 +80,7 @@ async function read(): Promise<Database> {
       analyticsRollups: parsed.analyticsRollups ?? [],
       catalogueProducts: parsed.catalogueProducts ?? [],
       adminLoginEvents: parsed.adminLoginEvents ?? [],
+      emailSignups: parsed.emailSignups ?? [],
       shopOrders: parsed.shopOrders ?? [],
       supplierBatches: parsed.supplierBatches ?? [],
       handPaintedOrders: parsed.handPaintedOrders ?? [],
@@ -182,6 +184,42 @@ export const jsonStore = {
         createdAt: new Date().toISOString(),
       };
     }),
+  recordEmailSignup: (args: {
+    storeId: string;
+    email: string;
+    source: import("@/lib/crm/types").SignupSource;
+    name?: string | null;
+    marketingConsent?: boolean;
+    utm?: Record<string, string>;
+    referrer?: string | null;
+    visitorSessionId?: string | null;
+    excludedFromMetrics?: boolean;
+  }) =>
+    withDb((db) => {
+      const now = new Date().toISOString();
+      db.emailSignups.push({
+        id: randomUUID(),
+        storeId: args.storeId,
+        email: args.email.trim().toLowerCase(),
+        source: args.source,
+        name: args.name ?? null,
+        marketingConsent: Boolean(args.marketingConsent),
+        marketingConsentAt: args.marketingConsent ? now : null,
+        utmSource: args.utm?.utm_source ?? null,
+        utmMedium: args.utm?.utm_medium ?? null,
+        utmCampaign: args.utm?.utm_campaign ?? null,
+        referrer: args.referrer ?? null,
+        excludedFromMetrics: Boolean(args.excludedFromMetrics),
+        unsubscribedAt: null,
+        createdAt: now,
+      });
+    }),
+  listEmailSignups: (storeId?: string | "all") =>
+    withDb((db) =>
+      structuredClone(
+        db.emailSignups.filter((row) => !storeId || storeId === "all" || row.storeId === storeId),
+      ),
+    ),
   collectAnalytics: (storeId: string, payload: VisitorCollectPayload, context: import("@/lib/analytics/types").AnalyticsCollectContext = {}) =>
     withDb((db) => {
       const now = new Date().toISOString();

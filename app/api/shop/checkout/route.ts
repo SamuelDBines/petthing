@@ -133,6 +133,13 @@ export async function POST(request: Request) {
     paidAt: null,
   };
   await store.createShopOrder(shopOrder);
+  const { recordEmailSignup } = await import("@/lib/crm/record-signup");
+  await recordEmailSignup({
+    storeId,
+    email: shopOrder.email,
+    source: "shop_checkout",
+    marketingConsent: shopOrder.marketingConsent,
+  });
 
   const stripeItems: Stripe.Checkout.SessionCreateParams.LineItem[] = pricedLines.map(({ product, quantity }) => {
     return {

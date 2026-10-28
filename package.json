@@ -21,6 +21,7 @@
     "test:e2e:prod-404": "playwright test e2e/shop-404-status.spec.ts --config=playwright.prod.config.ts",
     "test:e2e:prod-shop": "playwright test e2e/shop-checkout-prod.spec.ts --config=playwright.prod.config.ts",
     "rebuild:rollups": "tsx scripts/rebuild-analytics-rollups.ts",
+    "golive:reset": "tsx scripts/golive-reset.ts",
     "fal:smoke": "tsx scripts/fal-smoke.ts",
     "test:postgres": "tsx --test tests/shop-supplier-batch.postgres.test.ts tests/migrate-0014-wildframe.test.ts tests/migrate-0016-wildframe-portraits.test.ts tests/migrate.test.ts"
   },

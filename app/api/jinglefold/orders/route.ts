@@ -89,6 +89,13 @@ export async function POST(request: Request) {
     },
   };
   await store.createOrder(order);
+  const { recordEmailSignup } = await import("@/lib/crm/record-signup");
+  await recordEmailSignup({
+    storeId,
+    email: order.email,
+    source: "jinglefold_preview",
+    marketingConsent: false,
+  });
   return Response.json({
     orderId: order.id,
     uploadToken: order.uploadToken,

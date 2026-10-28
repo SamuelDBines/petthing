@@ -89,5 +89,14 @@ export async function POST(request: Request) {
     payments: [],
   };
   await store.createOrder(order);
+  const { recordEmailSignup } = await import("@/lib/crm/record-signup");
+  await recordEmailSignup({
+    storeId,
+    email: order.email,
+    source: order.storeId === "jinglefold" ? "jinglefold_preview" : "portrait_order",
+    name: order.cardNames || null,
+    marketingConsent: false,
+    utm: order.utm,
+  });
   return Response.json({ orderId: order.id, uploadToken: order.uploadToken, amountPence });
 }

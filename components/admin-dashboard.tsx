@@ -48,7 +48,7 @@ type Sales = {
   contentWorkerToken: string;
 };
 
-type Tab = "orders" | "sales" | "content" | "analytics" | "hand_painted" | "products" | "stores";
+type Tab = "orders" | "sales" | "content" | "analytics" | "customers" | "hand_painted" | "products" | "stores";
 
 type StoreOption = {
   id: string;
@@ -60,6 +60,7 @@ type StoreOption = {
 
 import type { AnalyticsDashboard } from "@/lib/analytics/types";
 import { AdminAnalyticsPanel } from "@/components/admin-analytics-panel";
+import { AdminCustomersPanel } from "@/components/admin-customers-panel";
 
 type StoreEdit = {
   domains: string;
@@ -348,6 +349,7 @@ export function AdminDashboard({
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "orders" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("orders")}>Orders</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "sales" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("sales")} data-testid="admin-sales-tab">Sales</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "analytics" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("analytics")} data-testid="admin-analytics-tab">Analytics</button>
+          <button type="button" className={`rounded-full px-4 py-2 ${tab === "customers" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("customers")} data-testid="admin-customers-tab">Customers</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "content" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("content")} data-testid="admin-content-tab">Content queue</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "hand_painted" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("hand_painted")} data-testid="admin-hand-painted-tab">Hand-painted</button>
           <button type="button" className={`rounded-full px-4 py-2 ${tab === "products" ? "bg-pumpkin text-ink" : "border border-line"}`} onClick={() => setTab("products")} data-testid="admin-products-tab">Products</button>
@@ -429,6 +431,8 @@ export function AdminDashboard({
       {tab === "analytics" && analytics ? (
         <AdminAnalyticsPanel analytics={analytics} onReload={(query) => void loadAnalytics(query)} />
       ) : null}
+
+      {tab === "customers" && authed ? <AdminCustomersPanel adminStore={adminStore} /> : null}
 
       {tab === "sales" && sales ? (
         <section className="mt-6" data-testid="admin-sales-panel">

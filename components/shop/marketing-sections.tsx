@@ -67,9 +67,26 @@ export function ShopFaq({ items }: { items: [string, string][] }) {
 
 export function EmailCapture({ storeName }: { storeName: string }) {
   const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    setError("");
+    if (!consent) {
+      setError("Please tick the box to hear from us by email.");
+      return;
+    }
+    const response = await fetch("/api/marketing/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, marketingConsent: true, source: "newsletter" }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(body.error || "Could not join the list.");
+      return;
+    }
     setNote("Thanks — we will only email about seasons and delivery windows.");
     setEmail("");
   }
@@ -93,6 +110,11 @@ export function EmailCapture({ storeName }: { storeName: string }) {
             Join the list
           </button>
         </form>
+        <label className="mt-3 flex items-start gap-2 text-sm text-muted">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+          Email me about launches and delivery windows for this store.
+        </label>
+        {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         {note ? <p className="mt-3 text-sm text-muted">{note}</p> : null}
       </div>
     </section>

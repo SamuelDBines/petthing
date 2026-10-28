@@ -316,6 +316,13 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   };
   await store.addPreorder(preorder);
+  const { recordEmailSignup } = await import("@/lib/crm/record-signup");
+  await recordEmailSignup({
+    storeId,
+    email: preorder.email,
+    source: "christmas_preorder",
+    marketingConsent: false,
+  });
   const opened = await openSession({
     brand,
     origin,
