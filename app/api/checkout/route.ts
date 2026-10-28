@@ -19,6 +19,7 @@ import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
 import {
   pawtraitryBasketHasPhysical,
+  pawtraitryMetaContentIds,
   stripeLineItemsForPortraitCheckout,
 } from "@/lib/pawtraitry/create-basket";
 import { capturePortraitPaymentIntent } from "@/lib/pawtraitry/partial-refund";
@@ -232,7 +233,11 @@ export async function POST(request: Request) {
         requestHost,
         email: order.email,
         valuePence: order.amountPence,
-        contentIds: [order.tierId, ...order.styleIds],
+        contentIds: pawtraitryMetaContentIds({
+          tierId: order.tierId,
+          styleIds: order.styleIds,
+          physical: order.productMeta?.checkoutBasket?.physical ?? [],
+        }),
         ctx: metaCtx,
         clientIp: reqMeta.clientIp,
         userAgent: reqMeta.userAgent,

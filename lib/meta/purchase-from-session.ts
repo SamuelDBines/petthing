@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { pawtraitryMetaContentIds } from "@/lib/pawtraitry/create-basket";
 import { getStore } from "@/lib/store";
 import { sendMetaCapiEvent } from "@/lib/meta/capi";
 import { metaConsentFromStripeMetadata, metaPurchaseEventIdFromSession } from "@/lib/meta/stripe-metadata";
@@ -59,7 +60,13 @@ async function contentIdsForSession(session: Stripe.Checkout.Session) {
   }
   if (session.metadata?.orderId && store.getOrder) {
     const order = await store.getOrder(session.metadata.orderId);
-    if (order) return [order.tierId, ...order.styleIds].filter(Boolean);
+    if (order) {
+      return pawtraitryMetaContentIds({
+        tierId: order.tierId,
+        styleIds: order.styleIds,
+        physical: order.productMeta?.checkoutBasket?.physical ?? [],
+      });
+    }
   }
   if (session.metadata?.printId) return [session.metadata.printId];
   if (session.metadata?.preorderId) return [session.metadata.preorderId];

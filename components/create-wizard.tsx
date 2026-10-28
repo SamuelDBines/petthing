@@ -11,7 +11,7 @@ import { storedUtm } from "@/components/utm-capture";
 import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
 import { metaCheckoutAttribution, stashMetaCheckoutAttribution, trackMetaEvent } from "@/lib/meta/client";
 import { PawtraitryCreateBasketStep } from "@/components/pawtraitry-create-basket-step";
-import type { PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
+import { pawtraitryMetaContentIds, type PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
 
 async function prepare(file: File) {
   let blob: Blob = file;
@@ -164,7 +164,10 @@ export function CreateWizard() {
         trackFunnelEvent("photo_upload");
       }
       const meta = metaCheckoutAttribution();
-      stashMetaCheckoutAttribution(meta, [tierId, ...styles]);
+      stashMetaCheckoutAttribution(
+        meta,
+        pawtraitryMetaContentIds({ tierId, styleIds: styles, physical: physicalLines }),
+      );
       track("InitiateCheckout", order.amountPence / 100, meta.initiateCheckoutEventId);
       const checkout = await fetch("/api/checkout", {
         method: "POST",

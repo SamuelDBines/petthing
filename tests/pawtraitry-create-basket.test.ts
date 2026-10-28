@@ -8,6 +8,7 @@ import {
   pawtraitryBasketHasPhysical,
   pawtraitryBasketShippingPence,
   pawtraitryBasketSummary,
+  pawtraitryMetaContentIds,
   stripeLineItemsForPortraitCheckout,
 } from "../lib/pawtraitry/create-basket";
 
@@ -75,6 +76,15 @@ test("multi-line basket quantities expand for fulfilment", () => {
   ]);
   const units = lines.reduce((sum, row) => sum + row.quantity, 0);
   assert.equal(units, 3);
+});
+
+test("meta content ids include tier, styles, and physical skus", () => {
+  const ids = pawtraitryMetaContentIds({
+    tierId: "classic",
+    styleIds: ["a", "b"],
+    physical: [{ productId: "mug_11oz_white", quantity: 2 }],
+  });
+  assert.deepEqual(ids, ["classic", "a", "b", "mug_11oz_white"]);
 });
 
 test("normalizePhysicalBasket merges duplicate skus", () => {

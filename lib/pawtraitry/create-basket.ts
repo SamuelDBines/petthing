@@ -148,6 +148,19 @@ export function basketLineLabels(basket: PawtraitryCheckoutBasket | null | undef
   });
 }
 
+/** Meta content_ids: digital tier, styles, and physical SKUs in the basket. */
+export function pawtraitryMetaContentIds(args: {
+  tierId: TierId;
+  styleIds: string[];
+  physical: PawtraitryPhysicalBasketLine[];
+}) {
+  const ids: string[] = [args.tierId, ...args.styleIds];
+  for (const line of normalizePhysicalBasket(args.physical)) {
+    ids.push(line.productId);
+  }
+  return ids;
+}
+
 export function greetingCardIncludedInTier(tierId: TierId) {
   return getTier(tierId).includesCard;
 }
