@@ -11,12 +11,14 @@ export async function sendMetaInitiateCheckout(args: {
   clientIp?: string | null;
   userAgent?: string | null;
   eventSourceUrl?: string;
+  requestHost?: string | null;
 }) {
   const marketingConsent = Boolean(args.ctx?.marketingConsent);
   if (!marketingConsent) return;
   const eventId = args.ctx?.initiateCheckoutEventId ?? newMetaEventId("init");
   await sendMetaCapiEvent({
     storeId: args.storeId,
+    requestHost: args.requestHost,
     eventName: "InitiateCheckout",
     eventId,
     marketingConsent: true,

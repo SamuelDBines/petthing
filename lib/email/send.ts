@@ -3,7 +3,7 @@ import path from "path";
 import { localDataPath } from "@/lib/localPaths";
 import {
   emailProviderId,
-  isEmailStagingGateActive,
+  emailStagingGateApplies,
   stagingAllowsRecipient,
 } from "@/lib/email/config";
 import { resolveFromAddress, resolveReplyToAddress } from "@/lib/email/store-senders";
@@ -50,7 +50,12 @@ export async function sendEmail(message: EmailMessage): Promise<EmailSendResult>
     return { sent: false };
   }
 
-  if (isEmailStagingGateActive() && !stagingAllowsRecipient(message.to)) {
+  const gateCtx = {
+    storeId: message.storeId,
+    requestHost: message.requestHost,
+    stripeLivemode: message.stripeLivemode,
+  };
+  if (emailStagingGateApplies(gateCtx) && !stagingAllowsRecipient(message.to)) {
     meta.outcome = "staging_gate";
     await writeOutbox(message, meta);
     logEmail(message, meta);

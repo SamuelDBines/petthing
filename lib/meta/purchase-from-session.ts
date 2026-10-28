@@ -20,6 +20,7 @@ export async function sendMetaPurchaseFromCheckoutSession(
 
   await sendMetaCapiEvent({
     storeId,
+    requestHost: hostFromCheckoutSession(session),
     eventName: "Purchase",
     eventId,
     eventSourceUrl: session.success_url ?? undefined,
@@ -37,6 +38,16 @@ export async function sendMetaPurchaseFromCheckoutSession(
       contentIds,
     },
   });
+}
+
+function hostFromCheckoutSession(session: Stripe.Checkout.Session) {
+  const url = session.success_url;
+  if (!url) return undefined;
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
 }
 
 async function contentIdsForSession(session: Stripe.Checkout.Session) {

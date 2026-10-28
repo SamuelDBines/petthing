@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const contentType = sniffImage(bytes);
   if (!contentType) return jsonError("Use a JPEG, PNG, or WebP photo. HEIC is converted in the browser.");
-  const moderation = await moderateImage(bytes, contentType);
+  const moderation = await moderateImage(bytes, contentType, { storeId: order.storeId });
   if (moderation.costGbp) await store.addSpend(moderation.costGbp);
   if (moderation.failOpen) await flagOrderPhotoSafetyReview(order.id);
   if (!moderation.allowed) return jsonError(moderation.customerMessage, 422);

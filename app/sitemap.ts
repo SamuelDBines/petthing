@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { storeRequestIndexable } from "@/lib/seo/page-robots";
+import { sitemapPathsForStore } from "@/lib/seo/sitemap-paths";
 import { loadStoreConfig } from "@/lib/tenant/context";
 import { storeCanonicalOrigin } from "@/lib/tenant/origin";
 
@@ -13,10 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   const origin = storeCanonicalOrigin(config.id, config.brand, config.domains);
   const now = new Date();
-  const paths =
-    config.storeType === "portrait"
-      ? ["/", "/create", "/pricing", "/faq", "/privacy", "/terms"]
-      : ["/", "/shop", "/faq", "/privacy", "/terms"];
+  const paths = sitemapPathsForStore(config.id, config);
   return paths.map((path) => ({
     url: `${origin}${path}`,
     lastModified: now,

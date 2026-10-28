@@ -1,6 +1,8 @@
 import { isStoreLive, parseLiveStores, stripeLiveSecretKey, stripeLiveWebhookSecret, stripeTestSecretKey, stripeTestWebhookSecret } from "@/lib/go-live/live-stores";
+import { moderationUsesMock } from "@/lib/moderation";
 import { stripeLiveKeyOptInEnabled, stripeSecretKeyIsLive } from "@/lib/stripe/live-key";
 import { metaGoLiveWarnings } from "@/lib/meta/config";
+import { emailStagingGateApplies } from "@/lib/email/staging-gate";
 
 export type IntegrationId =
   | "postgres"
@@ -158,7 +160,13 @@ export function validateGoLive(env: NodeJS.ProcessEnv = process.env) {
   check("global", GLOBAL_REQUIREMENTS);
 
   const profiles = goLiveStoreProfiles(env);
+  if (profiles.length && !adminAlertEmailValid(env)) {
+    pushMissing(missing, "global", "ADMIN_EMAIL", "Set a real admin inbox (not *.local) for alerts");
+  }
   for (const profile of profiles) {
+    if (mockModerationEnabledForLive(profile.storeId, env)) {
+      pushMissing(missing, profile.label, "MOCK_MODERATION", "Must be unset/false for LIVE_STORES (use fal.ai NSFW moderation)");
+    }
     for (const id of profile.integrations) {
       if (id === "stripe") {
         if (!stripeLiveSecretKey(env)) {
@@ -214,9 +222,50 @@ export function validateGoLive(env: NodeJS.ProcessEnv = process.env) {
   return { ok: missing.size === 0, missing: [...missing.values()] };
 }
 
+function mockModerationEnabledForLive(storeId: string, env: NodeJS.ProcessEnv) {
+  return isStoreLive(storeId, env) && moderationUsesMock(env);
+}
+
+function adminAlertEmailValid(env: NodeJS.ProcessEnv) {
+  const email = env.ADMIN_EMAIL?.trim() ?? "";
+  if (!email || !email.includes("@")) return false;
+  const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+  return !domain.endsWith(".local");
+}
+
 export function validateGoLiveWarnings(env: NodeJS.ProcessEnv = process.env) {
-  return metaGoLiveWarnings(env).map((row) => ({
+  const warnings: { scope: string; message: string }[] = metaGoLiveWarnings(env).map((row) => ({
     scope: row.storeId,
     message: row.message,
   }));
+
+  const live = parseLiveStores(env);
+  for (const profile of STORE_PROFILES) {
+    if (live.has(profile.storeId)) continue;
+    if (profile.integrations.includes("prodigi") && !env.PRODIGI_SANDBOX_API_KEY?.trim()) {
+      warnings.push({
+        scope: profile.storeId,
+        message: "PRODIGI_SANDBOX_API_KEY missing — test-store Prodigi fulfilment will mock without a sandbox key",
+      });
+    }
+  }
+
+  if (live.size > 0) {
+    const sampleGate = emailStagingGateApplies({ storeId: "fixmonger", requestHost: "fixmonger.com" }, env);
+    if (!sampleGate && env.EMAIL_STAGING_GATE !== "false") {
+      warnings.push({
+        scope: "global",
+        message:
+          "Confirm EMAIL_STAGING_GATE=false on production only after canonical go-live; test stores stay gated via host logic",
+      });
+    }
+    if (!env.EMAIL_STAGING_ALLOWLIST?.trim()) {
+      warnings.push({
+        scope: "global",
+        message: "Set EMAIL_STAGING_ALLOWLIST for team addresses on staging/test hosts (comma-separated)",
+      });
+    }
+  }
+
+  return warnings;
 }

@@ -198,6 +198,7 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
     }
     const result = await submitPrintOrder({
       storeId: order?.storeId ?? "pawtraitry",
+      stripeLivemode: order?.stripeLivemode,
       product,
       shipping,
       assets,
@@ -321,7 +322,7 @@ export async function refundOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order) throw new Error("Order not found");
-  const stripe = getStripeForStore(order.storeId);
+  const stripe = getStripeForStore(order.storeId, { stripeLivemode: order.stripeLivemode });
   const prints = await store.listPrints(orderId);
   const intents = new Set<string>();
   for (const payment of order.payments) {

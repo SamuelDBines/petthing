@@ -23,9 +23,9 @@ function clientForKey(key: string) {
   return client;
 }
 
-/** Stripe client for a store (live vs test keys from LIVE_STORES). */
-export function getStripeForStore(storeId: string) {
-  const key = stripeSecretKeyForStore(storeId);
+/** Stripe client for a store (live vs test keys from LIVE_STORES + request host). */
+export function getStripeForStore(storeId: string, hostOrOpts?: string | import("@/lib/go-live/live-stores").StoreRuntimeOpts) {
+  const key = stripeSecretKeyForStore(storeId, hostOrOpts);
   if (!key) return null;
   return clientForKey(key);
 }
@@ -38,9 +38,9 @@ export function getStripe(storeId?: string) {
   return clientForKey(key);
 }
 
-export function stripeConfiguredForStore(storeId: string) {
+export function stripeConfiguredForStore(storeId: string, host?: string) {
   try {
-    return Boolean(stripeSecretKeyForStore(storeId));
+    return Boolean(stripeSecretKeyForStore(storeId, host));
   } catch {
     return false;
   }

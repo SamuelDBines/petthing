@@ -22,6 +22,7 @@ test("sendMetaCapiEvent posts Purchase with hashed email when configured", async
   const result = await sendMetaCapiEvent(
     {
       storeId: "pawtraitry",
+      requestHost: "pawtraitry.com",
       eventName: "Purchase",
       eventId: "purchase-abc",
       marketingConsent: true,
@@ -34,7 +35,7 @@ test("sendMetaCapiEvent posts Purchase with hashed email when configured", async
       },
       customData: { value: 29.99, currency: "GBP", contentIds: ["classic"] },
     },
-    { ...process.env, LIVE_STORES: "pawtraitry", META_PIXEL_ID_PAWTRAITRY: "123456789", META_CAPI_TOKEN_PAWTRAITRY: "token", META_FORCE_LIVE: "true" },
+    { ...process.env, LIVE_STORES: "pawtraitry", META_PIXEL_ID_PAWTRAITRY: "123456789", META_CAPI_TOKEN_PAWTRAITRY: "token" },
   );
   __setMetaCapiFetchForTests(null);
   assert.equal(result.sent, true);
@@ -46,15 +47,16 @@ test("sendMetaCapiEvent posts Purchase with hashed email when configured", async
   assert.notEqual(payload.data[0].user_data.em[0], "Sam@Example.com");
 });
 
-test("sendMetaCapiEvent skips staging without test code", async () => {
+test("sendMetaCapiEvent skips on non-canonical host without test code", async () => {
   const result = await sendMetaCapiEvent(
     {
       storeId: "pawtraitry",
+      requestHost: "pawtraitry.dropship.store.bishop-co-tech.co.uk",
       eventName: "Lead",
       eventId: "lead-1",
       marketingConsent: true,
     },
-    { ...process.env, STAGING: "true", META_PIXEL_ID_PAWTRAITRY: "123", META_CAPI_TOKEN_PAWTRAITRY: "tok" },
+    { ...process.env, LIVE_STORES: "pawtraitry", META_PIXEL_ID_PAWTRAITRY: "123", META_CAPI_TOKEN_PAWTRAITRY: "tok" },
   );
   assert.equal(result.sent, false);
   assert.equal(result.reason, "staging");

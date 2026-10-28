@@ -23,7 +23,7 @@ test("parseLiveStores normalises ids", () => {
   }
 });
 
-test("stripeSecretKeyForStore picks live vs test keys", () => {
+test("stripeSecretKeyForStore picks live vs test keys by host", () => {
   const keys = [
     "LIVE_STORES",
     "STRIPE_LIVE_MODE",
@@ -38,10 +38,10 @@ test("stripeSecretKeyForStore picks live vs test keys", () => {
   process.env.STRIPE_TEST_SECRET_KEY = "sk_test_unit";
   __resetStripeClientForTests();
   try {
-    assert.equal(stripeSecretKeyForStore("pawtraitry"), "sk_live_test_key_for_unit");
-    assert.equal(stripeSecretKeyForStore("fixmonger"), "sk_test_unit");
-    assert.equal(storeExpectsStripeLivemode("pawtraitry"), true);
-    assert.equal(getStripeForStore("fixmonger") != null, true);
+    assert.equal(stripeSecretKeyForStore("pawtraitry", "pawtraitry.com"), "sk_live_test_key_for_unit");
+    assert.equal(stripeSecretKeyForStore("fixmonger", "fixmonger.com"), "sk_test_unit");
+    assert.equal(storeExpectsStripeLivemode("pawtraitry", "pawtraitry.com"), true);
+    assert.equal(getStripeForStore("fixmonger", "fixmonger.com") != null, true);
   } finally {
     for (const k of keys) {
       if (prev[k] === undefined) delete process.env[k];

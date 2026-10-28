@@ -2,7 +2,7 @@ import type Stripe from "stripe";
 import { alertAdmin } from "@/lib/email";
 import { fulfillCheckoutSession, noteFailedPayment, noteSeasonCanceled, noteSeasonRenewed } from "@/lib/fulfillment";
 import { kickOrderGeneration } from "@/lib/generation";
-import { storeExpectsStripeLivemode } from "@/lib/go-live/live-stores";
+import { isStoreLive } from "@/lib/go-live/live-stores";
 import { storeIdFromMetadata } from "@/lib/stripe/ownership";
 import {
   chargeBelongsToUs,
@@ -49,11 +49,11 @@ function storeIdFromEvent(event: Stripe.Event): string | null {
   return null;
 }
 
-/** Process only when Stripe event livemode matches the store's LIVE_STORES mode. */
 function livemodeMatchesStore(event: Stripe.Event) {
   const storeId = storeIdFromEvent(event);
   if (!storeId) return true;
-  return event.livemode === storeExpectsStripeLivemode(storeId);
+  if (!isStoreLive(storeId)) return event.livemode === false;
+  return true;
 }
 
 export async function handleStripeWebhookEvent(

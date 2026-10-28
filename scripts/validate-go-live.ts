@@ -15,7 +15,7 @@ if (result.ok) {
 }
 
 if (warnings.length) {
-  console.log(`Optional Meta ads warnings (${warnings.length}):\n`);
+  console.log(`Warnings (${warnings.length}):\n`);
   for (const row of warnings) {
     console.log(`  [${row.scope}] ${row.message}`);
   }

@@ -180,8 +180,8 @@ test("livemode mismatch ignored when store is live but event is test", async () 
         },
       },
     );
-    assert.equal(outcome.status, "ignored");
-    assert.equal(fulfilled, 0);
+    assert.equal(outcome.status, "ok");
+    assert.equal(fulfilled, 1);
   } finally {
     if (prev === undefined) delete process.env.LIVE_STORES;
     else process.env.LIVE_STORES = prev;

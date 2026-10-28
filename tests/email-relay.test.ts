@@ -19,7 +19,7 @@ test("staging gate blocks relay delivery to non-allowlisted addresses", async ()
     return new Response(JSON.stringify({ id: "relay-1", status: "sent" }), { status: 200 });
   });
 
-  assert.equal(isEmailStagingGateActive(), true);
+  assert.equal(isEmailStagingGateActive({ storeId: "fixmonger", requestHost: "fixmonger.com" }), true);
   assert.equal(stagingAllowsRecipient("samuelbines@gmail.com"), true);
   assert.equal(stagingAllowsRecipient("customer@example.co.uk"), false);
 

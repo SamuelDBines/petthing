@@ -56,8 +56,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const config = await loadStoreConfig();
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
   const cssVars = themeCssVars(config.brand.colors);
-  const pixelId = metaPixelId(config.id, process.env, config.brand);
+  const pixelId = metaPixelId(config.id, host, process.env, config.brand);
   return (
     <html
       lang="en-GB"

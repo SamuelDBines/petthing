@@ -10,7 +10,7 @@ export async function refundShopOrder(orderId: string, amountPence?: number) {
   if (order.status === "refunded") throw new Error("Order already refunded");
   if (order.status === "pending_payment") throw new Error("Order was not paid");
 
-  const stripe = getStripeForStore(order.storeId);
+  const stripe = getStripeForStore(order.storeId, { stripeLivemode: order.stripeLivemode });
   const intentId = order.stripePaymentIntentId;
   const refundable = order.amountPence - (order.amountRefundedPence ?? 0);
   const refundPence = amountPence ?? refundable;

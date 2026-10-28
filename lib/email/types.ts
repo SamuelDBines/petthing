@@ -15,6 +15,10 @@ export type EmailMessage = {
   fromRole?: EmailFromRole;
   /** List-Unsubscribe URL for marketing mail. */
   listUnsubscribe?: string;
+  /** Host header when send is tied to a customer request (email staging gate). */
+  requestHost?: string | null;
+  /** From Stripe checkout / order — live orders bypass staging gate without host. */
+  stripeLivemode?: boolean | null;
 };
 
 export type EmailSendResult =

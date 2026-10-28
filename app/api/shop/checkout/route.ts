@@ -22,6 +22,7 @@ import {
 import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
 import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
+import { requestHostFromRequest } from "@/lib/http/request-host";
 import { getStripeForStore } from "@/lib/stripe";
 import { markShopOrderPaid } from "@/lib/shop/fulfillment";
 import type Stripe from "stripe";
@@ -37,6 +38,7 @@ const schema = z
 
 async function openSession(args: {
   storeId: string;
+  requestHost: string;
   brand: import("@/lib/tenant/types").StoreBrand;
   origin: string;
   email: string;
@@ -46,7 +48,7 @@ async function openSession(args: {
   integrationStableKey: string;
   shippingPence: number;
 }) {
-  const stripe = getStripeForStore(args.storeId);
+  const stripe = getStripeForStore(args.storeId, args.requestHost);
   const success = `${args.origin}/shop/success?session_id={CHECKOUT_SESSION_ID}`;
   if (!stripe) {
     if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const storeId = await requestStoreId();
+  const requestHost = requestHostFromRequest(request);
   const config = await loadStoreConfig(storeId);
   if (config.storeType !== "catalogue" && config.storeType !== "christmas") {
     return jsonError("This store does not sell catalogue items.", 400);
@@ -162,7 +165,7 @@ export async function POST(request: Request) {
   });
 
   const origin = publicOriginForStore(request, config.brand, storeId, config.domains);
-  const stripe = getStripeForStore(storeId);
+  const stripe = getStripeForStore(storeId, requestHost);
   if (stripe && shopOrder.stripeCheckoutSessionId) {
     const existingUrl = await openCheckoutSessionUrl(stripe, shopOrder.stripeCheckoutSessionId);
     if (existingUrl) {
@@ -178,6 +181,7 @@ export async function POST(request: Request) {
   const metaCtx = metaContextFromBody(parsed.data);
   const opened = await openSession({
     storeId,
+    requestHost,
     brand: config.brand,
     origin,
     email: shopOrder.email,
@@ -217,6 +221,7 @@ export async function POST(request: Request) {
     const reqMeta = metaAttributionFromRequest(request);
     void sendMetaInitiateCheckout({
       storeId,
+      requestHost,
       email: shopOrder.email,
       valuePence: orderTotalPence,
       contentIds: pricedLines.map(({ product }) => product.id),

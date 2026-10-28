@@ -362,7 +362,7 @@ async function processJob(jobId: string) {
     const slotJob = (await loadJob(jobId, order.id)) ?? job;
     if (!slotJob) return;
     for (const image of polled.images) {
-      const moderation = await moderateImage(image.bytes, image.contentType);
+      const moderation = await moderateImage(image.bytes, image.contentType, { storeId: order.storeId });
       if (moderation.costGbp) {
         cost += moderation.costGbp;
         await store.addSpend(moderation.costGbp, order.storeId);

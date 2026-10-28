@@ -28,6 +28,8 @@ export type MetaCapiEventInput = {
   customData?: MetaCapiCustomData;
   /** Must be true when user accepted marketing cookies (PECR). */
   marketingConsent: boolean;
+  /** Request host for live-vs-staging CAPI gating. */
+  requestHost?: string | null;
 };
 
 type FetchFn = typeof fetch;
@@ -39,10 +41,12 @@ export function __setMetaCapiFetchForTests(fn: FetchFn | null) {
 
 export async function sendMetaCapiEvent(input: MetaCapiEventInput, env: NodeJS.ProcessEnv = process.env) {
   if (!input.marketingConsent) return { sent: false, reason: "no_consent" as const };
-  if (!metaCapiAllowed(input.storeId, env)) return { sent: false, reason: "staging" as const };
+  if (!metaCapiAllowed(input.storeId, input.requestHost ?? undefined, env)) {
+    return { sent: false, reason: "staging" as const };
+  }
 
-  const pixelId = metaPixelId(input.storeId, env);
-  const token = metaCapiToken(input.storeId, env);
+  const pixelId = metaPixelId(input.storeId, input.requestHost ?? "", env);
+  const token = metaCapiToken(input.storeId, input.requestHost ?? "", env);
   if (!pixelId || !token) return { sent: false, reason: "not_configured" as const };
 
   const ua = input.userData?.clientUserAgent ?? "";

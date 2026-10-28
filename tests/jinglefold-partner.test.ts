@@ -6,7 +6,7 @@ import { submitJinglefoldPhysicalOrder } from "@/lib/jinglefold/fulfillment";
 import type { Order } from "@/lib/domain";
 
 test("partner clients mock without API keys", () => {
-  assert.equal(prodigiMocked(), true);
+  assert.equal(prodigiMocked("jinglefold"), true);
   assert.equal(printfulMocked(), true);
 });
 

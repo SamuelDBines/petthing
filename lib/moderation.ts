@@ -1,3 +1,4 @@
+import { isStoreLive } from "@/lib/go-live/live-stores";
 import {
   CUSTOMER_MODERATION_RETRY,
   CUSTOMER_NSFW_MESSAGE,
@@ -9,9 +10,13 @@ import { usdToGbp } from "@/lib/runtime";
 
 const THRESHOLD = 0.45;
 
-function mockModerationEnabled() {
-  return process.env.MOCK_MODERATION === "true" || process.env.ALLOW_MOCK_MODERATION === "true";
+function mockModerationEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.MOCK_MODERATION === "true" || env.ALLOW_MOCK_MODERATION === "true";
 }
+
+export type ModerationContext = {
+  storeId?: string;
+};
 
 export type ModerationResult = {
   /** May upload / continue checkout when true (includes fail-open provider errors). */
@@ -36,10 +41,30 @@ function failOpenResult(): ModerationResult {
   };
 }
 
-export async function moderateImage(bytes: Buffer, contentType: string): Promise<ModerationResult> {
-  const key = process.env.FAL_KEY;
+/** NSFW screening via fal.ai `fal-ai/imageutils/nsfw` (requires FAL_KEY). */
+export async function moderateImage(
+  bytes: Buffer,
+  contentType: string,
+  context: ModerationContext = {},
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<ModerationResult> {
+  if (context.storeId && isStoreLive(context.storeId, env) && mockModerationEnabled(env)) {
+    throw new Error("MOCK_MODERATION cannot be enabled for stores listed in LIVE_STORES.");
+  }
+
+  const key = env.FAL_KEY?.trim();
   if (!key) {
-    if (mockModerationEnabled() || process.env.NODE_ENV !== "production") {
+    if (context.storeId && isStoreLive(context.storeId, env)) {
+      return {
+        allowed: false,
+        blocked: true,
+        failOpen: false,
+        customerMessage: CUSTOMER_MODERATION_RETRY,
+        costGbp: 0,
+        skipped: false,
+      };
+    }
+    if (mockModerationEnabled(env) || env.NODE_ENV !== "production") {
       return {
         allowed: true,
         blocked: false,
@@ -97,4 +122,8 @@ export async function moderateImage(bytes: Buffer, contentType: string): Promise
     costGbp,
     skipped: false,
   };
+}
+
+export function moderationUsesMock(env: NodeJS.ProcessEnv = process.env) {
+  return mockModerationEnabled(env);
 }

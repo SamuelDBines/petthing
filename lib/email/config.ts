@@ -38,30 +38,12 @@ export function sesConfigurationSet() {
   return process.env.SES_CONFIGURATION_SET?.trim() || undefined;
 }
 
-export function isEmailStagingGateActive() {
-  if (process.env.EMAIL_STAGING_GATE === "true") return true;
-  if (process.env.EMAIL_STAGING_GATE === "false") return false;
-  const admin = (process.env.ADMIN_URL || "").toLowerCase();
-  if (admin.includes("bishop-co-tech.co.uk")) return true;
-  if (process.env.VERCEL_ENV === "preview") return true;
-  return false;
-}
-
-const DEFAULT_STAGING_ALLOW = ["samuelbines@gmail.com"];
-
-export function stagingAllowsRecipient(to: string) {
-  const norm = to.trim().toLowerCase();
-  const extra = (process.env.EMAIL_STAGING_ALLOWLIST || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  const sink = process.env.EMAIL_TEST_SINK?.trim().toLowerCase();
-  const allowed = new Set([...DEFAULT_STAGING_ALLOW, ...extra]);
-  if (allowed.has(norm)) return true;
-  if (sink && norm === sink) return true;
-  if (norm.endsWith("@example.com") || norm.endsWith("@example.net")) return true;
-  return false;
-}
+export {
+  emailStagingGateApplies,
+  isEmailStagingGateActive,
+  stagingAllowsRecipient,
+} from "@/lib/email/staging-gate";
+export type { EmailGateContext } from "@/lib/email/staging-gate";
 
 export function fromDomainForHealth() {
   const from = process.env.EMAIL_FROM?.trim();
