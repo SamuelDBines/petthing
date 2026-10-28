@@ -1,4 +1,4 @@
-import { recentFalHealthDetail } from "@/lib/fal/provider-errors";
+import { recentFalHealthDetail, recentFalHealthDetailFromMemory } from "@/lib/fal/provider-errors";
 import { emailProviderId, sesCredentialsConfigured } from "@/lib/email/config";
 import { fetchSesHealth } from "@/lib/email/ses-health";
 import { envPresent } from "@/lib/go-live/requirements";
@@ -73,7 +73,7 @@ export function integrationHealth(): IntegrationHealthRow[] {
       id: "fal",
       label: "fal.ai",
       status: envPresent("FAL_KEY") ? "connected" : "missing",
-      detail: recentFalHealthDetail(),
+      detail: recentFalHealthDetailFromMemory(),
     },
     {
       id: "prodigi",
@@ -139,6 +139,11 @@ export function integrationHealth(): IntegrationHealthRow[] {
 
 export async function integrationHealthWithEmail(): Promise<IntegrationHealthRow[]> {
   const rows = integrationHealth();
+  const falIdx = rows.findIndex((r) => r.id === "fal");
+  if (falIdx >= 0) {
+    const falDetail = await recentFalHealthDetail();
+    if (falDetail) rows[falIdx] = { ...rows[falIdx], detail: falDetail, status: "test_mode" };
+  }
   if (emailProviderId() !== "ses") return rows;
   const ses = await fetchSesHealth();
   const idx = rows.findIndex((r) => r.id === "email_ses");

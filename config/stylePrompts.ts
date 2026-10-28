@@ -220,20 +220,25 @@ export function buildPrompt(args: {
   subject: SubjectType;
   variantIndex: number;
   quality: "standard" | "hd";
+  /** fal kontext has no negative prompt — omit banned-word lists from the positive prompt. */
+  forFalKontext?: boolean;
 }) {
   const style = STYLE_PROMPTS[args.styleId];
   if (!style) throw new Error(`No prompt configured for ${args.styleId}`);
   const strict = args.subject === "family";
   const negative = [BASE_NEGATIVE, strict ? FAMILY_NEGATIVE : "", style.negative].filter(Boolean).join(", ");
-  const prompt = [
+  const parts = [
     style.template.replaceAll("{subject}", SUBJECT_LINES[args.subject]),
     "Use the reference photos only to keep identity. Do not copy a copyrighted character, costume from a film, or a brand mark.",
     strict
       ? "Wholesome group portrait for a family mantel. Friendly expressions. Children stay fully clothed in costume."
-      : "Keep the result modest and family-friendly.",
+      : "Keep the result wholesome, fully clothed, and family-friendly.",
     args.quality === "hd" ? "Crisp features and fine costume detail." : "Clear, natural detail.",
     `Variation ${args.variantIndex + 1}: a slightly different pose and crop, same identity.`,
-    `Do not include: ${negative}.`,
-  ].join(" ");
+  ];
+  if (!args.forFalKontext) {
+    parts.push(`Do not include: ${negative}.`);
+  }
+  const prompt = parts.join(" ");
   return { prompt, negative };
 }

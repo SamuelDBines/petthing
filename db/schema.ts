@@ -1,6 +1,6 @@
 import { boolean, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { DailyRollupMetrics } from "@/lib/analytics/types";
-import type { Order, PrintOrder, Settings } from "@/lib/domain";
+import type { Job, Order, PrintOrder, Settings } from "@/lib/domain";
 import type { StoreConfig } from "@/lib/tenant/types";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -53,6 +53,7 @@ export const orders = pgTable("orders", {
   payments: jsonb("payments").$type<Order["payments"]>().notNull().default([]),
   shipping: jsonb("shipping").$type<Order["shipping"]>(),
   partnerFulfillment: jsonb("partner_fulfillment").$type<Order["partnerFulfillment"]>(),
+  falPaidSubmits: integer("fal_paid_submits").notNull().default(0),
 });
 
 export const assets = pgTable("assets", {
@@ -76,6 +77,7 @@ export const jobs = pgTable("jobs", {
   status: text("status").notNull(),
   attempts: integer("attempts").notNull().default(0),
   providerRequestId: text("provider_request_id"),
+  providerMeta: jsonb("provider_meta").$type<Job["providerMeta"]>(),
   lastError: text("last_error"),
   costGbp: numeric("cost_gbp", { precision: 12, scale: 4, mode: "number" }).notNull().default(0),
   priority: boolean("priority").notNull().default(false),

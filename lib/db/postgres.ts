@@ -76,6 +76,7 @@ function toOrder(row: typeof orders.$inferSelect): Order {
     productMeta: row.productMeta ?? null,
     shipping: row.shipping ?? null,
     partnerFulfillment: row.partnerFulfillment ?? null,
+    falPaidSubmits: row.falPaidSubmits ?? 0,
   };
 }
 
@@ -120,6 +121,7 @@ function orderValues(order: Order): typeof orders.$inferInsert {
     productMeta: order.productMeta ?? null,
     shipping: order.shipping ?? null,
     partnerFulfillment: order.partnerFulfillment ?? null,
+    falPaidSubmits: order.falPaidSubmits ?? 0,
   };
 }
 
@@ -161,6 +163,7 @@ function orderSet(patch: Partial<Order>): Partial<typeof orders.$inferInsert> {
   if (patch.productMeta !== undefined) set.productMeta = patch.productMeta;
   if (patch.shipping !== undefined) set.shipping = patch.shipping;
   if (patch.partnerFulfillment !== undefined) set.partnerFulfillment = patch.partnerFulfillment;
+  if (patch.falPaidSubmits !== undefined) set.falPaidSubmits = patch.falPaidSubmits;
   return set;
 }
 
@@ -188,6 +191,7 @@ function toJob(row: typeof jobs.$inferSelect): Job {
     status: row.status as Job["status"],
     attempts: row.attempts,
     providerRequestId: row.providerRequestId,
+    providerMeta: row.providerMeta ?? null,
     lastError: row.lastError,
     costGbp: row.costGbp,
     priority: row.priority,
@@ -374,6 +378,7 @@ export const postgresStore = {
         status: job.status,
         attempts: job.attempts,
         providerRequestId: job.providerRequestId,
+        providerMeta: job.providerMeta ?? null,
         lastError: job.lastError,
         costGbp: job.costGbp,
         priority: job.priority,
@@ -395,6 +400,7 @@ export const postgresStore = {
     if (patch.status !== undefined) set.status = patch.status;
     if (patch.attempts !== undefined) set.attempts = patch.attempts;
     if (patch.providerRequestId !== undefined) set.providerRequestId = patch.providerRequestId;
+    if (patch.providerMeta !== undefined) set.providerMeta = patch.providerMeta;
     if (patch.lastError !== undefined) set.lastError = patch.lastError;
     if (patch.costGbp !== undefined) set.costGbp = patch.costGbp;
     if (patch.priority !== undefined) set.priority = patch.priority;
@@ -417,6 +423,7 @@ export const postgresStore = {
       status: string;
       attempts: number;
       provider_request_id: string | null;
+      provider_meta: Job["providerMeta"] | null;
       last_error: string | null;
       cost_gbp: string;
       priority: boolean;
@@ -446,7 +453,7 @@ export const postgresStore = {
         for update of j skip locked
       )
       returning claimed.id, claimed.order_id, claimed.style_id, claimed.variant_index, claimed.status,
-        claimed.attempts, claimed.provider_request_id, claimed.last_error, claimed.cost_gbp, claimed.priority,
+        claimed.attempts, claimed.provider_request_id, claimed.provider_meta, claimed.last_error, claimed.cost_gbp, claimed.priority,
         claimed.locked_until, claimed.next_run_at, claimed.created_at, claimed.updated_at
     `;
     return rows.map((row) => ({
@@ -457,6 +464,7 @@ export const postgresStore = {
       status: "running" as const,
       attempts: row.attempts,
       providerRequestId: row.provider_request_id,
+      providerMeta: row.provider_meta ?? null,
       lastError: row.last_error,
       costGbp: Number(row.cost_gbp),
       priority: row.priority,

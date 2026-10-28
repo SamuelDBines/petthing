@@ -10,6 +10,7 @@ import { getImageProvider } from "@/lib/imageProvider";
 import { moderateImage } from "@/lib/moderation";
 import { londonDay, manualReviewEnabled, maxDailySpendGbp } from "@/lib/runtime";
 import { mediaSigningBase, storeCanonicalOrigin } from "@/lib/tenant/origin";
+import { isGenerationOutputRetryError } from "@/lib/fal/image-output";
 import { isFalProviderError } from "@/lib/fal/provider-errors";
 import { flagOrderPhotoSafetyReview, orderNeedsPhotoSafetyReview } from "@/lib/order-photo-review";
 import { isTransientError } from "@/lib/transientErrors";
@@ -18,6 +19,7 @@ import { getStore } from "@/lib/store";
 import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
+const MAX_FAL_SUBMITS_PER_ORDER = 3;
 
 export async function orderPublicUrls(order: Order) {
   const config = await loadStoreConfig(order.storeId);
@@ -238,12 +240,31 @@ async function processJob(jobId: string) {
   const provider = getImageProvider();
   try {
     let requestId = job.providerRequestId;
+    let queueMeta: { statusUrl: string; responseUrl: string } | null = job.providerMeta ?? null;
     if (!requestId) {
+      const paidSubmits = order.falPaidSubmits ?? 0;
+      if (provider.id !== "placeholder" && paidSubmits >= MAX_FAL_SUBMITS_PER_ORDER) {
+        await store.updateOrder(order.id, {
+          status: "review",
+          failureReason: "fal generation cap reached — manual review required",
+        });
+        await store.updateJob(job.id, {
+          status: "dead",
+          lastError: "fal paid submission cap reached for this order",
+        });
+        await alertAdmin(
+          "Portrait order needs manual attention (fal cap)",
+          `<p>Order ${order.id} hit ${MAX_FAL_SUBMITS_PER_ORDER} fal submissions.</p>`,
+          order.storeId,
+        );
+        return;
+      }
       const { prompt, negative } = buildPrompt({
         styleId: job.styleId,
         subject: order.subjectType,
         variantIndex: job.variantIndex,
         quality: tier.quality,
+        forFalKontext: provider.id !== "placeholder",
       });
       const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
       const imageUrls: string[] = [];
@@ -256,12 +277,20 @@ async function processJob(jobId: string) {
         negativePrompt: negative,
         imageUrls,
         quality: tier.quality,
-        seed: seedFrom(`${job.id}:${job.attempts}`),
+        seed: seedFrom(`${job.id}:${job.attempts}:${paidSubmits}`),
       });
       requestId = submitted.requestId;
-      await store.updateJob(job.id, { providerRequestId: requestId, status: "submitted" });
+      queueMeta = submitted.providerMeta;
+      if (provider.id !== "placeholder") {
+        await store.updateOrder(order.id, { falPaidSubmits: paidSubmits + 1 });
+      }
+      await store.updateJob(job.id, {
+        providerRequestId: requestId,
+        providerMeta: queueMeta,
+        status: "submitted",
+      });
     }
-    const polled = await provider.poll(requestId);
+    const polled = await provider.poll(requestId, queueMeta);
     if (polled.state === "pending") {
       await store.updateJob(job.id, { status: "submitted" });
       return;
@@ -270,7 +299,6 @@ async function processJob(jobId: string) {
     let cost = polled.costGbp;
     if (polled.costGbp) await store.addSpend(polled.costGbp, order.storeId);
     for (const image of polled.images) {
-      if (image.nsfw) throw new Error("The generator safety checker blocked this output");
       const moderation = await moderateImage(image.bytes, image.contentType);
       if (moderation.costGbp) {
         cost += moderation.costGbp;
@@ -305,15 +333,18 @@ async function processJob(jobId: string) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Generation failed";
+    const outputRetry = isGenerationOutputRetryError(error);
     const transient = isTransientError(error) || isFalProviderError(error);
-    const attempts = job.attempts + 1;
-    const dead = !transient && attempts >= MAX_ATTEMPTS;
+    const attempts = transient || outputRetry ? job.attempts : job.attempts + 1;
+    const dead = !transient && !outputRetry && attempts >= MAX_ATTEMPTS;
     const backoff = retryDelayMs(transient ? Math.min(attempts, 3) : attempts) * (transient ? 2 : 1);
+    const keepRequest = transient && !outputRetry;
     await store.updateJob(job.id, {
       status: dead ? "dead" : "queued",
-      attempts: transient ? job.attempts : attempts,
+      attempts,
       lastError: message,
-      providerRequestId: null,
+      providerRequestId: keepRequest ? job.providerRequestId : null,
+      providerMeta: keepRequest ? job.providerMeta ?? null : null,
       lockedUntil: null,
       nextRunAt: dead ? null : new Date(Date.now() + backoff).toISOString(),
     });

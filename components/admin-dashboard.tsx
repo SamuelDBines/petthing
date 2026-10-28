@@ -8,6 +8,7 @@ import type { ShopOrder } from "@/lib/catalogue/types";
 import { AdminShopOrderPanel } from "@/components/admin-shop-order-panel";
 import type { CatalogueProduct } from "@/lib/catalogue/types";
 import type { Order, PrintOrder } from "@/lib/domain";
+import { signInWithGoogle } from "@/app/admin/google-sign-in-action";
 
 type OrderRow = Order & {
   prints: PrintOrder[];
@@ -279,13 +280,15 @@ export function AdminDashboard({
       <main className="mx-auto max-w-sm px-4 py-16" data-testid="admin-login">
         <h1 className="text-4xl">Admin</h1>
         {oauthEnabled ? (
-          <a
-            href="/api/auth/signin/google"
-            className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink"
-            data-testid="admin-google-signin"
-          >
-            Sign in with Google
-          </a>
+          <form action={signInWithGoogle} className="mt-6">
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink"
+              data-testid="admin-google-signin"
+            >
+              Sign in with Google
+            </button>
+          </form>
         ) : null}
         {passwordLogin ? (
           <form onSubmit={login} className="mt-6 space-y-3">

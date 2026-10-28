@@ -51,6 +51,7 @@ function orderFrom(row: Record<string, unknown>): Order {
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
     subscriptionStatus: row.subscription_status === "active" || row.subscription_status === "canceled" ? row.subscription_status : null,
     payments: (row.payments as Order["payments"]) ?? [],
+    falPaidSubmits: row.fal_paid_submits == null ? 0 : Number(row.fal_paid_submits),
   };
 }
 
@@ -91,6 +92,7 @@ function orderTo(order: Order) {
     stripe_subscription_id: order.stripeSubscriptionId,
     subscription_status: order.subscriptionStatus,
     payments: order.payments,
+    fal_paid_submits: order.falPaidSubmits ?? 0,
   };
 }
 
@@ -118,6 +120,7 @@ function jobFrom(row: Record<string, unknown>): Job {
     status: row.status as Job["status"],
     attempts: Number(row.attempts),
     providerRequestId: (row.provider_request_id as string | null) ?? null,
+    providerMeta: (row.provider_meta as Job["providerMeta"]) ?? null,
     lastError: (row.last_error as string | null) ?? null,
     costGbp: Number(row.cost_gbp ?? 0),
     priority: Boolean(row.priority),
@@ -137,6 +140,7 @@ function jobTo(job: Job) {
     status: job.status,
     attempts: job.attempts,
     provider_request_id: job.providerRequestId,
+    provider_meta: job.providerMeta ?? null,
     last_error: job.lastError,
     cost_gbp: job.costGbp,
     priority: job.priority,
@@ -185,6 +189,8 @@ const patchMap: Record<string, string> = {
   contentType: "content_type",
   createdAtAsset: "created_at",
   providerRequestId: "provider_request_id",
+  providerMeta: "provider_meta",
+  falPaidSubmits: "fal_paid_submits",
   lastError: "last_error",
   costGbp: "cost_gbp",
   lockedUntil: "locked_until",

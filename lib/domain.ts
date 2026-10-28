@@ -68,6 +68,8 @@ export type Order = {
     lastSyncedAt: string;
     error?: string | null;
   } | null;
+  /** Paid fal queue submissions for this portrait order (cap enforced in generation). */
+  falPaidSubmits?: number;
 };
 
 export type Asset = {
@@ -93,6 +95,7 @@ export type Job = {
   status: JobStatus;
   attempts: number;
   providerRequestId: string | null;
+  providerMeta?: { statusUrl: string; responseUrl: string } | null;
   lastError: string | null;
   costGbp: number;
   priority: boolean;

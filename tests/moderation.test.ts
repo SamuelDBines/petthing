@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   __clearFalIncidentsForTests,
-  recentFalHealthDetail,
+  recentFalHealthDetailFromMemory,
 } from "../lib/fal/provider-errors";
 import { moderateImage } from "../lib/moderation";
 
@@ -56,7 +56,7 @@ test("fal 403 TOP_UP fails open and does not expose provider text", async () => 
   assert.equal(result.allowed, true);
   assert.equal(result.failOpen, true);
   assert.ok(!result.customerMessage.includes("TOP_UP"));
-  assert.equal(recentFalHealthDetail(), "fal: account locked / out of credit");
+  assert.equal(recentFalHealthDetailFromMemory(), "fal: account locked / out of credit");
 
   globalThis.fetch = prevFetch;
   process.env.FAL_KEY = prevKey;
