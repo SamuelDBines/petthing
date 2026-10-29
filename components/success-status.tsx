@@ -24,6 +24,16 @@ export function SuccessStatus() {
   const [devNote, setDevNote] = useState("");
 
   useEffect(() => {
+    if (sessionId) {
+      try {
+        window.localStorage.removeItem("pawtraitry-preview-session");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!sessionId) {
       setLoading(false);
       return;

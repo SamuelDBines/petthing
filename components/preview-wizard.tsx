@@ -215,7 +215,8 @@ export function PreviewWizard() {
       });
       const { ok, body } = await parseCheckoutResponse(res);
       if (!ok || !body.url) throw new Error(checkoutErrorMessage(body, ok));
-      window.localStorage.removeItem(SESSION_KEY);
+      // Keep the session so Back / cancel from Stripe resumes the previews.
+      // The success page clears it once payment is confirmed.
       window.location.href = body.url;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong");
