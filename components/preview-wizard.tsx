@@ -11,6 +11,8 @@ import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
 import { metaCheckoutAttribution } from "@/lib/meta/client";
 import { PawtraitryCreateBasketStep } from "@/components/pawtraitry-create-basket-step";
 import type { PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
+import { describeFailure, preparePhoto } from "@/lib/pawtraitry/photo-prep";
+import { trackFunnelEvent } from "@/components/visitor-tracker";
 
 const SESSION_KEY = "pawtraitry-preview-session";
 
@@ -27,19 +29,17 @@ type Preview = {
 type Status = { status: string; waitingForCredit: boolean; previewsLeft: number; previews: Preview[] };
 
 async function prepare(file: File) {
-  let blob: Blob = file;
-  const heic = /hei[cf]$/i.test(file.name) || file.type.includes("heic") || file.type.includes("heif");
-  if (heic) {
-    const heic2any = (await import("heic2any")).default;
-    const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
-    blob = Array.isArray(converted) ? converted[0] : converted;
-  }
-  const imageCompression = (await import("browser-image-compression")).default;
-  return imageCompression(new File([blob], "photo.jpg", { type: blob.type || "image/jpeg" }), {
-    maxSizeMB: 1.2,
-    maxWidthOrHeight: 1600,
-    useWebWorker: true,
-    fileType: "image/jpeg",
+  return preparePhoto(file, {
+    readHead: async (blob) => new Uint8Array(await blob.slice(0, 32).arrayBuffer()),
+    heicToJpeg: async (blob) => {
+      const heic2any = (await import("heic2any")).default;
+      const converted = await heic2any({ blob, toType: "image/jpeg", quality: 0.9 });
+      return Array.isArray(converted) ? converted[0] : converted;
+    },
+    compress: async (input, useWebWorker) => {
+      const imageCompression = (await import("browser-image-compression")).default;
+      return imageCompression(input, { maxSizeMB: 1.2, maxWidthOrHeight: 1600, useWebWorker, fileType: "image/jpeg" });
+    },
   });
 }
 
@@ -130,7 +130,10 @@ export function PreviewWizard() {
     if (!consent) return setError("Please confirm you can use this photo.");
     setBusy(true);
     setError("");
+    let stage = "prepare";
     try {
+      const prepared = await prepare(file);
+      stage = "create";
       const created = await json<{ orderId: string; uploadToken: string; previewsLeft: number }>(
         await fetch("/api/previews", {
           method: "POST",
@@ -138,16 +141,29 @@ export function PreviewWizard() {
           body: JSON.stringify({ email, subjectType: "pet", photoConsent: true, utm: storedUtm() }),
         }),
       );
+      stage = "upload";
       const body = new FormData();
       body.set("orderId", created.orderId);
       body.set("uploadToken", created.uploadToken);
-      body.set("file", await prepare(file));
+      body.set("file", prepared.blob, "photo.jpg");
       await json(await fetch("/api/uploads", { method: "POST", body }));
       const next = { orderId: created.orderId, uploadToken: created.uploadToken, email };
       window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
       setSession(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Something went wrong");
+      const message = describeFailure(reason);
+      setError(message);
+      try {
+        trackFunnelEvent("preview_start_failed", {
+          stage,
+          message: message.slice(0, 200),
+          fileType: file.type.slice(0, 40),
+          fileSize: file.size,
+          steps: ((reason as { steps?: string[] })?.steps ?? []).join("|").slice(0, 300),
+        });
+      } catch {
+        // reporting is best effort
+      }
     } finally {
       setBusy(false);
     }
