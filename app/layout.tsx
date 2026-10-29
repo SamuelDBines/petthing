@@ -32,7 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const noindex = stagingNoindex(config.id, host);
   const domainVerify = metaDomainVerification(config.id, process.env, config.brand);
   return {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || base),
+    // Resolve relative OG/Twitter URLs against the host being served, so pawtraitry.com
+    // never points social crawlers at a test domain.
+    metadataBase: new URL(/^[a-z0-9.-]+(:\d+)?$/i.test(host) && !host.includes("localhost") ? `https://${host}` : process.env.NEXT_PUBLIC_APP_URL || base),
     title: { default: config.brand.appName, template: `%s · ${config.brand.appName}` },
     description: config.brand.tagline,
     robots: noindex ? { index: false, follow: false } : undefined,
