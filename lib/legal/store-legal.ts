@@ -57,7 +57,7 @@ export function legalCopyForStore(config: StoreConfig): LegalCopy {
     personalisedReturnsText:
       "Personalised Pawtraitry portraits and printed goods made to your photos are bespoke. You lose the 14-day cancellation right once production or digital delivery begins, but faulty or misdescribed items are covered by your statutory rights.",
     shippingNotes:
-      "Digital portraits are delivered by email and private download link. Optional printed puzzles ship via Prodigi (typically 5–10 working days in the UK).",
+      "Digital portraits are delivered by email and private download link. Optional printed gifts (framed prints, canvases, mugs and puzzles) are made and shipped by our print partner Prodigi (typically 5–10 working days in the UK).",
   };
 }
 

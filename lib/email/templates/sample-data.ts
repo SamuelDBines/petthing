@@ -1,7 +1,7 @@
 import { FIXMONGER_COPY } from "@/config/catalogue/fixmonger-copy";
 import { recommendedPence } from "@/config/catalogue/pricing-seed";
 import { JINGLEFOLD_DELIVERY, JINGLEFOLD_PERSONALISED_PRODUCTS } from "@/config/jinglefold";
-import { TIERS } from "@/config/pricing";
+import { DIGITAL_PACK_TIER } from "@/config/pricing";
 import type { BrandedEmailPayload } from "@/lib/email/templates/render";
 import type { BrandedEmailKind, EmailStoreId } from "@/lib/email/templates/constants";
 import { BUILTIN_STORES } from "@/lib/tenant/defaults";
@@ -23,8 +23,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
   };
 
   if (storeId === "pawtraitry") {
-    const tier = TIERS.find((t) => t.id === "classic") ?? TIERS[1];
-    const unit = tier.pricePence;
+    const unit = DIGITAL_PACK_TIER.pricePence;
     return {
       ...shared,
       orderRef: "PT-DEMO01",
@@ -35,7 +34,7 @@ function storeOrderSample(storeId: EmailStoreId): BrandedEmailPayload {
       totalPence: unit,
       lines: [
         {
-          name: `${tier.name} digital portrait`,
+          name: "Digital pack: 3 HD portraits",
           quantity: 1,
           unitPricePence: unit,
           imageUrl: "/logo.svg",

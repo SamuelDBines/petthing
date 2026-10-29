@@ -233,11 +233,6 @@ export function CheckoutSuccessView({
                     Create another portrait
                   </Link>
                 </li>
-                <li>
-                  <Link href="/#pass" className="inline-flex min-h-11 items-center rounded-full border border-line px-5 text-sm font-medium">
-                    Season pass
-                  </Link>
-                </li>
                 {payload?.resultsPath ? (
                   <li>
                     <Link

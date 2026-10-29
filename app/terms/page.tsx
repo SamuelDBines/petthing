@@ -23,7 +23,7 @@ export default async function Page() {
       <h2 className="mt-8 text-2xl">What we sell</h2>
       {copy.productKind === "digital_portraits" ? (
         <p className="mt-3">
-          We sell personalised digital pet portraits (and optional printed goods such as jigsaw puzzles) created with AI from photos you upload. Portraits are decorative gifts; they are not photographs and are labelled as AI-generated.
+          We sell personalised digital pet portraits (and optional printed goods such as framed prints, canvases, mugs and puzzles) created with AI from photos you upload. You can generate a small number of watermarked previews free of charge before deciding to buy; nothing is charged until you check out. Portraits are decorative gifts; they are not photographs and are labelled as AI-generated.
         </p>
       ) : copy.productKind === "physical_tools" ? (
         <p className="mt-3">

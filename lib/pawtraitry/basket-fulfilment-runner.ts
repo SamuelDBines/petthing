@@ -3,7 +3,7 @@ import { alertAdmin } from "@/lib/email";
 import { getStore } from "@/lib/store";
 import { pawtraitryBasketHasPhysical } from "@/lib/pawtraitry/create-basket";
 import { BASKET_FULFILMENT_STALE_MS, basketFulfilmentNeedsWork } from "@/lib/pawtraitry/basket-fulfilment-lock";
-import { fulfillPawtraitryCheckoutBasket } from "@/lib/pawtraitry/basket-fulfillment";
+import { fulfillPawtraitryCheckoutBasket, REFUNDED_PRINT_ERROR_PREFIX } from "@/lib/pawtraitry/basket-fulfillment";
 
 export async function requestPawtraitryBasketFulfilment(orderId: string) {
   const store = getStore();
@@ -85,7 +85,13 @@ export async function processPawtraitryBasketFulfilmentWatchdog() {
   return { triggered, refunds };
 }
 
-async function refundStuckPaidPrintsWithoutProdigi(order: Order) {
+export async function refundStuckPaidPrintsWithoutProdigi(
+  order: Order,
+  deps: {
+    lookup?: (merchantReference: string, storeId: string) => Promise<{ prodigiOrderId: string } | null>;
+    refund?: (order: Order, amountPence: number, reason: string) => Promise<unknown>;
+  } = {},
+) {
   const bf = order.productMeta?.basketFulfilment;
   if (bf?.status !== "running" || !bf.claimedAt) return 0;
   if (Date.now() - Date.parse(bf.claimedAt) < BASKET_FULFILMENT_STALE_MS) return 0;
@@ -93,17 +99,38 @@ async function refundStuckPaidPrintsWithoutProdigi(order: Order) {
   const store = getStore();
   const prints = await store.listPrints(order.id);
   const { getPrint } = await import("@/config/prints");
-  const { safeRefundPortraitLineItem } = await import("@/lib/pawtraitry/partial-refund");
+  const lookup =
+    deps.lookup ??
+    (async (ref: string, storeId: string) => {
+      const { findProdigiOrderByMerchantReference } = await import("@/lib/prodigi");
+      return findProdigiOrderByMerchantReference(ref, storeId, { stripeLivemode: order.stripeLivemode });
+    });
+  const refund =
+    deps.refund ??
+    (async (o: Order, amount: number, reason: string) => {
+      const { safeRefundPortraitLineItem } = await import("@/lib/pawtraitry/partial-refund");
+      return safeRefundPortraitLineItem(o, amount, reason);
+    });
   let count = 0;
   for (const print of prints) {
     if (print.status !== "paid" || print.prodigiOrderId) continue;
+    // The submit may have reached Prodigi before we crashed. Our merchantReference is the print id.
+    let existing: { prodigiOrderId: string } | null;
+    try {
+      existing = await lookup(print.id, order.storeId);
+    } catch (error) {
+      // Cannot confirm either way: leave the row as paid (it still counts as existing, so no re-order).
+      const message = error instanceof Error ? error.message : "Prodigi lookup failed";
+      await alertAdmin("Pawtraitry stuck print: Prodigi lookup failed", `<p>${order.email} print ${print.id}: ${message}</p>`, order.storeId);
+      continue;
+    }
+    if (existing) {
+      await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: existing.prodigiOrderId, error: null });
+      continue;
+    }
     const product = getPrint(print.productId);
-    await safeRefundPortraitLineItem(
-      order,
-      product.pricePence,
-      "We could not send this print to our partner in time, so we refunded it.",
-    );
-    await store.updatePrint(print.id, { status: "failed", error: "fulfilment timeout" });
+    await refund(order, product.pricePence, "We could not send this print to our partner in time, so we refunded it.");
+    await store.updatePrint(print.id, { status: "failed", error: `${REFUNDED_PRINT_ERROR_PREFIX} fulfilment timeout` });
     count += 1;
   }
   return count;

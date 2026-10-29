@@ -13,7 +13,7 @@ import { trackMetaEvent } from "@/lib/meta/client";
 const FAQS = [
   ["Is it really free to try?", "Yes. Upload a photo, add your email and make up to three watermarked previews for free. You only pay if you want the files or a gift."],
   ["How fast is it?", "Most previews appear in under a minute. Once you pay, your HD files are emailed straight away."],
-  ["What makes a good photo?", "A clear face or a clear pet face, decent light, and no sunglasses. A few angles help. Up to six photos."],
+  ["What makes a good photo?", "One clear, well-lit photo where your pet’s face is easy to see. Close-ups looking at the camera work best."],
   ["Are children allowed?", "Yes, with a parent’s permission. You confirm that on the form. Scenes stay fully clothed and family-friendly."],
   ["What if I don’t like them?", "We’ll regenerate free of charge. If you’re still unhappy, we’ll refund the portrait order."],
   ["Who can see the pictures?", "Only you, via a private link. We don’t publish a gallery. Share buttons use a watermarked preview."],
@@ -126,7 +126,7 @@ export function HomePage() {
             <li>Uploads and results sit in private storage. Links expire.</li>
             <li>Portraits are AI-generated from your photos and labelled as such. No public gallery, no training set.</li>
             <li>Unpaid previews are deleted after 48 hours. Paid photos go 7 days after delivery, results after 30 days.</li>
-            <li>Nudity, sexual content, violence and gore are rejected. Family orders use stricter prompts.</li>
+            <li>Nudity, sexual content, violence and gore are rejected. Photos with people use stricter prompts.</li>
             <li>You confirm you have permission, including from parents where children are in the photos.</li>
           </ul>
         </div>

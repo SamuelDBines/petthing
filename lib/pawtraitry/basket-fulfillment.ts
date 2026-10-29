@@ -17,13 +17,20 @@ import { safeRefundPortraitLineItem } from "@/lib/pawtraitry/partial-refund";
 import { getStore } from "@/lib/store";
 import { fulfillPrintToProdigi } from "@/lib/fulfillment";
 
+/** Marker on print.error for a line we refunded. Refunded lines are terminal: never re-ordered. */
+export const REFUNDED_PRINT_ERROR_PREFIX = "refunded:";
+
+export function isRefundedPrint(row: Pick<PrintOrder, "status" | "error">) {
+  return row.status === "failed" && (row.error ?? "").startsWith(REFUNDED_PRINT_ERROR_PREFIX);
+}
+
+/** Units of a basket line already handled: sent to Prodigi, in flight, or refunded. */
 export function existingBasketPrintUnits(prints: PrintOrder[], productId: PrintProductId) {
   return prints.filter(
     (row) =>
       row.productId === productId &&
-      row.status !== "failed" &&
       row.status !== "pending_payment" &&
-      (row.status === "submitted" || row.prodigiOrderId || row.status === "paid"),
+      (row.status === "submitted" || Boolean(row.prodigiOrderId) || row.status === "paid" || isRefundedPrint(row)),
   ).length;
 }
 
@@ -187,7 +194,7 @@ export async function fulfillPawtraitryCheckoutBasket(order: Order) {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Prodigi failed";
-        await store.updatePrint(print.id, { status: "failed", error: message });
+        await store.updatePrint(print.id, { status: "failed", error: `${REFUNDED_PRINT_ERROR_PREFIX} ${message}` });
         await safeRefundPortraitLineItem(fresh, product.pricePence, `${product.name}: ${message}`);
         await alertAdmin("Prodigi basket line failed", `<p>${fresh.email}: ${message}</p>`, fresh.storeId);
       }

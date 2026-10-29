@@ -108,6 +108,33 @@ export async function fetchProdigiOrder(
   };
 }
 
+/**
+ * Look up an existing Prodigi order by our merchantReference (we use the print row id).
+ * Returns null when Prodigi has no live (non-cancelled) order for that reference.
+ * Throws when Prodigi cannot be asked, so callers can avoid refunding or re-ordering blind.
+ */
+export async function findProdigiOrderByMerchantReference(
+  merchantReference: string,
+  storeId = "pawtraitry",
+  opts?: ProdigiRuntimeOpts,
+): Promise<{ prodigiOrderId: string; stage: string } | null> {
+  const unavailable = prodigiUnavailableMessage(storeId, opts);
+  if (unavailable) throw new Error(unavailable);
+  const response = await prodigi(
+    storeId,
+    `/orders?top=10&merchantReferences=${encodeURIComponent(merchantReference)}`,
+    opts,
+  );
+  if (!response.ok) throw new Error(`Prodigi order lookup failed (${response.status})`);
+  const payload = (await response.json().catch(() => ({}))) as {
+    orders?: { id?: string; merchantReference?: string; status?: { stage?: string } }[];
+  };
+  const match = (payload.orders ?? []).find(
+    (o) => o.id && o.merchantReference === merchantReference && o.status?.stage !== "Cancelled",
+  );
+  return match?.id ? { prodigiOrderId: match.id, stage: match.status?.stage ?? "unknown" } : null;
+}
+
 export async function submitMerchandiseOrder(args: {
   storeId?: string;
   sku: string;

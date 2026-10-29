@@ -115,7 +115,7 @@ function buildContent(
     }
     case "portrait_ready":
       return {
-        subject: `Your ${appName} preview is ready`,
+        subject: `Your ${appName} portraits are ready`,
         preheader: "Your private gallery link is inside. Download before it expires.",
         bodyHtml: `${p(hi)}${p(`Your personalised ${appName} portraits are ready to view and download.`)}${p("The link is private. Don't share it if you want to keep full-resolution files to yourself.")}`,
         cta: { label: "Open your gallery", href: payload.galleryUrl ?? `${origin}/results/sample` },
@@ -168,7 +168,7 @@ function welcomeBody(storeId: EmailStoreId, appName: string) {
   if (storeId === "jinglefold") {
     return `Welcome to ${appName}. We'll share seasonal deadlines, styling ideas, and personalised gift inspiration.`;
   }
-  return `Welcome to ${appName}. We'll send portrait inspiration, order updates, and occasional offers. never spam.`;
+  return `Welcome to ${appName}. We'll send portrait inspiration, order updates, and occasional offers. Never spam.`;
 }
 
 function orderTable(payload: BrandedEmailPayload) {
