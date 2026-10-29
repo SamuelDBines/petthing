@@ -18,7 +18,23 @@ export function sniffPhotoKind(bytes: Uint8Array, name = "", type = ""): PhotoKi
   return "unknown";
 }
 
+export const REPICK_PHOTO =
+  "We lost access to that photo. Please choose it again, or save it to your phone first and pick it from your gallery.";
+
+// Browser DOMException text (NotReadableError etc.) is meaningless to customers.
+const BROWSER_ERROR_NAMES = new Set(["NotReadableError", "NotFoundError", "SecurityError", "NotAllowedError", "AbortError", "EncodingError", "InvalidStateError"]);
+const RAW_BROWSER_TEXT = /could not be read|permission problems|reference to a file|requested file|NotReadableError|DOMException/i;
+
+export function isBrowserFileError(reason: unknown): boolean {
+  if (!reason || typeof reason !== "object") return typeof reason === "string" && RAW_BROWSER_TEXT.test(reason);
+  const r = reason as { name?: unknown; message?: unknown };
+  if (typeof DOMException !== "undefined" && reason instanceof DOMException) return true;
+  if (typeof r.name === "string" && BROWSER_ERROR_NAMES.has(r.name)) return true;
+  return typeof r.message === "string" && RAW_BROWSER_TEXT.test(r.message);
+}
+
 export function describeFailure(reason: unknown, fallback = "Something went wrong"): string {
+  if (isBrowserFileError(reason)) return REPICK_PHOTO;
   if (reason instanceof Error && reason.message) return reason.message;
   if (typeof reason === "string" && reason) return reason;
   if (reason && typeof reason === "object" && "message" in reason && typeof (reason as { message: unknown }).message === "string") {
@@ -71,4 +87,18 @@ export async function preparePhoto(file: File, deps: PrepDeps): Promise<PrepResu
   }
   const message = source.size > MAX_UPLOAD_BYTES ? "That photo is too large for this device to shrink. Try a smaller photo or a screenshot of it." : UNREADABLE_PHOTO;
   throw Object.assign(new Error(message), { steps });
+}
+
+// Android (Google Photos / cloud pickers) can revoke a picked file's content URI
+// soon after selection. Copy the bytes into memory straight away so nothing later
+// depends on the original handle.
+export async function copyPickedFile(file: File): Promise<File> {
+  let buf: ArrayBuffer;
+  try {
+    buf = await file.arrayBuffer();
+  } catch (reason) {
+    throw Object.assign(new Error(REPICK_PHOTO), { steps: [`copy-failed:${reason && typeof reason === "object" && "name" in reason ? String((reason as { name: unknown }).name) : "unknown"}`] });
+  }
+  if (!buf.byteLength) throw Object.assign(new Error(REPICK_PHOTO), { steps: ["copy-empty"] });
+  return new File([buf], file.name || "photo", { type: file.type, lastModified: file.lastModified });
 }

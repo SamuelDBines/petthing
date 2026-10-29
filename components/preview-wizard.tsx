@@ -11,7 +11,7 @@ import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
 import { metaCheckoutAttribution } from "@/lib/meta/client";
 import { PawtraitryCreateBasketStep } from "@/components/pawtraitry-create-basket-step";
 import type { PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
-import { describeFailure, preparePhoto } from "@/lib/pawtraitry/photo-prep";
+import { copyPickedFile, describeFailure, preparePhoto } from "@/lib/pawtraitry/photo-prep";
 import { trackFunnelEvent } from "@/components/visitor-tracker";
 
 const SESSION_KEY = "pawtraitry-preview-session";
@@ -59,6 +59,10 @@ export function PreviewWizard() {
   const params = useSearchParams();
   const [session, setSession] = useState<Session | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [prepared, setPrepared] = useState<Blob | null>(null);
+  const [prepError, setPrepError] = useState("");
+  const [preparing, setPreparing] = useState(false);
+  const prepJob = useRef<Promise<Blob> | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
@@ -119,10 +123,67 @@ export function PreviewWizard() {
     };
   }, [session, refresh, status?.previews.length]);
 
-  function pickFile(next: File | null) {
-    setFile(next);
+  const pickSeq = useRef(0);
+
+  async function pickFile(next: File | null) {
+    const seq = ++pickSeq.current;
+    // Read the bytes before any other await: Android may revoke the picked file soon after.
+    const copyPromise = next ? copyPickedFile(next) : null;
+    prepJob.current = null;
+    setPrepared(null);
+    setPrepError("");
+    setError("");
     if (photoUrl) URL.revokeObjectURL(photoUrl);
-    setPhotoUrl(next ? URL.createObjectURL(next) : null);
+    if (!next || !copyPromise) {
+      setFile(null);
+      setPhotoUrl(null);
+      return;
+    }
+    let copy: File;
+    try {
+      copy = await copyPromise;
+    } catch (reason) {
+      if (seq !== pickSeq.current) return;
+      setFile(null);
+      setPhotoUrl(null);
+      setError(describeFailure(reason));
+      reportStartFailure("copy", reason, next);
+      return;
+    }
+    if (seq !== pickSeq.current) return;
+    setFile(copy);
+    setPhotoUrl(URL.createObjectURL(copy));
+    setPreparing(true);
+    const job = prepare(copy).then(
+      (result) => {
+        if (seq === pickSeq.current) setPrepared(result.blob);
+        return result.blob;
+      },
+      (reason) => {
+        if (seq === pickSeq.current) setPrepError(describeFailure(reason));
+        reportStartFailure("prepare", reason, copy);
+        throw reason;
+      },
+    );
+    prepJob.current = job;
+    job.catch(() => undefined).finally(() => {
+      if (seq === pickSeq.current) setPreparing(false);
+    });
+  }
+
+  function reportStartFailure(stage: string, reason: unknown, source: File | null) {
+    try {
+      trackFunnelEvent("preview_start_failed", {
+        stage,
+        message: describeFailure(reason).slice(0, 200),
+        rawName: String((reason as { name?: unknown })?.name ?? "").slice(0, 40),
+        fileType: (source?.type ?? "").slice(0, 40),
+        fileSize: source?.size ?? 0,
+        steps: ((reason as { steps?: string[] })?.steps ?? []).join("|").slice(0, 300),
+      });
+    } catch {
+      // reporting is best effort
+    }
   }
 
   async function start() {
@@ -132,7 +193,8 @@ export function PreviewWizard() {
     setError("");
     let stage = "prepare";
     try {
-      const prepared = await prepare(file);
+      if (prepError) throw new Error(prepError);
+      const ready = prepared ?? (prepJob.current ? await prepJob.current : (await prepare(file)).blob);
       stage = "create";
       const created = await json<{ orderId: string; uploadToken: string; previewsLeft: number }>(
         await fetch("/api/previews", {
@@ -145,7 +207,7 @@ export function PreviewWizard() {
       const body = new FormData();
       body.set("orderId", created.orderId);
       body.set("uploadToken", created.uploadToken);
-      body.set("file", prepared.blob, "photo.jpg");
+      body.set("file", ready, "photo.jpg");
       await json(await fetch("/api/uploads", { method: "POST", body }));
       const next = { orderId: created.orderId, uploadToken: created.uploadToken, email };
       window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
@@ -153,17 +215,7 @@ export function PreviewWizard() {
     } catch (reason) {
       const message = describeFailure(reason);
       setError(message);
-      try {
-        trackFunnelEvent("preview_start_failed", {
-          stage,
-          message: message.slice(0, 200),
-          fileType: file.type.slice(0, 40),
-          fileSize: file.size,
-          steps: ((reason as { steps?: string[] })?.steps ?? []).join("|").slice(0, 300),
-        });
-      } catch {
-        // reporting is best effort
-      }
+      if (stage !== "prepare") reportStartFailure(stage, reason, file);
     } finally {
       setBusy(false);
     }
@@ -312,7 +364,7 @@ export function PreviewWizard() {
               accept="image/*,.heic,.heif"
               className="sr-only"
               data-testid="photo-input"
-              onChange={(event) => pickFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => void pickFile(event.target.files?.[0] ?? null)}
             />
             {photoUrl ? <span className="mt-2 block text-sm text-muted">Tap to change</span> : null}
           </label>
@@ -340,7 +392,7 @@ export function PreviewWizard() {
             onClick={() => void start()}
             data-testid="preview-start"
           >
-            {busy ? "Uploading..." : "Continue"}
+            {busy ? (preparing ? "Preparing photo..." : "Uploading...") : "Continue"}
           </button>
         </section>
       ) : (
