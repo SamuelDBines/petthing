@@ -121,8 +121,8 @@ export function HomePage() {
       <PawtraitryHomeGiftsSection />
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 pb-16">
-        <h2 className="text-4xl">Order {theme.name} once</h2>
-        <p className="mt-2 max-w-2xl text-muted">Pet, family, couple, or just you. Pay once for this season.</p>
+        <h2 className="text-4xl">Choose your portrait pack</h2>
+        <p className="mt-2 max-w-2xl text-muted">Every order starts with a digital pack. Add prints, mugs and gifts in the next step.</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {TIERS.map((tier) => (
             <article key={tier.id} className={`rounded-2xl border bg-bark p-6 ${tier.popular ? "order-first border-cream/30 md:order-none" : "border-line"}`}>
@@ -130,13 +130,14 @@ export function HomePage() {
               <h3 className="mt-3 text-3xl">{tier.name}</h3>
               <p className="mt-2 text-3xl">{formatGbp(tier.pricePence)}</p>
               <p className="mt-2 text-muted">{tier.blurb}</p>
+              <p className="mt-2 text-sm text-cream">{tier.id === "mini" ? "Prints up to A3" : "Prints everything, up to A1"}</p>
               <ul className="mt-4 space-y-1 text-sm">
                 {tier.points.map((point) => <li key={point}>{point}</li>)}
               </ul>
             </article>
           ))}
         </div>
-        <p className="mt-4 text-sm text-muted">Add priority delivery at checkout for {formatGbp(299)}. Add three more styles later for {formatGbp(499)}.</p>
+        <p className="mt-4 text-sm text-muted">Priority on your digital portraits: {formatGbp(299)}. Add three more styles later for {formatGbp(499)}.</p>
       </section>
 
       <section id="pass" className="mx-auto max-w-6xl px-4 pb-16">
