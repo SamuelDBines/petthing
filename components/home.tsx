@@ -1,86 +1,62 @@
 "use client";
 
-import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { APP_NAME, SUPPORT_EMAIL, TAGLINE } from "@/config/brand";
-import { CHRISTMAS_PREORDER_PENCE, formatGbp, SEASON_PASS, TIERS } from "@/config/pricing";
-import { THEMES, type ThemeDefinition } from "@/config/themes";
+import { DIGITAL_PACK_PENCE, FREE_PREVIEWS_PER_EMAIL, formatGbp } from "@/config/pricing";
+import { PREVIEW_STYLES } from "@/config/preview-styles";
 import { Compare } from "@/components/compare";
-import { Countdown } from "@/components/countdown";
 import { PawtraitryHomeGiftsSection } from "@/components/pawtraitry-home-gifts-section";
 import { trackMetaEvent } from "@/lib/meta/client";
 
 const FAQS = [
-  ["How fast is it?", "Standard orders are reviewed and emailed as they finish. Priority delivery is an under-two-hour target once payment clears and the queue is moving."],
+  ["Is it really free to try?", "Yes. Upload a photo, add your email and make up to three watermarked previews for free. You only pay if you want the files or a gift."],
+  ["How fast is it?", "Most previews appear in under a minute. Once you pay, your HD files are emailed straight away."],
   ["What makes a good photo?", "A clear face or a clear pet face, decent light, and no sunglasses. A few angles help. Up to six photos."],
   ["Are children allowed?", "Yes, with a parent’s permission. You confirm that on the form. Scenes stay fully clothed and family-friendly."],
   ["What if I don’t like them?", "We’ll regenerate free of charge. If you’re still unhappy, we’ll refund the portrait order."],
   ["Who can see the pictures?", "Only you, via a private link. We don’t publish a gallery. Share buttons use a watermarked preview."],
-  ["When are files deleted?", "One-off photos go 7 days after delivery. A season pass keeps them for up to a year so the next season can use them. Finished portraits go after 30 days."],
-  ["Do you print?", "Yes. When your gallery is ready you can order UK-posted prints and gifts. Puzzles, canvas, classic frames, mugs, and more. From the same portraits."],
+  ["When are files deleted?", "Unpaid previews are deleted after 48 hours. Paid orders: photos go 7 days after delivery, finished portraits after 30 days."],
+  ["Do you print?", "Yes. Pick a preview and put it on a mug, print, canvas, puzzle and more, posted in the UK. The digital files come free with any gift."],
   [
     "Can I get my portrait on a mug or canvas?",
-    "Yes. In the create flow you can add mugs, cushions, coasters, framed prints, canvas, puzzles, and cards in one checkout. After your portraits are ready, your gallery still offers extras. UK delivery is included in print prices.",
+    "Yes. After your previews, choose Put it on a gift and add mugs, cushions, coasters, framed prints, canvas, puzzles or cards in one checkout. UK delivery is included in print prices.",
   ],
-  ["Is this only for one season?", "No. We run themed collections through the year. Pets and families stay at the heart of it. Christmas opens on 1 November, and more seasons follow the same way."],
+  ["What styles can I pick?", "Oil painting, watercolour, renaissance, royal, cartoon, pop art, sketch and line art, plus Halloween and Christmas looks. You can also describe your own idea or simply improve your photo."],
   ["Are the portraits real photos?", "No. They are AI-generated art styled from your uploads. We label them clearly on your gallery and in emails."],
-  ["What is the season pass?", "A yearly plan for a family or group. You get a Classic set each season, starting with the one that’s open. One-off orders stay available for pets, couples, and a single season."],
 ];
 
 export function HomePage() {
-  const [theme, setTheme] = useState<ThemeDefinition>(THEMES[0]);
   const [paused, setPaused] = useState(false);
-  const [email, setEmail] = useState("");
-  const [note, setNote] = useState("");
 
   useEffect(() => {
     trackMetaEvent("ViewContent", { currency: "GBP", contentIds: ["portrait"] });
     fetch("/api/catalog")
       .then((response) => response.json())
-      .then((data) => {
-        if (data.theme) setTheme(data.theme);
-        setPaused(Boolean(data.salesPaused));
-      })
+      .then((data) => setPaused(Boolean(data.salesPaused)))
       .catch(() => undefined);
   }, []);
-
-  async function preorder(event: React.FormEvent) {
-    event.preventDefault();
-    setNote("");
-    const response = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "christmas", email }),
-    });
-    const { ok, body: data } = await parseCheckoutResponse(response);
-    if (!ok || !data.url) {
-      setNote(checkoutErrorMessage(data, ok));
-      return;
-    }
-    window.location.href = data.url;
-  }
 
   return (
     <main>
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-[1.1fr_.9fr] md:py-16">
         <div>
-          <Countdown deadlineIso={theme.deadlineIso} label={`${theme.name} is this season`} />
+          <p className="text-[11px] tracking-[0.16em] text-muted uppercase">Free to try. No card needed.</p>
           <h1 className="mt-5 text-5xl leading-[0.95] sm:text-7xl">A portrait your pet deserves.</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-muted">{TAGLINE} {theme.name} styles are open now; Christmas arrives on 1 November.</p>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-muted">{TAGLINE} Upload a photo, pick a style and see {FREE_PREVIEWS_PER_EMAIL} free previews. Keep the files for {formatGbp(DIGITAL_PACK_PENCE)}, or put your favourite on a gift.</p>
           {paused ? (
-            <p className="mt-6 rounded-2xl border border-gold/40 bg-gold/10 p-4">Orders are paused while we catch up. The next season is still open below.</p>
+            <p className="mt-6 rounded-2xl border border-gold/40 bg-gold/10 p-4">Orders are paused while we catch up. Please check back soon.</p>
           ) : (
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/create" className="inline-flex min-h-12 items-center rounded-full bg-pumpkin px-6 text-sm font-medium text-ink">
-                Order {theme.name} · from {formatGbp(TIERS[0].pricePence)}
+              <Link href="/create" className="inline-flex min-h-12 items-center rounded-full bg-pumpkin px-6 text-sm font-medium text-ink" data-testid="home-cta">
+                Try it free
               </Link>
-              <Link href="/create?offer=season" className="inline-flex min-h-12 items-center rounded-full border border-line px-6 text-sm font-medium">
-                Season pass · {formatGbp(SEASON_PASS.pricePence)}/year
+              <Link href="#pricing" className="inline-flex min-h-12 items-center rounded-full border border-line px-6 text-sm font-medium">
+                See prices
               </Link>
             </div>
           )}
-          <p className="mt-4 text-sm text-muted">Made in the UK. No account needed. Optional puzzle gift with UK postage.</p>
+          <p className="mt-4 text-sm text-muted">Made in the UK. No account needed. Only pay if you love it.</p>
         </div>
         <Compare before="/examples/pet-before.jpg" after="/examples/pet-after.jpg" label="A terrier, before and after" />
       </section>
@@ -90,19 +66,19 @@ export function HomePage() {
         <div className="rounded-2xl border border-line bg-bark p-6">
           <h2 className="text-3xl">How it works</h2>
           <ol className="mt-4 space-y-4 text-muted">
-            <li><strong className="text-cream">1. Tell us who.</strong> Pet, family, couple, or just you.</li>
-            <li><strong className="text-cream">2. Add up to six photos.</strong> We compress them on your phone.</li>
-            <li><strong className="text-cream">3. Pick styles and pay.</strong> Classic is the one most people choose.</li>
-            <li><strong className="text-cream">4. Get a private link.</strong> Download, share a watermark, or order prints.</li>
+            <li><strong className="text-cream">1. Upload your pet.</strong> One clear photo is all it takes.</li>
+            <li><strong className="text-cream">2. Pick a style.</strong> Or describe your own, or just improve the photo.</li>
+            <li><strong className="text-cream">3. See {FREE_PREVIEWS_PER_EMAIL} free previews.</strong> Watermarked, right here on screen.</li>
+            <li><strong className="text-cream">4. Keep it.</strong> Digital pack for {formatGbp(DIGITAL_PACK_PENCE)}, or put it on a gift with the files included.</li>
           </ol>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16">
-        <h2 className="text-4xl">This season: {theme.name}</h2>
-        <p className="mt-2 max-w-2xl text-muted">{theme.deadlineLabel}. Original scenes only. No film characters, no brand logos, everyone fully clothed. The next season gets its own set.</p>
+        <h2 className="text-4xl">Pick a style</h2>
+        <p className="mt-2 max-w-2xl text-muted">Timeless looks all year, plus Halloween and Christmas. Original scenes only. No film characters, no brand logos, everyone fully clothed.</p>
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
-          {theme.styles.map((style) => (
+          {PREVIEW_STYLES.map((style) => (
             <article key={style.id} className="overflow-hidden rounded-2xl border border-line bg-bark">
               {style.thumbnail ? (
                 <img src={style.thumbnail} alt="" className="aspect-[4/5] w-full object-cover" />
@@ -121,64 +97,41 @@ export function HomePage() {
       <PawtraitryHomeGiftsSection />
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 pb-16">
-        <h2 className="text-4xl">Choose your portrait pack</h2>
-        <p className="mt-2 max-w-2xl text-muted">Every order starts with a digital pack. Add prints, mugs and gifts in the next step.</p>
+        <h2 className="text-4xl">Simple pricing</h2>
+        <p className="mt-2 max-w-2xl text-muted">Try first, pay only if you love it.</p>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {TIERS.map((tier) => (
-            <article key={tier.id} className={`rounded-2xl border bg-bark p-6 ${tier.popular ? "order-first border-cream/30 md:order-none" : "border-line"}`}>
-              <p className="min-h-4 text-[11px] tracking-[0.16em] text-muted uppercase">{tier.popular ? "Most popular" : ""}</p>
-              <h3 className="mt-3 text-3xl">{tier.name}</h3>
-              <p className="mt-2 text-3xl">{formatGbp(tier.pricePence)}</p>
-              <p className="mt-2 text-muted">{tier.blurb}</p>
-              <p className="mt-2 text-sm text-cream">{tier.id === "mini" ? "Prints up to A3" : "Prints everything, up to A1"}</p>
-              <ul className="mt-4 space-y-1 text-sm">
-                {tier.points.map((point) => <li key={point}>{point}</li>)}
-              </ul>
-            </article>
-          ))}
+          <article className="rounded-2xl border border-line bg-bark p-6">
+            <h3 className="text-3xl">Previews</h3>
+            <p className="mt-2 text-3xl">Free</p>
+            <p className="mt-2 text-muted">Up to {FREE_PREVIEWS_PER_EMAIL} watermarked previews per email. No card needed.</p>
+          </article>
+          <article className="rounded-2xl border border-cream/30 bg-bark p-6">
+            <h3 className="text-3xl">Digital pack</h3>
+            <p className="mt-2 text-3xl">{formatGbp(DIGITAL_PACK_PENCE)}</p>
+            <p className="mt-2 text-muted">Your previews in HD, no watermark, emailed with a private download link.</p>
+          </article>
+          <article className="rounded-2xl border border-line bg-bark p-6">
+            <h3 className="text-3xl">On a gift</h3>
+            <p className="mt-2 text-3xl">Files included</p>
+            <p className="mt-2 text-muted">Mugs, prints, canvas, puzzles and more. Pay for the gift and the digital files come free. UK delivery included.</p>
+          </article>
         </div>
-        <p className="mt-4 text-sm text-muted">Priority on your digital portraits: {formatGbp(299)}. Add three more styles later for {formatGbp(499)}.</p>
+        <Link href="/create" className="mt-6 inline-flex min-h-12 items-center rounded-full bg-pumpkin px-6 text-sm font-medium text-ink">
+          Try it free
+        </Link>
       </section>
 
-      <section id="pass" className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="grid items-end gap-8 border-y border-line py-10 md:grid-cols-[1.3fr_.7fr]">
-          <div>
-            <p className="text-[11px] tracking-[0.16em] text-muted uppercase">Alongside the one-offs</p>
-            <h2 className="mt-3 text-4xl">A family set, every season</h2>
-            <p className="mt-3 max-w-xl text-muted">{SEASON_PASS.blurb} {theme.name} starts now. Christmas opens on 1 November, and later seasons join the same pass.</p>
-            <ul className="mt-4 space-y-1 text-sm text-muted">
-              {SEASON_PASS.points.map((point) => <li key={point}>{point}</li>)}
-            </ul>
-          </div>
-          <div>
-            <p className="text-4xl">{formatGbp(SEASON_PASS.pricePence)}<span className="text-lg text-muted"> / year</span></p>
-            <p className="mt-2 text-sm text-muted">Renews once a year. The first set is {theme.name}.</p>
-            <Link href="/create?offer=season" className="mt-6 inline-flex min-h-12 items-center justify-center rounded-full bg-pumpkin px-5 text-sm font-medium text-ink">
-              Start the family pass
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-6xl gap-4 px-4 pb-16 md:grid-cols-2">
+      <section className="mx-auto max-w-6xl px-4 pb-16">
         <div className="rounded-2xl border border-line bg-bark p-6">
           <h2 className="text-3xl">Trust and privacy</h2>
           <ul className="mt-4 space-y-2 text-muted">
             <li>Uploads and results sit in private storage. Links expire.</li>
             <li>Portraits are AI-generated from your photos and labelled as such. No public gallery, no training set.</li>
-            <li>One-off photos are deleted 7 days after delivery. A season pass keeps them for the next season. Results go after 30 days.</li>
+            <li>Unpaid previews are deleted after 48 hours. Paid photos go 7 days after delivery, results after 30 days.</li>
             <li>Nudity, sexual content, violence and gore are rejected. Family orders use stricter prompts.</li>
             <li>You confirm you have permission, including from parents where children are in the photos.</li>
           </ul>
         </div>
-        <form onSubmit={preorder} className="rounded-2xl border border-line bg-bark p-6">
-          <h2 className="text-3xl">Next season: Christmas</h2>
-          <p className="mt-2 text-muted">Opens 1 November. A season pass already includes it. Or pre-order just that set for {formatGbp(CHRISTMAS_PREORDER_PENCE)}.</p>
-          <label className="mt-4 block text-sm" htmlFor="christmas-email">Email</label>
-          <input id="christmas-email" className="field mt-1" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
-          <button className="mt-4 rounded-full bg-pumpkin px-5 py-3 text-sm font-medium text-ink" type="submit">Pre-order the next season</button>
-          {note ? <p className="mt-3 text-sm">{note}</p> : null}
-        </form>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-20">

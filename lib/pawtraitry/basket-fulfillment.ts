@@ -34,6 +34,10 @@ function existingPrintUnits(prints: PrintOrder[], productId: PrintProductId) {
 async function pickBestPortraitAsset(orderId: string) {
   const store = getStore();
   const results = (await store.listAssets(orderId)).filter((a) => a.kind === "result");
+  const order = await store.getOrder(orderId);
+  const chosenId = order?.productMeta?.freePreview?.chosenAssetId;
+  const chosen = chosenId ? results.find((a) => a.id === chosenId) : undefined;
+  if (chosen && (await readBlob(chosen.bucket, chosen.storagePath))) return chosen;
   let best: (typeof results)[0] | null = null;
   let bestPixels = 0;
   for (const asset of results) {

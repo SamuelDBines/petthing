@@ -33,6 +33,15 @@ export async function galleryForToken(token: string, base?: string) {
     order.productMeta?.personalised &&
     resultAssets.length > 0;
 
+  const freePreview =
+    order.storeId === "pawtraitry" &&
+    Boolean(order.productMeta?.freePreview) &&
+    order.status !== "delivered";
+  if (freePreview) {
+    // Unpaid previews are served by /api/previews only (watermarked, no full-res links).
+    return { ready: false as const, status: order.status };
+  }
+
   if (!jinglefoldPreview && order.status !== "delivered") {
     return { ready: false as const, status: order.status };
   }
@@ -52,7 +61,8 @@ export async function galleryForToken(token: string, base?: string) {
       id: asset.id,
       styleId: asset.styleId,
       styleName: theme?.styles.find((style) => style.id === asset.styleId)?.name ?? "Portrait",
-      url: await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
+      // Never hand out the full-res file before payment.
+      url: jinglefoldPreview ? "" : await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
       previewUrl: preview ? await signedBlobUrl(preview.bucket, preview.storagePath, 60 * 60 * 24 * 7, false, base) : null,
       printOffers,
     });

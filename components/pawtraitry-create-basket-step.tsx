@@ -25,6 +25,11 @@ type Props = {
   requiredStyles: number;
   onBack: () => void;
   onContinue: () => void;
+  /** Free-preview flow: fixed tier (digital files included), no pack picker, no priority. */
+  tierOverride?: Tier;
+  intro?: string;
+  continueLabel?: string;
+  continueDisabled?: boolean;
 };
 
 function qtyFor(lines: PawtraitryPhysicalBasketLine[], productId: PrintProductId) {
@@ -48,8 +53,13 @@ export function PawtraitryCreateBasketStep({
   requiredStyles,
   onBack,
   onContinue,
+  tierOverride,
+  intro,
+  continueLabel,
+  continueDisabled,
 }: Props) {
-  const tier = TIERS.find((t) => t.id === tierId) ?? TIERS[1]!;
+  const tier = tierOverride ?? TIERS.find((t) => t.id === tierId) ?? TIERS[1]!;
+  const simple = Boolean(tierOverride);
   const offers = useMemo(() => pawtraitryCreateProductOffers(tier), [tier]);
   const [framedSize, setFramedSize] = useState(offers.find((o) => o.id === "classic_framed")?.framed?.sizeKey ?? "a3");
   const [framedColor, setFramedColor] = useState(offers.find((o) => o.id === "classic_framed")?.framed?.colorId ?? "black");
@@ -65,7 +75,7 @@ export function PawtraitryCreateBasketStep({
     physical,
   });
 
-  const stylesOk = styleCount === requiredStyles || tier.styleCount === "all";
+  const stylesOk = simple || styleCount === requiredStyles || tier.styleCount === "all";
 
   function framedProductId() {
     return classicFramedProductId(framedSize, framedColor);
@@ -80,14 +90,17 @@ export function PawtraitryCreateBasketStep({
 
   return (
     <section className="mt-6 pb-36">
+      {intro ? <p className="text-cream/75">{intro}</p> : (
       <p className="text-cream/75">
         Choose your digital pack (required). Add mugs, prints, and gifts in the same checkout. Physical items are printed from your best
         finished portrait for this order. UK delivery is included in each print price.
       </p>
+      )}
       {!stylesOk ? (
         <p className="mt-3 rounded-2xl border border-gold/40 p-3 text-sm">Pick {requiredStyles} style{requiredStyles === 1 ? "" : "s"} on the previous step for {tier.name}.</p>
       ) : null}
 
+      {simple ? null : (<>
       <h2 className="mt-8 text-2xl">Digital packs</h2>
       <div className="mt-4 grid gap-3">
         {TIERS.map((item) => (
@@ -114,7 +127,9 @@ export function PawtraitryCreateBasketStep({
         ))}
       </div>
 
-      <h2 className="mt-10 text-2xl">Prints and gifts</h2>
+      </>)}
+
+      <h2 className={simple ? "mt-6 text-2xl" : "mt-10 text-2xl"}>Prints and gifts</h2>
       <ul className="mt-4 grid gap-4 sm:grid-cols-2">
         {offers.map((offer) => {
           if (offer.id === "classic_framed" && offer.framed) {
@@ -216,10 +231,10 @@ export function PawtraitryCreateBasketStep({
         })}
       </ul>
 
-      <label className="mt-6 flex gap-3 text-sm leading-6">
+      {simple ? null : <label className="mt-6 flex gap-3 text-sm leading-6">
         <input type="checkbox" checked={priority} onChange={(e) => onPriority(e.target.checked)} />
         Priority on your digital portraits, under 2 hours target, {formatGbp(299)}
-      </label>
+      </label>}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-xl flex-col gap-2">
@@ -245,8 +260,10 @@ export function PawtraitryCreateBasketStep({
                 type="button"
                 className="rounded-full bg-pumpkin px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
                 onClick={onContinue}
+                disabled={continueDisabled}
+                data-testid="basket-continue"
               >
-                Continue
+                {continueLabel ?? "Continue"}
               </button>
             </div>
           </div>

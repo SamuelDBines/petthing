@@ -145,7 +145,9 @@ export async function deliverOrder(orderId: string) {
   const order = await store.getOrder(orderId);
   if (!order || order.status === "refunded" || order.status === "delivered") return;
   const tier = await tierForOrder(order);
-  const [jobs, assets] = await Promise.all([store.listJobs(orderId), store.listAssets(orderId)]);
+  const [allJobs, assets] = await Promise.all([store.listJobs(orderId), store.listAssets(orderId)]);
+  // Free previews: the customer buys whatever previews finished; failed ones are not owed.
+  const jobs = isFreePreviewOrder(order) ? allJobs.filter((job) => job.status === "done") : allJobs;
   if (!orderHasFullPortraitSet(tier, jobs, assets)) {
     const generated = countResultImages(assets);
     throw new Error(`Cannot deliver: only ${generated} of ${tier.imageCount} portraits are ready.`);
@@ -202,6 +204,37 @@ export async function deliverOrder(orderId: string) {
   }
 }
 
+/** Pawtraitry free-preview order (generated before payment). */
+export function isFreePreviewOrder(order: Pick<Order, "storeId" | "productMeta">) {
+  return order.storeId === "pawtraitry" && Boolean(order.productMeta?.freePreview);
+}
+
+/** Low-res watermarked copies of every result that does not have one yet. */
+export async function writeWatermarkedPreviews(orderId: string) {
+  const store = getStore();
+  const assets = await store.listAssets(orderId);
+  for (const asset of assets.filter((item) => item.kind === "result")) {
+    const previewPath = `${orderId}/previews/${asset.id}.jpg`;
+    if (assets.some((item) => item.storagePath === previewPath)) continue;
+    const file = await readBlob(asset.bucket, asset.storagePath);
+    if (!file) continue;
+    const preview = await watermark(file.bytes, { width: 640 });
+    await putBlob("results", previewPath, preview, "image/jpeg");
+    await store.addAsset({
+      id: randomUUID(),
+      orderId,
+      kind: "preview",
+      styleId: asset.styleId,
+      variantIndex: asset.variantIndex,
+      storagePath: previewPath,
+      bucket: "results",
+      contentType: "image/jpeg",
+      moderation: "passed",
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
+
 async function finishIfDone(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
@@ -216,6 +249,11 @@ async function finishIfDone(orderId: string) {
   const jobs = await store.listJobs(orderId);
   const settled = (status: Job["status"]) => status === "done" || status === "failed" || status === "dead";
   if (jobs.some((job) => !settled(job.status))) return;
+  if (isFreePreviewOrder(order) && order.status === "generating") {
+    await writeWatermarkedPreviews(orderId);
+    await store.updateOrder(orderId, { status: "pending_payment", failureReason: null });
+    return;
+  }
   const tier = await tierForOrder(order);
   const assets = await store.listAssets(orderId);
   const progress = portraitGenerationProgress(tier, jobs, assets);
@@ -340,6 +378,7 @@ async function processJob(jobId: string) {
         variantIndex: job.variantIndex,
         quality: tier.quality,
         forFalKontext: provider.id !== "placeholder",
+        customPrompt: order.productMeta?.freePreview?.customPrompts?.[String(job.variantIndex)] ?? null,
       });
       const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
       const imageUrls: string[] = [];

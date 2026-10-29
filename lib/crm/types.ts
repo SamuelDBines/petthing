@@ -3,6 +3,7 @@ export type SignupSource =
   | "shop_checkout"
   | "portrait_order"
   | "jinglefold_preview"
+  | "free_preview"
   | "christmas_preorder"
   | "abandoned_checkout"
   | "marketing_cookie";

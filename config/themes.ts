@@ -176,5 +176,10 @@ export const THEMES: ThemeDefinition[] = [
 ];
 
 export function getTheme(id: string) {
+  if (id === "studio") {
+    // Lazy require avoids a circular import (preview-styles imports types from here).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require("@/config/preview-styles") as typeof import("@/config/preview-styles")).STUDIO_THEME;
+  }
   return THEMES.find((theme) => theme.id === id) ?? null;
 }

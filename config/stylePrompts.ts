@@ -169,6 +169,41 @@ export const STYLE_PROMPTS: Record<string, StylePrompt> = {
       "Paint {subject} inside an original snow-globe Christmas ornament scene for bauble printing. Square format, centred subject within a circular safe zone, gentle snowfall, soft greens and frosted glass glow, no branded globe base. Subject recognisable with clear eyes and markings. People wear cosy winter layers, fully clothed.",
     negative: "subject touching frame edge, dark horror snow, logos, text",
   },
+  renaissance: {
+    template:
+      "Paint {subject} as a Renaissance old-master portrait: dark umber background, soft window light, velvet and gold details, fine glazing and craquelure. Subject posed with dignity, fully clothed in period dress if a person. Faithful likeness and markings from the reference photos.",
+    negative: "modern clothing, photograph, cartoon, text, watermark",
+  },
+  "royal-portrait": {
+    template:
+      "Paint {subject} as a regal royal portrait: small jewelled crown, ermine-trimmed velvet cape, palace interior with drapes, classical oil technique. People stay fully clothed in royal dress. Keep the face and markings faithful to the reference photos.",
+    negative: "real royal family likeness, flags, logos, text, watermark",
+  },
+  cartoon: {
+    template:
+      "Draw {subject} as an original bright cartoon illustration: clean confident outlines, flat cheerful colours, soft cel shading, simple pastel background. Friendly and expressive, fully clothed if a person, recognisable face and markings from the reference photos. Original design, not any existing studio character.",
+    negative: "copyrighted character, logo, photograph, horror, text",
+  },
+  "pop-art": {
+    template:
+      "Render {subject} as bold pop art: saturated colour blocks, halftone dots, thick black outlines, bright contrasting background panel. Fully clothed if a person. Keep the likeness and markings from the reference photos.",
+    negative: "muted colours, photograph, text, speech bubbles, logo",
+  },
+  "line-art": {
+    template:
+      "Draw {subject} as minimal continuous line art: a single elegant dark line on a plain warm off-white background, very few strokes, lots of negative space, suitable for printing on a mug. Fully clothed if a person. Recognisable silhouette and key markings from the reference photos.",
+    negative: "shading, colour fill, busy background, text, watermark",
+  },
+  improve: {
+    template:
+      "Improve this photo of {subject} while keeping it a real photograph: better exposure and white balance, gentle sharpening, natural colour, reduced noise, tidy background blur. Do not change the face, markings, pose or identity. People stay fully clothed exactly as in the photo.",
+    negative: "painting, cartoon, changed identity, extra animals, text, watermark",
+  },
+  custom: {
+    template:
+      "Create an image of {subject} in this scene the customer asked for: {custom}. Keep it wholesome and family friendly, subjects fully clothed. Keep the face and markings faithful to the reference photos.",
+    negative: "nudity, gore, logos, text, watermark",
+  },
   hearthside: {
     template:
       "Paint {subject} in a hearthside Christmas ornament portrait. Square composition with the subject centred for circular bauble printing, fireside warmth, tasteful wreath and garland in the background (not covering the face), gold and ember light. Wholesome, fully clothed if people. Faithful likeness from references.",
@@ -225,6 +260,9 @@ export function assertAllStoreStylePrompts() {
 assertPrompts();
 assertAllStoreStylePrompts();
 
+/** Banned brand / character terms, reused to vet customer prompts. */
+export const BANNED_PROMPT_TERMS: readonly string[] = BANNED;
+
 export function buildPrompt(args: {
   styleId: string;
   subject: SubjectType;
@@ -232,13 +270,17 @@ export function buildPrompt(args: {
   quality: "standard" | "hd";
   /** fal kontext has no negative prompt — omit banned-word lists from the positive prompt. */
   forFalKontext?: boolean;
+  /** Customer text for the "custom" style (already cleaned). */
+  customPrompt?: string | null;
 }) {
   const style = STYLE_PROMPTS[args.styleId];
   if (!style) throw new Error(`No prompt configured for ${args.styleId}`);
   const strict = args.subject === "family";
   const negative = [BASE_NEGATIVE, strict ? FAMILY_NEGATIVE : "", style.negative].filter(Boolean).join(", ");
   const parts = [
-    style.template.replaceAll("{subject}", SUBJECT_LINES[args.subject]),
+    style.template
+      .replaceAll("{subject}", SUBJECT_LINES[args.subject])
+      .replaceAll("{custom}", args.customPrompt?.trim() || "a beautiful portrait"),
     "Use the reference photos only to keep identity. Do not copy a copyrighted character, costume from a film, or a brand mark.",
     strict
       ? "Wholesome group portrait for a family mantel. Friendly expressions. Children stay fully clothed in costume."

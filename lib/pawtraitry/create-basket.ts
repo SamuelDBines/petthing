@@ -50,7 +50,9 @@ export function orderAmountPence(args: {
   const base =
     args.offer === "season_pass"
       ? args.seasonPassPence
-      : discountedPence(args.tier.pricePence, args.referralDiscountPence);
+      : args.tier.pricePence > 0
+        ? discountedPence(args.tier.pricePence, args.referralDiscountPence)
+        : 0;
   const physical = args.offer === "season_pass" ? 0 : physicalBasketSubtotalPence(args.physical);
   const priority = args.offer === "season_pass" ? 0 : args.priority ? PRIORITY_PENCE : 0;
   return base + physical + priority;
@@ -74,7 +76,9 @@ export function pawtraitryBasketSummary(args: {
   const digitalPence =
     args.offer === "season_pass"
       ? args.seasonPassPence
-      : discountedPence(args.tier.pricePence, args.referralDiscountPence);
+      : args.tier.pricePence > 0
+        ? discountedPence(args.tier.pricePence, args.referralDiscountPence)
+        : 0;
   const physicalPence = args.offer === "season_pass" ? 0 : physicalBasketSubtotalPence(args.physical);
   const priorityPence = args.offer === "season_pass" ? 0 : args.priority ? PRIORITY_PENCE : 0;
   const shippingPence = pawtraitryBasketShippingPence(args.physical);
@@ -82,7 +86,11 @@ export function pawtraitryBasketSummary(args: {
   if (args.offer === "season_pass") {
     lines.push({ label: args.seasonPassName, amountPence: digitalPence, quantity: 1 });
   } else {
-    lines.push({ label: `${args.tier.name} digital pack`, amountPence: digitalPence, quantity: 1 });
+    if (args.tier.pricePence > 0) {
+      lines.push({ label: args.tier.id === "digital_pack" ? "Digital pack" : `${args.tier.name} digital pack`, amountPence: digitalPence, quantity: 1 });
+    } else {
+      lines.push({ label: args.tier.name, amountPence: 0, quantity: 1 });
+    }
     for (const row of normalizePhysicalBasket(args.physical)) {
       const product = getPrint(row.productId);
       lines.push({
@@ -131,7 +139,10 @@ export function stripeLineItemsForPortraitCheckout(args: {
     items.push(line(`${args.brandName} season pass`, args.seasonPassPence, 1, true));
     return items;
   }
-  items.push(line(`${args.brandName} · ${args.tier.name}`, discountedPence(args.tier.pricePence, args.referralDiscountPence ?? 0), 1));
+  // Free-preview physical orders include the digital files at no charge: no Stripe line.
+  if (args.tier.pricePence > 0) {
+    items.push(line(`${args.brandName} · ${args.tier.name}`, discountedPence(args.tier.pricePence, args.referralDiscountPence ?? 0), 1));
+  }
   for (const row of normalizePhysicalBasket(args.physical)) {
     const product = getPrint(row.productId);
     items.push(line(`${args.brandName} · ${product.name}`, product.pricePence, row.quantity));

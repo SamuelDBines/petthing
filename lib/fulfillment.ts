@@ -90,7 +90,10 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
   } else {
     const jobs = await store.listJobs(order.id);
     let kickGeneration = true;
-    if (order.storeId === "jinglefold" && order.productMeta?.personalised && jobs.some((j) => j.status === "done")) {
+    const previewedBeforePayment =
+      (order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised)) ||
+      (order.storeId === "pawtraitry" && Boolean(order.productMeta?.freePreview));
+    if (previewedBeforePayment && jobs.some((j) => j.status === "done")) {
       kickGeneration = false;
       if (manualReviewEnabled()) {
         await store.updateOrder(order.id, { status: "review", failureReason: null });
@@ -98,7 +101,7 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
         const { storeCanonicalOrigin } = await import("@/lib/tenant/origin");
         const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
         await alertAdmin(
-          "Jinglefold personalised order ready for approval",
+          order.storeId === "jinglefold" ? "Jinglefold personalised order ready for approval" : "Pawtraitry order ready for approval",
           reviewReadyEmail(`${origin}/admin`, order.email),
           order.storeId,
         );

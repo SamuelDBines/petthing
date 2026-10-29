@@ -2,6 +2,8 @@ export type TierId =
   | "mini"
   | "classic"
   | "deluxe"
+  | "digital_pack"
+  | "digital_included"
   | "hand_painted_12x16"
   | "hand_painted_16x20"
   | "jf_plas_baub"
@@ -77,6 +79,38 @@ export const TIERS: Tier[] = [
   },
 ];
 
+/** Free-preview flow: the digital pack on its own. */
+export const DIGITAL_PACK_PENCE = 599;
+/** Watermarked previews allowed per email address (and per order). */
+export const FREE_PREVIEWS_PER_EMAIL = 3;
+
+/**
+ * Tiers for the free-preview flow. imageCount is 1 because the customer keeps
+ * whichever previews (1 to 3) they generated; delivery checks only done jobs.
+ */
+export const DIGITAL_PACK_TIER: Tier = {
+  id: "digital_pack",
+  name: "Digital pack",
+  pricePence: DIGITAL_PACK_PENCE,
+  compareAtPricePence: null,
+  styleCount: FREE_PREVIEWS_PER_EMAIL,
+  imageCount: 1,
+  quality: "hd",
+  includesCard: false,
+  popular: true,
+  blurb: "Your portraits as full-resolution files, no watermark.",
+  points: ["Every preview you made", "Full resolution", "No watermark", "Emailed to you"],
+};
+
+/** Physical orders include the digital files at no extra cost. */
+export const DIGITAL_INCLUDED_TIER: Tier = {
+  ...DIGITAL_PACK_TIER,
+  id: "digital_included",
+  name: "Digital files included",
+  pricePence: 0,
+  popular: false,
+};
+
 export const PRIORITY_PENCE = 299;
 export const EXTRA_STYLES_PENCE = 499;
 export const EXTRA_STYLES_COUNT = 3;
@@ -101,7 +135,7 @@ export function formatGbp(pence: number) {
 }
 
 export function getTier(id: TierId, extraTiers: Tier[] = []) {
-  const tier = [...TIERS, ...extraTiers].find((item) => item.id === id);
+  const tier = [...TIERS, DIGITAL_PACK_TIER, DIGITAL_INCLUDED_TIER, ...extraTiers].find((item) => item.id === id);
   if (!tier) throw new Error("Unknown tier");
   return tier;
 }
