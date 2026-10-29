@@ -46,6 +46,7 @@ export async function galleryForToken(token: string, base?: string) {
     return { ready: false as const, status: order.status };
   }
 
+  const upscaledFor = (assetId: string) => order.productMeta?.freePreview?.upscaled?.[assetId];
   const images = [];
   for (const asset of resultAssets) {
     const preview = assets.find((item) => item.kind === "preview" && item.storagePath.endsWith(`${asset.id}.jpg`));
@@ -62,7 +63,11 @@ export async function galleryForToken(token: string, base?: string) {
       styleId: asset.styleId,
       styleName: theme?.styles.find((style) => style.id === asset.styleId)?.name ?? "Portrait",
       // Never hand out the full-res file before payment.
-      url: jinglefoldPreview ? "" : await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
+      url: jinglefoldPreview
+        ? ""
+        : upscaledFor(asset.id)
+          ? await signedBlobUrl("results", upscaledFor(asset.id)!.storagePath, 60 * 60, true, base)
+          : await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
       previewUrl: preview ? await signedBlobUrl(preview.bucket, preview.storagePath, 60 * 60 * 24 * 7, false, base) : null,
       printOffers,
     });

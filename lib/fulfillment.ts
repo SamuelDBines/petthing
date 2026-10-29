@@ -95,7 +95,12 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
       (order.storeId === "pawtraitry" && Boolean(order.productMeta?.freePreview));
     if (previewedBeforePayment && jobs.some((j) => j.status === "done")) {
       kickGeneration = false;
-      if (manualReviewEnabled()) {
+      if (order.storeId === "pawtraitry") {
+        // Free previews were already moderated and seen by the customer: auto-deliver, no admin review.
+        await store.updateOrder(order.id, { status: "generating", failureReason: null });
+        const { deliverOrder } = await import("@/lib/generation");
+        void deliverOrder(order.id).catch((error) => console.error(`[paid] preview delivery failed for ${order.id}`, error));
+      } else if (manualReviewEnabled()) {
         await store.updateOrder(order.id, { status: "review", failureReason: null });
         const config = await loadStoreConfig(order.storeId);
         const { storeCanonicalOrigin } = await import("@/lib/tenant/origin");

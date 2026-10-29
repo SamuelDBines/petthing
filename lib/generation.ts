@@ -140,6 +140,8 @@ export async function enqueueForOrder(order: Order) {
   );
 }
 
+const previewDeliveriesInFlight = new Set<string>();
+
 export async function deliverOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
@@ -151,6 +153,22 @@ export async function deliverOrder(orderId: string) {
   if (!orderHasFullPortraitSet(tier, jobs, assets)) {
     const generated = countResultImages(assets);
     throw new Error(`Cannot deliver: only ${generated} of ${tier.imageCount} portraits are ready.`);
+  }
+  if (isFreePreviewOrder(order)) {
+    // Paid digital files: unwatermarked 4x upscales of every preview before the gallery opens.
+    if (previewDeliveriesInFlight.has(orderId)) return;
+    previewDeliveriesInFlight.add(orderId);
+    try {
+      const { upscalePaidPreviewResults, WAITING_FOR_UPSCALE } = await import("@/lib/pawtraitry/preview-upscale");
+      const outcome = await upscalePaidPreviewResults(orderId);
+      if (!outcome.ready) {
+        await store.updateOrder(orderId, { status: "generating", failureReason: WAITING_FOR_UPSCALE });
+        console.warn(`[deliver] ${orderId} waiting for upscale: ${outcome.reason}`);
+        return;
+      }
+    } finally {
+      previewDeliveriesInFlight.delete(orderId);
+    }
   }
   const { isJinglefoldPersonalisedPhysical, submitJinglefoldPhysicalOrder } = await import(
     "@/lib/jinglefold/fulfillment"
@@ -555,6 +573,10 @@ async function runQueueInternal(options?: { limit?: number; orderId?: string }) 
   if ((await store.todaySpend()) >= maxDailySpendGbp()) {
     await halt(`Daily generation spend is already over £${maxDailySpendGbp().toFixed(2)}.`, "pawtraitry");
     return { processed: 0, halted: true, reason: "spend cap" };
+  }
+  if (!options?.orderId) {
+    const { retryWaitingPreviewDeliveries } = await import("@/lib/pawtraitry/preview-upscale");
+    await retryWaitingPreviewDeliveries().catch((error) => console.error("[queue] preview delivery sweep failed", error));
   }
   let processed = 0;
   if (options?.orderId) {

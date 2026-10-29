@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { falQueueResultUrl, falQueueStatusUrl, parseFalSubmitBody } from "@/lib/fal/queue-urls";
+import { FalProviderError, parseFalErrorDetail } from "@/lib/fal/provider-errors";
 import { usdToGbp } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
 
@@ -107,6 +108,32 @@ async function upscaleWithSharp(sourceBytes: Buffer) {
   return { bytes, width: out.width ?? w * FAL_PRINT_UPSCALE_SCALE, height: out.height ?? h * FAL_PRINT_UPSCALE_SCALE };
 }
 
+/** One fal-ai/esrgan 4x jpeg upscale (tile 400). Records spend. Falls back to sharp when FAL_KEY is unset. */
+export async function falUpscaleImage(args: { imageUrl: string; sourceBytes: Buffer; storeId: string }) {
+  if (!process.env.FAL_KEY?.trim()) {
+    return { ...(await upscaleWithSharp(args.sourceBytes)), costGbp: 0 };
+  }
+  const response = await falFetch(`https://queue.fal.run/${FAL_PRINT_UPSCALE_MODEL}`, {
+    method: "POST",
+    body: JSON.stringify({
+      image_url: args.imageUrl,
+      scale: FAL_PRINT_UPSCALE_SCALE,
+      output_format: "jpeg",
+      tile: 400,
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new FalProviderError(response.status, parseFalErrorDetail(detail));
+  }
+  const body = (await response.json()) as { request_id?: string; status_url?: string; response_url?: string };
+  const parsed = parseFalSubmitBody(body);
+  const polled = await pollFalUpscale(parsed.requestId, parsed.statusUrl, parsed.responseUrl);
+  const costGbp = falPrintUpscaleCostGbp(polled.inferenceSeconds);
+  await getStore().addSpend(costGbp, args.storeId);
+  return { bytes: polled.bytes, width: polled.width, height: polled.height, costGbp };
+}
+
 export async function upscalePortraitForPrint(args: {
   orderId: string;
   sourceAssetId: string;
@@ -131,31 +158,29 @@ export async function upscalePortraitForPrint(args: {
     }
   }
 
-  let result: { bytes: Buffer; width: number; height: number };
-  let costGbp = 0;
-  if (process.env.FAL_KEY?.trim()) {
-    const response = await falFetch(`https://queue.fal.run/${FAL_PRINT_UPSCALE_MODEL}`, {
-      method: "POST",
-      body: JSON.stringify({
-        image_url: args.imageUrl,
-        scale: FAL_PRINT_UPSCALE_SCALE,
-        output_format: "jpeg",
-        tile: 400,
-      }),
-    });
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`fal upscale rejected (${response.status}): ${detail.slice(0, 200)}`);
+  const digital = args.sourceAssetId ? order?.productMeta?.freePreview?.upscaled?.[args.sourceAssetId] : undefined;
+  if (digital?.storagePath && !digital.fallback) {
+    const { readBlob } = await import("@/lib/blobs");
+    const blob = await readBlob("results", digital.storagePath);
+    if (blob) {
+      return {
+        bytes: blob.bytes,
+        width: digital.width,
+        height: digital.height,
+        costGbp: 0,
+        storagePath: digital.storagePath,
+        reused: true as const,
+      };
     }
-    const body = (await response.json()) as { request_id?: string; status_url?: string; response_url?: string };
-    const parsed = parseFalSubmitBody(body);
-    const polled = await pollFalUpscale(parsed.requestId, parsed.statusUrl, parsed.responseUrl);
-    result = polled;
-    costGbp = falPrintUpscaleCostGbp(polled.inferenceSeconds);
-    await store.addSpend(costGbp, order?.storeId ?? "pawtraitry");
-  } else {
-    result = await upscaleWithSharp(args.sourceBytes);
   }
+
+  const upscaled = await falUpscaleImage({
+    imageUrl: args.imageUrl,
+    sourceBytes: args.sourceBytes,
+    storeId: order?.storeId ?? "pawtraitry",
+  });
+  const result = { bytes: upscaled.bytes, width: upscaled.width, height: upscaled.height };
+  const costGbp = upscaled.costGbp;
 
   const storagePath = `${args.orderId}/print-upscale/${args.sourceAssetId}.jpg`;
   const { putBlob } = await import("@/lib/blobs");

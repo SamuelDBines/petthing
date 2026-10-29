@@ -68,6 +68,13 @@ export type Order = {
       /** Result asset the customer picked for physical products. */
       chosenAssetId?: string | null;
       path?: "digital" | "physical" | null;
+      /** Paid digital files: 4x upscale per result asset id (fallback = native file after repeated failures). */
+      upscaled?: Record<
+        string,
+        { storagePath: string; width: number; height: number; costGbp: number; fallback?: boolean; completedAt: string }
+      >;
+      /** Failed upscale attempts per result asset id. */
+      upscaleAttempts?: Record<string, number>;
     };
     /** One 4x fal upscale for checkout-basket print fulfilment. */
     printUpscale?: {
