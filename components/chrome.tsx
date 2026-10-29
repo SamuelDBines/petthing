@@ -19,9 +19,6 @@ export function SiteHeader({ brand }: BrandProps) {
           <Link href="/#pricing" className="hidden text-cream/80 sm:inline">
             Pricing
           </Link>
-          <Link href="/#pass" className="hidden text-cream/80 sm:inline">
-            Season pass
-          </Link>
           <Link
             href="/create"
             className="whitespace-nowrap rounded-full bg-pumpkin px-3 py-2 text-xs font-semibold text-ink sm:px-4 sm:text-sm"

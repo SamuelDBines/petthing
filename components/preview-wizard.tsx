@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
 import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import { DIGITAL_INCLUDED_TIER, DIGITAL_PACK_PENCE, FREE_PREVIEWS_PER_EMAIL, formatGbp } from "@/config/pricing";
-import { CUSTOM_STYLE_ID, PREVIEW_STYLES } from "@/config/preview-styles";
+import { CUSTOM_STYLE_ID, PREVIEW_STYLES, type PreviewStyle } from "@/config/preview-styles";
 import { storedUtm } from "@/components/utm-capture";
 import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
 import { metaCheckoutAttribution } from "@/lib/meta/client";
@@ -246,7 +246,7 @@ export function PreviewWizard() {
 
   if (path === "physical" && session && chosen) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-8" data-testid="preview-wizard">
+      <main className="mx-auto max-w-2xl px-4 py-8" data-testid="preview-wizard">
         <h1 className="text-3xl">Put it on something</h1>
         {errorBox}
         <PawtraitryCreateBasketStep
@@ -270,7 +270,7 @@ export function PreviewWizard() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-8" data-testid="preview-wizard">
+    <main className="mx-auto max-w-2xl px-4 py-8" data-testid="preview-wizard">
       {params.get("cancelled") ? <p className="mb-4 rounded-2xl border border-line p-3 text-sm">Checkout cancelled. Your previews are still here.</p> : null}
       <h1 className="text-4xl">Try it free</h1>
       <p className="mt-2 text-cream/75">
@@ -338,20 +338,31 @@ export function PreviewWizard() {
               {GROUPS.map((group) => (
                 <div key={group.id} className="mt-4">
                   <h3 className="text-sm uppercase tracking-wide text-muted">{group.title}</h3>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {PREVIEW_STYLES.filter((s) => s.group === group.id).map((style) => (
-                      <button
-                        key={style.id}
-                        type="button"
-                        onClick={() => setStyleId(style.id)}
-                        className={`rounded-2xl border p-3 text-left ${styleId === style.id ? "border-pumpkin" : "border-line"}`}
-                        data-testid={`style-${style.id}`}
-                      >
-                        <span className="mb-2 block h-2 w-10 rounded-full" style={{ background: style.swatch }} />
-                        <span className="block font-medium">{style.name}</span>
-                        <span className="mt-1 block text-xs text-cream/70">{style.blurb}</span>
-                      </button>
-                    ))}
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {PREVIEW_STYLES.filter((s) => s.group === group.id).map((style) => {
+                      const selected = styleId === style.id;
+                      return (
+                        <button
+                          key={style.id}
+                          type="button"
+                          onClick={() => setStyleId(style.id)}
+                          aria-pressed={selected}
+                          className={`group relative overflow-hidden rounded-xl border bg-bark text-left transition ${selected ? "border-pumpkin ring-2 ring-pumpkin" : "border-line hover:border-cream/40"}`}
+                          data-testid={`style-${style.id}`}
+                        >
+                          <StyleThumb style={style} />
+                          {selected ? (
+                            <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-pumpkin text-xs font-bold text-ink" aria-hidden>
+                              ✓
+                            </span>
+                          ) : null}
+                          <span className="block px-2.5 pb-2.5 pt-2">
+                            <span className="block text-sm font-medium leading-tight">{style.name}</span>
+                            <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-cream/60">{style.blurb}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -455,5 +466,23 @@ export function PreviewWizard() {
         </>
       )}
     </main>
+  );
+}
+
+export function StyleThumb({ style, className = "" }: { style: PreviewStyle; className?: string }) {
+  if (style.before && style.thumbnail) {
+    return (
+      <span className={`relative grid aspect-[3/4] w-full grid-cols-2 ${className}`}>
+        <img src={style.before} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <img src={style.thumbnail} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <span className="absolute bottom-1 left-1 rounded bg-ink/70 px-1.5 text-[10px] text-cream">Before</span>
+        <span className="absolute bottom-1 right-1 rounded bg-ink/70 px-1.5 text-[10px] text-cream">After</span>
+      </span>
+    );
+  }
+  return style.thumbnail ? (
+    <img src={style.thumbnail} alt="" loading="lazy" className={`block aspect-[3/4] w-full object-cover ${className}`} />
+  ) : (
+    <span className={`block aspect-[3/4] w-full ${className}`} style={{ background: style.swatch }} />
   );
 }

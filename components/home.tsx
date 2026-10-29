@@ -5,6 +5,7 @@ import Link from "next/link";
 import { APP_NAME, SUPPORT_EMAIL, TAGLINE } from "@/config/brand";
 import { DIGITAL_PACK_PENCE, FREE_PREVIEWS_PER_EMAIL, formatGbp } from "@/config/pricing";
 import { PREVIEW_STYLES } from "@/config/preview-styles";
+import { StyleThumb } from "@/components/preview-wizard";
 import { Compare } from "@/components/compare";
 import { PawtraitryHomeGiftsSection } from "@/components/pawtraitry-home-gifts-section";
 import { trackMetaEvent } from "@/lib/meta/client";
@@ -77,21 +78,18 @@ export function HomePage() {
       <section className="mx-auto max-w-6xl px-4 pb-16">
         <h2 className="text-4xl">Pick a style</h2>
         <p className="mt-2 max-w-2xl text-muted">Timeless looks all year, plus Halloween and Christmas. Original scenes only. No film characters, no brand logos, everyone fully clothed.</p>
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {PREVIEW_STYLES.map((style) => (
-            <article key={style.id} className="overflow-hidden rounded-2xl border border-line bg-bark">
-              {style.thumbnail ? (
-                <img src={style.thumbnail} alt="" className="aspect-[4/5] w-full object-cover" />
-              ) : (
-                <div className="aspect-[4/5]" style={{ background: style.swatch }} />
-              )}
-              <div className="p-4">
-                <h3 className="text-xl">{style.name}</h3>
-                <p className="mt-1 text-sm text-muted">{style.blurb}</p>
+            <article key={style.id} className="overflow-hidden rounded-xl border border-line bg-bark">
+              <StyleThumb style={style} />
+              <div className="px-3 pb-3 pt-2">
+                <h3 className="text-base font-medium leading-tight">{style.name}</h3>
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted">{style.blurb}</p>
               </div>
             </article>
           ))}
         </div>
+        <p className="mt-3 text-xs text-muted">All examples made from one sample pet photo, using the same styles you can pick.</p>
       </section>
 
       <PawtraitryHomeGiftsSection />
