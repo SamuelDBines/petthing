@@ -50,6 +50,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title: config.brand.appName,
       description: config.brand.tagline,
+      images: config.brand.ogImagePath ? [config.brand.ogImagePath] : undefined,
     },
   };
 }

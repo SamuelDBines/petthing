@@ -236,8 +236,9 @@ export function PreviewWizard() {
   const previews = status?.previews ?? [];
   const ready = previews.filter((p) => p.status === "ready");
   const working = previews.some((p) => p.status === "working");
-  const left = status ? Math.min(status.previewsLeft, FREE_PREVIEWS_PER_EMAIL - previews.length) : FREE_PREVIEWS_PER_EMAIL;
-  const canGenerate = Boolean(session) && !working && left > 0 && status?.status !== "paid";
+  // null until the server reports the real count, so we never flash a wrong number.
+  const left: number | null = status ? Math.min(status.previewsLeft, FREE_PREVIEWS_PER_EMAIL - previews.length) : null;
+  const canGenerate = Boolean(session) && !working && left !== null && left > 0 && status?.status !== "paid";
 
   const errorBox = error ? (
     <p className="mt-4 rounded-2xl border border-pumpkin/60 p-3 text-sm" role="alert">
@@ -333,7 +334,7 @@ export function PreviewWizard() {
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-2xl">Pick a style</h2>
                 <span className="text-sm text-muted" data-testid="previews-left">
-                  {left} free preview{left === 1 ? "" : "s"} left
+                  {left === null ? "Checking free previews..." : `${left} free preview${left === 1 ? "" : "s"} left`}
                 </span>
               </div>
               {GROUPS.map((group) => (
@@ -388,7 +389,7 @@ export function PreviewWizard() {
                 onClick={() => void generate()}
                 data-testid="preview-generate"
               >
-                {busy ? "Starting..." : left > 0 ? "Make my free preview" : "No free previews left"}
+                {busy ? "Starting..." : left === null ? "Checking..." : left > 0 ? "Make my free preview" : "No free previews left"}
               </button>
             </section>
           ) : null}
