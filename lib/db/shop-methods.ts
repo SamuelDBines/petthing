@@ -25,6 +25,9 @@ function toShopOrder(row: Record<string, unknown>): ShopOrder {
     abandonedReminderSentAt: row.abandoned_reminder_sent_at
       ? new Date(row.abandoned_reminder_sent_at as string).toISOString()
       : null,
+    stuckAlertSentAt: row.stuck_alert_sent_at
+      ? new Date(row.stuck_alert_sent_at as string).toISOString()
+      : null,
     shippedAt: row.shipped_at ? new Date(row.shipped_at as string).toISOString() : null,
     deliveredAt: row.delivered_at ? new Date(row.delivered_at as string).toISOString() : null,
     fulfillmentError: row.fulfillment_error ? String(row.fulfillment_error) : null,
@@ -82,6 +85,7 @@ export const shopDbMethods = {
         marketing_consent = ${next.marketingConsent ?? false},
         utm = ${JSON.stringify(next.utm ?? {})}::jsonb,
         abandoned_reminder_sent_at = ${next.abandonedReminderSentAt ?? null},
+        stuck_alert_sent_at = ${next.stuckAlertSentAt ?? null},
         shipped_at = ${next.shippedAt ?? null},
         delivered_at = ${next.deliveredAt ?? null},
         fulfillment_error = ${next.fulfillmentError ?? null},

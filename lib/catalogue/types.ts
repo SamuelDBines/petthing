@@ -105,6 +105,8 @@ export type ShopOrder = {
   marketingConsent?: boolean;
   utm?: Record<string, string>;
   abandonedReminderSentAt?: string | null;
+  /** Last time the stuck-paid admin alert included this order (dedupe). */
+  stuckAlertSentAt?: string | null;
   shippedAt?: string | null;
   deliveredAt?: string | null;
   fulfillmentError?: string | null;

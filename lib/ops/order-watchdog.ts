@@ -4,6 +4,22 @@ import { alertAdmin } from "@/lib/email";
 import { submitJinglefoldPhysicalOrder } from "@/lib/jinglefold/fulfillment";
 import { withTransientRetries } from "@/lib/transientErrors";
 import { getStore } from "@/lib/store";
+import { isStoreLive } from "@/lib/go-live/live-stores";
+import { listBuiltinStores } from "@/lib/tenant/resolve";
+
+const STUCK_ALERT_DEDUPE_HOURS = 24;
+
+/** Only real orders count: live store, Stripe livemode, not a QA address. */
+export function isRealShopOrder(order: ShopOrder, env: NodeJS.ProcessEnv = process.env): boolean {
+  if (order.stripeLivemode === false) return false;
+  if (order.email.toLowerCase().endsWith("@pawtraitry.test")) return false;
+  return isStoreLive(order.storeId, env);
+}
+
+function storeLabel(storeId: string): string {
+  const cfg = listBuiltinStores().find((c) => c.id === storeId);
+  return cfg?.brand.appName ?? storeId;
+}
 
 const PAID_STUCK_HOURS = Number(process.env.SHOP_PAID_STUCK_HOURS || "6");
 const TRACKING_STUCK_DAYS = Number(process.env.SHOP_TRACKING_STUCK_DAYS || "7");
@@ -23,6 +39,7 @@ export async function findStuckShopOrders(storeId?: string) {
   const paidStuck: ShopOrder[] = [];
   const trackingStuck: ShopOrder[] = [];
   for (const order of orders) {
+    if (!isRealShopOrder(order)) continue;
     if (order.status === "paid" && order.paidAt && hoursSince(order.paidAt) >= PAID_STUCK_HOURS) {
       if (order.lines.some((l) => l.supplier === "go_dropship")) paidStuck.push(order);
     }
@@ -40,19 +57,38 @@ export async function findStuckShopOrders(storeId?: string) {
 
 export async function alertStuckShopOrders() {
   const { paidStuck, trackingStuck } = await findStuckShopOrders();
-  if (paidStuck.length) {
-    await alertAdmin(
-      "Shop orders paid but not submitted",
-      `<p>${paidStuck.length} paid Go Dropship orders older than ${PAID_STUCK_HOURS}h. Cron will auto-submit; check failures if this persists.</p>`,
-    );
+  const store = getStore();
+  const now = new Date().toISOString();
+  const due = (o: ShopOrder) =>
+    !o.stuckAlertSentAt || hoursSince(o.stuckAlertSentAt) >= STUCK_ALERT_DEDUPE_HOURS;
+  const groups: { kind: "paid" | "tracking"; orders: ShopOrder[] }[] = [
+    { kind: "paid", orders: paidStuck.filter(due) },
+    { kind: "tracking", orders: trackingStuck.filter(due) },
+  ];
+  let alerted = 0;
+  for (const { kind, orders } of groups) {
+    const byStore = new Map<string, ShopOrder[]>();
+    for (const o of orders) byStore.set(o.storeId, [...(byStore.get(o.storeId) ?? []), o]);
+    for (const [storeId, list] of byStore) {
+      const name = storeLabel(storeId);
+      if (kind === "paid") {
+        await alertAdmin(
+          `${name}: shop orders paid but not submitted`,
+          `<p>${list.length} paid Go Dropship orders for ${name} older than ${PAID_STUCK_HOURS}h. Cron will auto-submit; check failures if this persists.</p>`,
+        );
+      } else {
+        await alertAdmin(
+          `${name}: shop orders awaiting tracking`,
+          `<p>${list.length} submitted ${name} orders without tracking after ${TRACKING_STUCK_DAYS} days. Add tracking in admin or chase supplier.</p>`,
+        );
+      }
+      for (const o of list) {
+        await store.updateShopOrder(o.id, { stuckAlertSentAt: now });
+        alerted += 1;
+      }
+    }
   }
-  if (trackingStuck.length) {
-    await alertAdmin(
-      "Shop orders awaiting tracking",
-      `<p>${trackingStuck.length} submitted orders without tracking after ${TRACKING_STUCK_DAYS} days. Add tracking in admin or chase supplier.</p>`,
-    );
-  }
-  return { paidStuck: paidStuck.length, trackingStuck: trackingStuck.length };
+  return { paidStuck: paidStuck.length, trackingStuck: trackingStuck.length, alerted };
 }
 
 export async function retryFailedPartnerSubmits(storeId = "jinglefold") {
