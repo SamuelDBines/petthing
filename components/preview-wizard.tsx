@@ -8,15 +8,24 @@ import { DIGITAL_INCLUDED_TIER, DIGITAL_PACK_PENCE, FREE_PREVIEWS_PER_EMAIL, for
 import { CUSTOM_STYLE_ID, PREVIEW_STYLES, type PreviewStyle } from "@/config/preview-styles";
 import { storedUtm } from "@/components/utm-capture";
 import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
-import { metaCheckoutAttribution } from "@/lib/meta/client";
+import { metaCheckoutAttribution, stashMetaCheckoutAttribution, trackMetaEvent } from "@/lib/meta/client";
 import { PawtraitryCreateBasketStep } from "@/components/pawtraitry-create-basket-step";
 import type { PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
 import { copyPickedFile, describeFailure, preparePhoto } from "@/lib/pawtraitry/photo-prep";
 import { trackFunnelEvent } from "@/components/visitor-tracker";
+import {
+  PREVIEW_SESSION_KEY,
+  addedProductIds,
+  digitalPackCartEvent,
+  newlyReadyPreviewIds,
+  parsePreviewDraft,
+  physicalCartEvent,
+  type PreviewDraft,
+} from "@/lib/pawtraitry/preview-funnel";
 
-const SESSION_KEY = "pawtraitry-preview-session";
+const SESSION_KEY = PREVIEW_SESSION_KEY;
 
-type Session = { orderId: string; uploadToken: string; email: string };
+type Session = PreviewDraft;
 type Preview = {
   jobId: string;
   assetId: string | null;
@@ -81,13 +90,53 @@ export function PreviewWizard() {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        const raw = window.localStorage.getItem(SESSION_KEY);
-        if (raw) setSession(JSON.parse(raw) as Session);
+        const draft = parsePreviewDraft(window.localStorage.getItem(SESSION_KEY));
+        if (draft) {
+          setSession(draft);
+          if (draft.supplyConsent) setSupplyConsent(true);
+        }
       } catch {
         /* ignore */
       }
     }, 0);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Back from Stripe can restore this page from the bfcache with the buttons still busy.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setBusy(false);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
+
+  function updateSupplyConsent(value: boolean) {
+    setSupplyConsent(value);
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, supplyConsent: value };
+      try {
+        window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  // Meta ViewContent once per preview as it becomes ready (skips ones already seen this tab).
+  const seenReady = useRef<Set<string> | null>(null);
+  const reportReadyPreviews = useCallback((previews: Preview[]) => {
+    if (!seenReady.current) {
+      seenReady.current = new Set(previews.filter((p) => p.status === "ready").map((p) => p.jobId));
+      return;
+    }
+    for (const jobId of newlyReadyPreviewIds(previews, seenReady.current)) {
+      seenReady.current.add(jobId);
+      const preview = previews.find((p) => p.jobId === jobId);
+      trackMetaEvent("ViewContent", { currency: "GBP", value: DIGITAL_PACK_PENCE / 100, contentIds: [preview?.styleId ?? "preview"] });
+    }
   }, []);
 
   const refresh = useCallback(async (current: Session) => {
@@ -99,9 +148,10 @@ export function PreviewWizard() {
     }
     const next = await json<Status>(res);
     setStatus(next);
+    reportReadyPreviews(next.previews);
     setChosen((prev) => prev ?? [...next.previews].reverse().find((p) => p.status === "ready")?.assetId ?? null);
     return next;
-  }, []);
+  }, [reportReadyPreviews]);
 
   useEffect(() => {
     if (!session) return;
@@ -209,7 +259,8 @@ export function PreviewWizard() {
       body.set("uploadToken", created.uploadToken);
       body.set("file", ready, "photo.jpg");
       await json(await fetch("/api/uploads", { method: "POST", body }));
-      const next = { orderId: created.orderId, uploadToken: created.uploadToken, email };
+      const next: Session = { orderId: created.orderId, uploadToken: created.uploadToken, email, supplyConsent };
+      seenReady.current = new Set();
       window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
       setSession(next);
     } catch (reason) {
@@ -240,6 +291,7 @@ export function PreviewWizard() {
         }),
       );
       setChosen(null);
+      if (!seenReady.current) seenReady.current = new Set((status?.previews ?? []).filter((p) => p.status === "ready").map((p) => p.jobId));
       await refresh(session);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong");
@@ -255,7 +307,8 @@ export function PreviewWizard() {
     setBusy(true);
     setError("");
     try {
-      await json(
+      if (kind === "digital") trackMetaEvent("AddToCart", digitalPackCartEvent());
+      const saved = await json<{ ok: boolean; amountPence: number }>(
         await fetch("/api/previews", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -270,6 +323,9 @@ export function PreviewWizard() {
         }),
       );
       const meta = metaCheckoutAttribution();
+      const contentIds =
+        kind === "physical" ? physicalCartEvent(physical).contentIds : digitalPackCartEvent().contentIds;
+      stashMetaCheckoutAttribution(meta, contentIds);
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -283,6 +339,12 @@ export function PreviewWizard() {
       });
       const { ok, body } = await parseCheckoutResponse(res);
       if (!ok || !body.url) throw new Error(checkoutErrorMessage(body, ok));
+      // Same event id as the server CAPI InitiateCheckout so Meta dedupes them.
+      trackMetaEvent(
+        "InitiateCheckout",
+        { value: (saved.amountPence ?? 0) / 100, currency: "GBP", contentIds },
+        meta.initiateCheckoutEventId,
+      );
       // Keep the session so Back / cancel from Stripe resumes the previews.
       // The success page clears it once payment is confirmed.
       window.location.href = body.url;
@@ -290,6 +352,15 @@ export function PreviewWizard() {
       setError(reason instanceof Error ? reason.message : "Something went wrong");
       setBusy(false);
     }
+  }
+
+  function updatePhysical(next: PawtraitryPhysicalBasketLine[]) {
+    const added = addedProductIds(physical, next);
+    if (added.length) {
+      const lines = next.filter((line) => added.includes(line.productId));
+      trackMetaEvent("AddToCart", physicalCartEvent(lines));
+    }
+    setPhysical(next);
   }
 
   function startOver() {
@@ -323,7 +394,7 @@ export function PreviewWizard() {
           tierId={DIGITAL_INCLUDED_TIER.id}
           onTierId={() => undefined}
           physical={physical}
-          onPhysical={setPhysical}
+          onPhysical={updatePhysical}
           priority={false}
           onPriority={() => undefined}
           styleCount={1}
@@ -501,7 +572,7 @@ export function PreviewWizard() {
             <section className="mt-8 rounded-3xl border border-line p-4" data-testid="buy-choice">
               <h2 className="text-2xl">Love it? Choose one</h2>
               <label className="mt-3 flex gap-3 text-xs leading-5 text-cream/75">
-                <input type="checkbox" checked={supplyConsent} onChange={(e) => setSupplyConsent(e.target.checked)} data-testid="supply-consent" />
+                <input type="checkbox" checked={supplyConsent} onChange={(e) => updateSupplyConsent(e.target.checked)} data-testid="supply-consent" />
                 {DIGITAL_SUPPLY_CONSENT_LABEL}
               </label>
               {errorBox}
@@ -520,7 +591,11 @@ export function PreviewWizard() {
                   type="button"
                   className="rounded-3xl border border-pumpkin p-4 text-left disabled:opacity-50"
                   disabled={busy}
-                  onClick={() => (supplyConsent ? setPath("physical") : setError("Please tick the digital delivery box above to continue."))}
+                  onClick={() => {
+                    if (!supplyConsent) return setError("Please tick the digital delivery box above to continue.");
+                    trackMetaEvent("ViewContent", { currency: "GBP", contentIds: [DIGITAL_INCLUDED_TIER.id] });
+                    setPath("physical");
+                  }}
                   data-testid="buy-physical"
                 >
                   <span className="block text-lg font-semibold">Put it on a gift</span>

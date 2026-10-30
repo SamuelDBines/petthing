@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PREVIEW_SESSION_KEY, parsePreviewDraft, shouldClearPreviewDraft } from "@/lib/pawtraitry/preview-funnel";
 import { CheckoutSuccessView } from "@/components/checkout-success-view";
 import type { CheckoutSuccessPayload } from "@/lib/checkout/success-types";
 import { readMetaPurchaseForSession, readStashedMetaPurchase } from "@/lib/meta/client";
@@ -23,15 +25,19 @@ export function SuccessStatus() {
   const [loading, setLoading] = useState(true);
   const [devNote, setDevNote] = useState("");
 
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Only confirmed paid orders drop the preview draft; unpaid or unknown sessions keep it.
   useEffect(() => {
-    if (sessionId) {
+    const timer = window.setTimeout(() => {
       try {
-        window.localStorage.removeItem("pawtraitry-preview-session");
+        setHasDraft(Boolean(parsePreviewDraft(window.localStorage.getItem(PREVIEW_SESSION_KEY))));
       } catch {
         /* ignore */
       }
-    }
-  }, [sessionId]);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -42,8 +48,21 @@ export function SuccessStatus() {
     let timer: number | undefined;
     async function poll() {
       const response = await fetch(`/api/status?session_id=${encodeURIComponent(sessionId!)}`);
-      const body = (await response.json()) as CheckoutSuccessPayload;
+      const body = (await response.json().catch(() => null)) as CheckoutSuccessPayload | null;
       if (stop) return;
+      if (!response.ok || !body || !body.phase) {
+        setLoading(false);
+        if (timer) window.clearInterval(timer);
+        return;
+      }
+      if (shouldClearPreviewDraft(body)) {
+        try {
+          window.localStorage.removeItem(PREVIEW_SESSION_KEY);
+        } catch {
+          /* ignore */
+        }
+        setHasDraft(false);
+      }
       setPayload(body);
       setLoading(false);
       if (
@@ -95,6 +114,14 @@ export function SuccessStatus() {
         loading={loading && !payload}
         brand={{ appName: APP_NAME, supportEmail: SUPPORT_EMAIL, ordersEmail }}
       />
+      {hasDraft && !loading && !payload?.trackPurchase ? (
+        <p className="mx-auto max-w-3xl px-4 pb-6 text-sm" data-testid="back-to-previews">
+          Payment is not confirmed yet, so your previews are still saved.{" "}
+          <Link href="/create" className="font-semibold underline">
+            Back to your previews
+          </Link>
+        </p>
+      ) : null}
       {!sessionId ? (
         <p className="mx-auto max-w-3xl px-4 pb-8 text-sm text-muted">Missing checkout session. Return from Stripe or open the link in your confirmation email.</p>
       ) : null}

@@ -9,7 +9,7 @@ export default function Page() {
         <ShopSuccessStatus />
       </Suspense>
       <h1 className="font-display text-3xl">Order received</h1>
-      <p className="mt-3 text-[var(--moss)]">Thanks. we’ll email when your bits are on the way.</p>
+      <p className="mt-3 text-[var(--moss)]">Thanks. We’ll email when your bits are on the way.</p>
       <Link href="/" className="mt-8 inline-block rounded-full border px-5 py-2">
         Back to shop
       </Link>

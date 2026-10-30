@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { portraitCheckoutIdempotencyKey } from "@/lib/pawtraitry/preview-funnel";
 import { z } from "zod";
 import { allPrintProductIds, getPrint, GREETING_CARD_PRINT_ID, PRINTS, type PrintProductId } from "@/config/prints";
 import {
@@ -196,7 +197,11 @@ export async function POST(request: Request) {
         ? `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`
         : "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
       cancelPath: jinglefoldPersonalised ? `/results/${order.resultsToken}` : "/create?cancelled=1",
-      idempotencyKey: `portrait-${order.id}-${order.amountPence}`,
+      idempotencyKey: portraitCheckoutIdempotencyKey({
+        orderId: order.id,
+        amountPence: order.amountPence,
+        attemptAt: order.productMeta?.freePreview ? order.digitalSupplyConsentAt : null,
+      }),
       integrationStableKey: order.id,
       allowPromotionCodes: !order.referralCodeUsed,
       collectShipping:
