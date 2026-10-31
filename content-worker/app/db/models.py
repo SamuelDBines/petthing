@@ -31,6 +31,7 @@ class QueueItem(Base):
     __tablename__ = "content_queue"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(String(32), index=True, default="pawtraitry")
     kind: Mapped[str] = mapped_column(String(32), index=True)
     status: Mapped[str] = mapped_column(String(32), index=True, default=QueueStatus.pending_approval.value)
     title: Mapped[str] = mapped_column(String(256), default="")

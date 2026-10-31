@@ -1,0 +1,57 @@
+# Nightly Postgres backup to S3-compatible storage (e.g. DigitalOcean Spaces).
+# Apply manually when credentials and bucket are configured — not deployed by default.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pg-dump-nightly
+  namespace: production
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: postgres:16-alpine
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-database
+                      key: url
+                - name: S3_ENDPOINT
+                  value: "https://YOUR_REGION.digitaloceanspaces.com"
+                - name: S3_BUCKET
+                  value: "YOUR_BUCKET"
+                - name: S3_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: spaces-backup
+                      key: access_key
+                - name: S3_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: spaces-backup
+                      key: secret_key
+                - name: BACKUP_PREFIX
+                  value: "pg-backups"
+                - name: RETENTION_DAYS
+                  value: "14"
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  apk add --no-cache aws-cli >/dev/null 2>&1 || true
+                  STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+                  FILE="/tmp/backup-${STAMP}.sql.gz"
+                  pg_dump "$DATABASE_URL" | gzip -9 > "$FILE"
+                  aws --endpoint-url "$S3_ENDPOINT" s3 cp "$FILE" "s3://${S3_BUCKET}/${BACKUP_PREFIX}/$(basename "$FILE")"
+                  aws --endpoint-url "$S3_ENDPOINT" s3 ls "s3://${S3_BUCKET}/${BACKUP_PREFIX}/" \
+                    | awk '{print $4}' | sort | head -n -${RETENTION_DAYS} | while read -r old; do
+                    [ -n "$old" ] && aws --endpoint-url "$S3_ENDPOINT" s3 rm "s3://${S3_BUCKET}/${BACKUP_PREFIX}/${old}"
+                  done

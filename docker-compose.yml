@@ -47,9 +47,10 @@ services:
       STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
     command:
       - listen
+      - --events
+      - checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,customer.subscription.deleted,invoice.paid
       - --forward-to
       - host.docker.internal:3000/api/webhooks/stripe
-      - --print-secret
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

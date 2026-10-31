@@ -1,8 +1,15 @@
-import { PRINTS, printName } from "@/config/prints";
+import { printName } from "@/config/prints";
 import { CHRISTMAS_PREORDER_PENCE, EXTRA_STYLES_COUNT, EXTRA_STYLES_PENCE, getTier } from "@/config/pricing";
+import { PAWTRAITRY_BUMP_PRICE_PENCE } from "@/config/pawtraitry-promos";
 import { getTheme } from "@/config/themes";
-import { signedBlobUrl } from "@/lib/blobs";
+import { readBlob, signedBlobUrl } from "@/lib/blobs";
+import { readPortraitDimensions } from "@/lib/print-compose/resolution";
+import {
+  galleryPrintOffersForPortrait,
+  greetingCardAddOnOffer,
+} from "@/lib/pawtraitry-gallery-prints";
 import { getStore } from "@/lib/store";
+import { loadStoreConfig } from "@/lib/tenant/context";
 
 export async function galleryForToken(token: string, base?: string) {
   const store = getStore();
@@ -11,27 +18,71 @@ export async function galleryForToken(token: string, base?: string) {
   if (order.resultsDeletedAt) {
     return { ready: false as const, status: "expired" as const };
   }
-  if (order.status !== "delivered") {
+
+  const config = await loadStoreConfig(order.storeId);
+  const extraTiers = config.catalog.tiers;
+  const theme =
+    config.themes?.find((item) => item.id === order.themeId) ?? getTheme(order.themeId);
+  const tier = getTier(order.tierId, extraTiers);
+  const assets = await store.listAssets(order.id);
+  const resultAssets = assets.filter((item) => item.kind === "result");
+
+  const jinglefoldPreview =
+    order.storeId === "jinglefold" &&
+    order.status === "pending_payment" &&
+    order.productMeta?.personalised &&
+    resultAssets.length > 0;
+
+  const freePreview =
+    order.storeId === "pawtraitry" &&
+    Boolean(order.productMeta?.freePreview) &&
+    order.status !== "delivered";
+  if (freePreview) {
+    // Unpaid previews are served by /api/previews only (watermarked, no full-res links).
     return { ready: false as const, status: order.status };
   }
-  const theme = getTheme(order.themeId);
-  const tier = getTier(order.tierId);
-  const assets = await store.listAssets(order.id);
+
+  if (!jinglefoldPreview && order.status !== "delivered") {
+    return { ready: false as const, status: order.status };
+  }
+
+  const upscaledFor = (assetId: string) => order.productMeta?.freePreview?.upscaled?.[assetId];
   const images = [];
-  for (const asset of assets.filter((item) => item.kind === "result")) {
+  for (const asset of resultAssets) {
     const preview = assets.find((item) => item.kind === "preview" && item.storagePath.endsWith(`${asset.id}.jpg`));
+    let printOffers: ReturnType<typeof galleryPrintOffersForPortrait> | undefined;
+    if (order.storeId === "pawtraitry") {
+      const portraitBytes = await readBlob(asset.bucket, asset.storagePath);
+      if (portraitBytes) {
+        const dims = await readPortraitDimensions(portraitBytes.bytes);
+        printOffers = galleryPrintOffersForPortrait(dims.width, dims.height);
+      }
+    }
     images.push({
       id: asset.id,
       styleId: asset.styleId,
       styleName: theme?.styles.find((style) => style.id === asset.styleId)?.name ?? "Portrait",
-      url: await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
+      // Never hand out the full-res file before payment.
+      url: jinglefoldPreview
+        ? ""
+        : upscaledFor(asset.id)
+          ? await signedBlobUrl("results", upscaledFor(asset.id)!.storagePath, 60 * 60, true, base)
+          : await signedBlobUrl(asset.bucket, asset.storagePath, 60 * 60, true, base),
       previewUrl: preview ? await signedBlobUrl(preview.bucket, preview.storagePath, 60 * 60 * 24 * 7, false, base) : null,
+      printOffers,
     });
   }
+
   const owned = new Set(order.styleIds);
   const remaining = (theme?.styles ?? []).filter((style) => !owned.has(style.id)).map((style) => ({ id: style.id, name: style.name }));
+
+  const promos = config.catalog.pawtraitryPromos;
+
   return {
     ready: true as const,
+    storeId: order.storeId,
+    brandName: config.brand.appName,
+    previewCheckout: jinglefoldPreview,
     order: {
       id: order.id,
       email: order.email,
@@ -43,6 +94,8 @@ export async function galleryForToken(token: string, base?: string) {
       themeName: theme?.name ?? order.themeId,
       referralCode: order.ownReferralCode,
       priority: order.priority,
+      amountPence: order.amountPence,
+      uploadToken: order.uploadToken,
     },
     images,
     prints: (await store.listPrints(order.id)).map((print) => ({
@@ -58,13 +111,11 @@ export async function galleryForToken(token: string, base?: string) {
         remaining,
         bonusImages: remaining.length === 0,
       },
-      prints: PRINTS.map((product) => ({
-        id: product.id,
-        name: product.name,
-        detail: product.detail,
-        pricePence: product.pricePence,
-      })),
+      prints: images.find((image) => image.id === resultAssets[0]?.id)?.printOffers ?? [],
+      greetingCardAddOn: order.storeId === "pawtraitry" ? greetingCardAddOnOffer() : null,
       christmasPence: CHRISTMAS_PREORDER_PENCE,
+      petBaubleBumpPence: PAWTRAITRY_BUMP_PRICE_PENCE,
+      freeBaubleWithCanvasEnabled: promos?.freeBaubleWithCanvasEnabled ?? false,
     },
   };
 }

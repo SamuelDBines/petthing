@@ -3,10 +3,10 @@ const trim = (value: string | undefined) => value?.trim() || "";
 
 export const APP_NAME = trim(process.env.NEXT_PUBLIC_APP_NAME) || "Pawtraitry";
 
-export const SITE_DOMAIN = trim(process.env.NEXT_PUBLIC_SITE_DOMAIN) || "pawtraitry.co.uk";
+export const SITE_DOMAIN = trim(process.env.NEXT_PUBLIC_SITE_DOMAIN) || "pawtraitry.com";
 
 export const TAGLINE =
-  "Premium AI pet portraits from your photos — a thoughtful gift for cat and dog lovers, all year round.";
+  "Premium AI pet portraits from your photos. A thoughtful gift for cat and dog lovers, all year round.";
 
 export const SUPPORT_EMAIL = trim(process.env.NEXT_PUBLIC_SUPPORT_EMAIL) || `hello@${SITE_DOMAIN}`;
 

@@ -1,15 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
+import { classicFramedProductId } from "@/config/pawtraitryPhysicalPrints";
+import { cfpmFrameMockupAlt, cfpmFrameMockupSrc, PAWTRAITRY_PRODUCT_MOCKUP_SIZE } from "@/config/pawtraitry-product-mockups";
+import type { GalleryPrintOffer } from "@/lib/pawtraitry-gallery-prints";
+
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AI_GENERATED_LABEL, APP_NAME } from "@/config/brand";
 import { formatGbp } from "@/config/pricing";
 import { CardBuilder } from "@/components/card-builder";
 
-type ImageRow = { id: string; styleId: string | null; styleName: string; url: string; previewUrl: string | null };
+type ImageRow = {
+  id: string;
+  styleId: string | null;
+  styleName: string;
+  url: string;
+  previewUrl: string | null;
+  printOffers?: GalleryPrintOffer[];
+};
 type Gallery = {
   ready: boolean;
   status?: string;
+  storeId?: string;
+  brandName?: string;
+  previewCheckout?: boolean;
   order?: {
+    id?: string;
+    amountPence?: number;
+    uploadToken?: string;
     tierName: string;
     includesCard: boolean;
     cardNames: string;
@@ -21,10 +40,26 @@ type Gallery = {
   prints?: { id: string; product: string; status: string; error: string | null }[];
   offers?: {
     extra: { pricePence: number; count: number; remaining: { id: string; name: string }[]; bonusImages: boolean };
-    prints: { id: "puzzle_252"; name: string; detail: string; pricePence: number }[];
+    prints: GalleryPrintOffer[];
+    greetingCardAddOn?: { productId: string; pricePence: number; name: string } | null;
     christmasPence: number;
+    petBaubleBumpPence?: number;
+    freeBaubleWithCanvasEnabled?: boolean;
   };
 };
+
+function PrintMockupImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={PAWTRAITRY_PRODUCT_MOCKUP_SIZE.width}
+      height={PAWTRAITRY_PRODUCT_MOCKUP_SIZE.height}
+      className="mb-3 aspect-square w-full rounded-2xl object-cover"
+      sizes="(max-width:768px) 100vw, 480px"
+    />
+  );
+}
 
 export function ResultsGallery({ token }: { token: string }) {
   const [data, setData] = useState<Gallery | null>(null);
@@ -32,6 +67,9 @@ export function ResultsGallery({ token }: { token: string }) {
   const [extra, setExtra] = useState<string[]>([]);
   const [assetId, setAssetId] = useState("");
   const [message, setMessage] = useState("");
+  const [cfpmSizeKey, setCfpmSizeKey] = useState("");
+  const [cfpmColorId, setCfpmColorId] = useState("black");
+  const [addGreetingCard, setAddGreetingCard] = useState(false);
 
   async function load() {
     const response = await fetch(`/api/results/${token}`);
@@ -52,16 +90,45 @@ export function ResultsGallery({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  const previewTracked = useRef(false);
+
+  useEffect(() => {
+    if (!data?.ready || previewTracked.current) return;
+    previewTracked.current = true;
+    void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
+  }, [data?.ready]);
+
+  const selectedImage = data?.images?.find((image) => image.id === assetId);
+  const printOffers = selectedImage?.printOffers ?? data?.offers?.prints ?? [];
+  const classicOffer = printOffers.find((offer) => offer.kind === "classic_framed");
+
+  useEffect(() => {
+    if (classicOffer?.kind === "classic_framed" && classicOffer.sizes[0] && !cfpmSizeKey) {
+      setCfpmSizeKey(classicOffer.sizes[0].key);
+    }
+  }, [classicOffer, cfpmSizeKey]);
+
+  const classicProductId = useMemo(() => {
+    if (!cfpmSizeKey) return null;
+    return classicFramedProductId(cfpmSizeKey, cfpmColorId);
+  }, [cfpmColorId, cfpmSizeKey]);
+
   async function checkout(payload: object) {
     setMessage("");
+    const isUpsell = typeof payload === "object" && payload !== null && "kind" in payload && payload.kind === "extra_styles";
+    if (isUpsell) {
+      const { trackFunnelEvent } = await import("@/components/visitor-tracker");
+      trackFunnelEvent("upsell_add");
+    }
+    const { analyticsSessionId } = await import("@/components/visitor-tracker");
     const response = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, analyticsSessionId: analyticsSessionId() }),
     });
-    const body = await response.json();
-    if (!response.ok) {
-      setMessage(body.error || "Could not start checkout");
+    const { ok, body } = await parseCheckoutResponse(response);
+    if (!ok || !body.url) {
+      setMessage(checkoutErrorMessage(body, ok));
       return;
     }
     window.location.href = body.url;
@@ -91,9 +158,50 @@ export function ResultsGallery({ token }: { token: string }) {
     });
   }
 
+  if (data.previewCheckout && data.order?.amountPence) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-10" data-testid="jinglefold-preview-checkout">
+        <h1 className="text-4xl">Your preview is ready</h1>
+        <p className="mt-2 text-cream/75">{data.order.tierName} · {formatGbp(data.order.amountPence)} including UK delivery</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {data.images.map((image) => (
+            <figure key={image.id} className="overflow-hidden rounded-3xl border border-line">
+              <img src={image.previewUrl || image.url} alt={image.styleName} className="aspect-square w-full object-cover" />
+              <figcaption className="p-2 text-sm">{image.styleName}</figcaption>
+            </figure>
+          ))}
+        </div>
+        {message ? <p className="mt-4 text-sm">{message}</p> : null}
+        <button
+          type="button"
+          className="mt-6 w-full rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink"
+          data-testid="jinglefold-pay-button"
+          onClick={() =>
+            checkout({
+              kind: "portrait",
+              orderId: data.order!.id,
+              uploadToken: data.order!.uploadToken!,
+            })
+          }
+        >
+          Pay {formatGbp(data.order.amountPence)}
+        </button>
+      </main>
+    );
+  }
+
+  const brand = data.brandName ?? APP_NAME;
   const styleChoices = data.offers.extra.bonusImages
     ? data.images.map((image) => ({ id: image.styleId || image.id, name: image.styleName }))
     : data.offers.extra.remaining;
+
+  const productOffers = printOffers.filter((offer) => offer.kind === "product");
+  const classicPricePence =
+    classicOffer?.kind === "classic_framed"
+      ? classicOffer.sizes.find((row) => row.key === cfpmSizeKey)?.pricePence
+      : null;
+  const greetingAddOn = data.offers.greetingCardAddOn;
+  const showPrints = data.storeId === "pawtraitry" && printOffers.length > 0;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -114,8 +222,8 @@ export function ResultsGallery({ token }: { token: string }) {
       <div className="mt-4 flex flex-wrap gap-2">
         <a className="rounded-full bg-pumpkin px-4 py-3 font-semibold text-ink" href={`/api/results/${token}/zip`}>Download ZIP</a>
         <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.clipboard.writeText(shareUrl())}>Copy preview link</button>
-        <a className="rounded-full border border-line px-4 py-3" href={`https://wa.me/?text=${encodeURIComponent(`${APP_NAME} portraits`)}`} onClick={(event) => { event.preventDefault(); window.open(`https://wa.me/?text=${encodeURIComponent(`${APP_NAME} ${shareUrl()}`)}`, "_blank"); }}>WhatsApp</a>
-        <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.share?.({ title: APP_NAME, url: shareUrl() })}>Share</button>
+        <a className="rounded-full border border-line px-4 py-3" href={`https://wa.me/?text=${encodeURIComponent(`${brand} portraits`)}`} onClick={(event) => { event.preventDefault(); window.open(`https://wa.me/?text=${encodeURIComponent(`${brand} ${shareUrl()}`)}`, "_blank"); }}>WhatsApp</a>
+        <button className="rounded-full border border-line px-4 py-3" onClick={() => navigator.share?.({ title: brand, url: shareUrl() })}>Share</button>
       </div>
       <p className="mt-3 text-sm text-cream/60">Share buttons use a watermarked preview. The ZIP is the full set.</p>
 
@@ -138,26 +246,103 @@ export function ResultsGallery({ token }: { token: string }) {
         </button>
       </section>
 
-      <section className="mt-6 rounded-[2rem] border border-line p-5">
-        <h2 className="text-3xl">A puzzle, posted in the UK</h2>
-        <label className="mt-3 block text-sm">Portrait for the puzzle
+      {showPrints ? (
+      <section id="prints" className="mt-6 rounded-[2rem] border border-line p-5">
+        <h2 className="text-3xl">Prints &amp; gifts, posted in the UK</h2>
+        <p className="mt-2 text-sm text-cream/70">Prices include UK delivery. Larger sizes need a high-resolution portrait; unavailable sizes are hidden.</p>
+        <label className="mt-3 block text-sm">Portrait for physical products
           <select className="field mt-1" value={assetId} onChange={(event) => setAssetId(event.target.value)}>
             {data.images.map((image) => <option key={image.id} value={image.id}>{image.styleName}</option>)}
           </select>
         </label>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {data.offers.prints.map((product) => (
-            <button key={product.id} className="rounded-3xl border border-line p-4 text-left" onClick={() => checkout({ kind: "print", token, productId: product.id, assetId })}>
-              <span className="block text-xl">{product.name}</span>
-              <span className="mt-1 block text-sm text-cream/70">{product.detail}</span>
-              <span className="mt-2 block font-semibold">{formatGbp(product.pricePence)}</span>
+
+        {classicOffer?.kind === "classic_framed" ? (
+          <div className="mt-4 rounded-3xl border border-line p-4">
+            <PrintMockupImage src={cfpmFrameMockupSrc(cfpmColorId)} alt={cfpmFrameMockupAlt(cfpmColorId)} />
+            <span className="block text-xl">{classicOffer.name}</span>
+            <p className="mt-1 text-sm text-cream/70">{classicOffer.detail}</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Size
+                <select className="field mt-1" value={cfpmSizeKey} onChange={(event) => setCfpmSizeKey(event.target.value)}>
+                  {classicOffer.sizes.map((size) => (
+                    <option key={size.key} value={size.key}>{size.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Frame colour
+                <select className="field mt-1" value={cfpmColorId} onChange={(event) => setCfpmColorId(event.target.value)}>
+                  {classicOffer.colors.map((color) => (
+                    <option key={color.id} value={color.id}>{color.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              className="mt-4 w-full rounded-full bg-cream px-4 py-3 font-semibold text-ink disabled:opacity-40"
+              disabled={!classicProductId}
+              onClick={() =>
+                classicProductId &&
+                checkout({ kind: "print", token, productId: classicProductId, assetId, addGreetingCard: addGreetingCard || undefined })
+              }
+            >
+              Order framed print · {classicPricePence ? formatGbp(classicPricePence) : "n/a"}
             </button>
-          ))}
+          </div>
+        ) : null}
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {productOffers.map((product) =>
+            product.kind === "product" ? (
+              <button
+                key={product.id}
+                type="button"
+                className="rounded-3xl border border-line p-4 text-left"
+                onClick={() =>
+                  checkout({
+                    kind: "print",
+                    token,
+                    productId: product.id,
+                    assetId,
+                    addGreetingCard: product.id === greetingAddOn?.productId ? undefined : addGreetingCard || undefined,
+                  })
+                }
+              >
+                {product.previewImage ? (
+                  <PrintMockupImage
+                    src={product.previewImage}
+                    alt={product.previewAlt ?? `Pet portrait. ${product.name}`}
+                  />
+                ) : null}
+                <span className="block text-xl">{product.name}</span>
+                <span className="mt-1 block text-sm text-cream/70">{product.detail}</span>
+                <span className="mt-2 block font-semibold">{formatGbp(product.pricePence)}</span>
+              </button>
+            ) : null,
+          )}
         </div>
+
+        {greetingAddOn ? (
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={addGreetingCard}
+              onChange={(event) => setAddGreetingCard(event.target.checked)}
+            />
+            <span>
+              Add {greetingAddOn.name} for {formatGbp(greetingAddOn.pricePence)} (same portrait, one UK shipment with your print order)
+            </span>
+          </label>
+        ) : null}
+
         <ul className="mt-3 text-sm text-cream/70">
-          {data.prints?.map((print) => <li key={print.id}>{print.product}: {print.status}{print.error ? ` — ${print.error}` : ""}</li>)}
+          {data.prints?.map((print) => <li key={print.id}>{print.product}: {print.status}{print.error ? `. ${print.error}` : ""}</li>)}
         </ul>
       </section>
+      ) : null}
 
       <form className="mt-6 rounded-[2rem] bg-moss p-5" onSubmit={(event) => { event.preventDefault(); checkout({ kind: "christmas", email: data.order?.email, token }); }}>
         <h2 className="text-3xl">Christmas pre-order · {formatGbp(data.offers.christmasPence)}</h2>

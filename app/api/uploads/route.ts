@@ -3,6 +3,8 @@ import { z } from "zod";
 import { jsonError, parseBody, sniffImage } from "@/lib/http";
 import { putBlob } from "@/lib/blobs";
 import { moderateImage } from "@/lib/moderation";
+import { flagOrderPhotoSafetyReview } from "@/lib/order-photo-review";
+import { rateLimits } from "@/lib/rateLimits";
 import { clientIp, hashIp } from "@/lib/runtime";
 import { getStore } from "@/lib/store";
 
@@ -22,7 +24,8 @@ export async function POST(request: Request) {
 
   const store = getStore();
   const ipHash = hashIp(clientIp(request));
-  const limit = await store.hitRateLimit(`upload:${ipHash}`, 40, 60 * 60 * 1000);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(`upload:${ipHash}`, limits.uploadsPerHour, 60 * 60 * 1000);
   if (!limit.ok) return jsonError("Too many uploads from this connection. Try again in an hour.", 429);
 
   const order = await store.getOrderByUploadToken(parsed.data.orderId, parsed.data.uploadToken);
@@ -33,9 +36,10 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const contentType = sniffImage(bytes);
   if (!contentType) return jsonError("Use a JPEG, PNG, or WebP photo. HEIC is converted in the browser.");
-  const moderation = await moderateImage(bytes, contentType);
+  const moderation = await moderateImage(bytes, contentType, { storeId: order.storeId });
   if (moderation.costGbp) await store.addSpend(moderation.costGbp);
-  if (!moderation.allowed) return jsonError(moderation.reason, 422);
+  if (moderation.failOpen) await flagOrderPhotoSafetyReview(order.id);
+  if (!moderation.allowed) return jsonError(moderation.customerMessage, 422);
 
   const extension = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
   const storagePath = `${order.id}/uploads/${randomUUID()}.${extension}`;

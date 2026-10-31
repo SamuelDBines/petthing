@@ -23,13 +23,24 @@ make dev
 
 | What | URL |
 | --- | --- |
-| Storefront | http://localhost:3000 |
-| Create flow | http://localhost:3000/create |
-| Admin | http://localhost:3000/admin |
+| Pawtraitry storefront | http://pawtraitry.localhost:3000 (or http://localhost:3000) |
+| Fixmonger catalogue store | http://fixmonger.localhost:3000 (legacy `wildframe.localhost` aliases Fixmonger) |
+| Pawtraitry create flow | `/create` on Pawtraitry host |
+| Fixmonger shop | `/` and `/shop/cart` on Fixmonger host |
+| Admin (all stores) | http://localhost:3000/admin — use the **Store** dropdown for one brand or **All stores** |
+| Visitor analytics | Admin → **Analytics** tab (per-store or all stores) |
 | Content approval queue | http://localhost:8080/admin?token=dev-change-me |
 | Mailpit (SMTP UI) | http://localhost:8025 |
 
 **Admin login:** password in `.env.local` → `ADMIN_PASSWORD` (default in the example file: `portrait-dev`).
+
+### Multi-store local dev
+
+- Hostname picks the store (`pawtraitry.localhost`, `fixmonger.localhost`). Plain `localhost` defaults to Pawtraitry.
+- On localhost only, append `?store=fixmonger` (or `pawtraitry`) to override the hostname. `?store=wildframe` still resolves to Fixmonger for backwards compatibility.
+- Staging dropship hosts: set `STORE_EXTRA_DOMAINS` for `pawtraitry`, `fixmonger`, and `jinglefold` (see `.env.local.example`). Dev: `?store=jinglefold`.
+- Orders, referrals, spend caps, and analytics are scoped by `store_id`. Stripe Checkout metadata includes `storeId` so one test Stripe account can serve every brand.
+- Add another store from **Admin** (POST `/api/admin/stores`) or seed the `stores` table — no code deploy required for domains/copy/prices in `config` JSON.
 
 ## Stripe TEST mode
 
@@ -42,7 +53,7 @@ make dev
    docker compose --profile stripe up stripe-listener
    ```
 
-   Copy the printed `whsec_…` into `STRIPE_WEBHOOK_SECRET` in `.env.local`, then restart `npm run dev`.
+   Watch the container logs for `whsec_…` and put it in `STRIPE_WEBHOOK_SECRET` in `.env.local`, then restart `npm run dev`.
 
 4. Test card: `4242 4242 4242 4242`, any future expiry, any CVC, UK postcode.
 
@@ -54,7 +65,7 @@ Leave `FAL_KEY`, `PRODIGI_API_KEY`, and `RESEND_API_KEY` empty:
 
 - Portraits use coloured **placeholder** images (`lib/placeholderImage.ts`).
 - Prodigi puzzle orders get a fake id `mock_prodigi_*` (logged to the terminal).
-- Emails are written under `.data/outbox/` and logged as `[email] …`.
+- Emails are written under `~/.pawtraitry-local/outbox/` (or `LOCAL_DATA_DIR`) and logged as `[email] …`.
 
 With sandbox keys set, the same code paths call the real fal, Prodigi sandbox, and Resend APIs.
 

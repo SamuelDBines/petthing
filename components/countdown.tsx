@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export function Countdown({ deadlineIso, label }: { deadlineIso: string; label: string }) {
-  const [text, setText] = useState("Counting down");
+  const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
     const tick = () => {
@@ -22,10 +22,10 @@ export function Countdown({ deadlineIso, label }: { deadlineIso: string; label: 
   }, [deadlineIso]);
 
   return (
-    <p className="text-sm tracking-wide text-cream/60">
+    <p className="text-sm tracking-wide text-muted">
       <span className="font-medium text-cream">{label}</span>
-      <span className="px-2 text-cream/30">/</span>
-      <span>{text}</span>
+      <span className="px-2 text-line">/</span>
+      <span suppressHydrationWarning>{text ?? "…"}</span>
     </p>
   );
 }

@@ -1,3 +1,7 @@
+import type { CatalogueProduct, ShopOrder, SupplierBatchExport } from "@/lib/catalogue/types";
+import type { RollupRow, VisitorEventRow, VisitorSessionRow } from "@/lib/analytics/types";
+import type { SignupSource } from "@/lib/crm/types";
+import type { HandPaintedOrderRow } from "@/lib/handPainted";
 import type { PrintProductId } from "@/config/prints";
 import type { TierId } from "@/config/pricing";
 import type { SubjectType } from "@/config/themes";
@@ -6,6 +10,7 @@ export type OrderStatus =
   | "pending_payment"
   | "paid"
   | "generating"
+  | "waiting_for_credit"
   | "review"
   | "delivered"
   | "failed"
@@ -13,6 +18,7 @@ export type OrderStatus =
 
 export type Order = {
   id: string;
+  storeId: string;
   createdAt: string;
   email: string;
   themeId: string;
@@ -23,6 +29,7 @@ export type Order = {
   status: OrderStatus;
   stripeCheckoutSessionId: string | null;
   stripePaymentIntentId: string | null;
+  stripeLivemode?: boolean | null;
   amountPence: number;
   priority: boolean;
   consentAt: string;
@@ -47,12 +54,64 @@ export type Order = {
   stripeSubscriptionId: string | null;
   subscriptionStatus: "active" | "canceled" | null;
   payments: { sessionId: string; paymentIntentId: string | null; amountPence: number; kind: string; createdAt: string }[];
+  productMeta?: {
+    pricingSku?: string;
+    personalised?: boolean;
+    lateDeliveryAckAt?: string;
+    /** Automated NSFW scan failed (fal outage) — manual photo review in admin. */
+    photoSafetyReviewRequired?: boolean;
+    checkoutBasket?: import("@/lib/pawtraitry/create-basket").PawtraitryCheckoutBasket;
+    /** Pawtraitry free-preview flow: generated before payment, watermarked until paid. */
+    freePreview?: {
+      /** Customer text for "custom" jobs, keyed by variantIndex. */
+      customPrompts?: Record<string, string>;
+      /** Result asset the customer picked for physical products. */
+      chosenAssetId?: string | null;
+      path?: "digital" | "physical" | null;
+      /** Paid digital files: 4x upscale per result asset id (fallback = native file after repeated failures). */
+      upscaled?: Record<
+        string,
+        { storagePath: string; width: number; height: number; costGbp: number; fallback?: boolean; completedAt: string }
+      >;
+      /** Failed upscale attempts per result asset id. */
+      upscaleAttempts?: Record<string, number>;
+    };
+    /** One 4x fal upscale for checkout-basket print fulfilment. */
+    printUpscale?: {
+      sourceAssetId: string;
+      storagePath: string;
+      width: number;
+      height: number;
+      costGbp: number;
+      completedAt: string;
+    };
+    /** Checkout-basket print fulfilment (upscale + Prodigi), claimed atomically per order. */
+    basketFulfilment?: {
+      status: "pending" | "running" | "done" | "failed";
+      requestedAt?: string;
+      claimedAt?: string;
+      completedAt?: string;
+      lastError?: string | null;
+    };
+  } | null;
+  shipping?: Shipping | null;
+  partnerFulfillment?: {
+    provider: "prodigi" | "printful";
+    externalOrderId: string;
+    status: string;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    lastSyncedAt: string;
+    error?: string | null;
+  } | null;
+  /** Paid fal queue submissions for this portrait order (cap enforced in generation). */
+  falPaidSubmits?: number;
 };
 
 export type Asset = {
   id: string;
   orderId: string;
-  kind: "upload" | "result" | "preview";
+  kind: "upload" | "result" | "result_replacement" | "preview";
   styleId: string | null;
   variantIndex: number | null;
   storagePath: string;
@@ -72,6 +131,9 @@ export type Job = {
   status: JobStatus;
   attempts: number;
   providerRequestId: string | null;
+  providerMeta?: { statusUrl: string; responseUrl: string } | null;
+  falPaidSubmits?: number;
+  regenCount?: number;
   lastError: string | null;
   costGbp: number;
   priority: boolean;
@@ -83,6 +145,7 @@ export type Job = {
 
 export type AnalyticsEvent = {
   id: string;
+  storeId: string;
   type: "create_start" | "checkout" | "paid";
   orderId: string | null;
   createdAt: string;
@@ -113,6 +176,7 @@ export type PrintOrder = {
 
 export type Preorder = {
   id: string;
+  storeId: string;
   orderId: string | null;
   email: string;
   themeId: string;
@@ -130,9 +194,17 @@ export type Settings = {
   queueHalted: boolean;
   haltReason: string | null;
   haltNotifiedOn: string | null;
+  falCreditExhaustedSince: string | null;
+  falCreditAlertSentAt: string | null;
 };
 
 export type Bucket = "uploads" | "results";
+
+export type StoreSettingsRow = {
+  storeId: string;
+  settings: Settings;
+  configPatch: Record<string, unknown>;
+};
 
 export type Database = {
   orders: Order[];
@@ -141,7 +213,33 @@ export type Database = {
   events: AnalyticsEvent[];
   prints: PrintOrder[];
   preorders: Preorder[];
+  shopOrders: ShopOrder[];
+  supplierBatches: SupplierBatchExport[];
+  handPaintedOrders: HandPaintedOrderRow[];
   settings: Settings;
+  settingsByStore: Record<string, Settings>;
+  storeConfigPatches: Record<string, Record<string, unknown>>;
   rateLimits: { key: string; count: number; resetAt: string }[];
-  spend: { day: string; gbp: number }[];
+  spend: { storeId: string; day: string; gbp: number }[];
+  visitorSessions: VisitorSessionRow[];
+  visitorEvents: VisitorEventRow[];
+  analyticsRollups: RollupRow[];
+  catalogueProducts: CatalogueProduct[];
+  adminLoginEvents: { id: string; email: string; ip: string; createdAt: string }[];
+  emailSignups: {
+    id: string;
+    storeId: string;
+    email: string;
+    source: SignupSource;
+    name: string | null;
+    marketingConsent: boolean;
+    marketingConsentAt: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    referrer: string | null;
+    excludedFromMetrics: boolean;
+    unsubscribedAt: string | null;
+    createdAt: string;
+  }[];
 };

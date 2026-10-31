@@ -1,39 +1,39 @@
 import { NextRequest } from "next/server";
-import { PRINTS } from "@/config/prints";
+import { buildCheckoutSuccessStatus } from "@/lib/checkout/build-success-status";
 import { jsonError } from "@/lib/http";
-import { getStore } from "@/lib/store";
+import { requestStoreId } from "@/lib/tenant/context";
+
+function mediaOrigin(request: NextRequest) {
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost";
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  return `${proto}://${host.split(",")[0]?.trim()}`;
+}
 
 export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id");
   if (!sessionId) return jsonError("Missing session.");
-  const store = getStore();
-  const order = await store.getOrderByCheckoutSession(sessionId);
-  if (order) {
-    return Response.json({
-      kind: "portrait",
-      status: order.status,
-      amountPence: order.amountPence,
-      resultsPath: order.status === "delivered" ? `/results/${order.resultsToken}` : null,
-    });
-  }
-  const print = await store.getPrintBySession(sessionId);
-  if (print) {
-    const parent = await store.getOrder(print.orderId);
-    return Response.json({
-      kind: "print",
-      status: print.status,
-      amountPence: PRINTS.find((item) => item.id === print.productId)?.pricePence ?? null,
-      resultsPath: parent ? `/results/${parent.resultsToken}` : null,
-    });
-  }
-  const preorder = await store.getPreorderBySession(sessionId);
-  if (preorder) {
-    return Response.json({
-      kind: "christmas",
-      status: preorder.status,
-      amountPence: preorder.amountPence,
-      resultsPath: null,
-    });
-  }
-  return Response.json({ kind: "unknown", status: "confirming", amountPence: null, resultsPath: null });
+  const storeId = await requestStoreId();
+  const payload = await buildCheckoutSuccessStatus({
+    sessionId,
+    storeId,
+    mediaOrigin: mediaOrigin(request),
+  });
+  return Response.json({
+    ...payload,
+    status: legacyStatus(payload.phase),
+    resultsPath: payload.resultsPath,
+  });
+}
+
+function legacyStatus(phase: string) {
+  if (phase === "ready") return "delivered";
+  if (phase === "generating") return "generating";
+  if (phase === "review") return "review";
+  if (phase === "refunded") return "refunded";
+  if (phase === "failed") return "failed";
+  if (phase === "confirming") return "confirming";
+  if (phase === "expired_unpaid") return "expired";
+  if (phase === "christmas_booked") return "paid";
+  if (phase === "print_processing") return "submitted";
+  return phase;
 }

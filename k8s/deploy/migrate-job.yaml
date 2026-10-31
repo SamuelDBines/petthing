@@ -1,0 +1,37 @@
+# Pre-deploy migration Job. Run to completion before updating the web Deployment.
+# kubectl apply -f k8s/deploy/migrate-job.yaml && kubectl wait --for=condition=complete job/app-migrate -n production --timeout=300s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: app-migrate
+  namespace: production
+  labels:
+    app: pawtraitry
+    component: migrate
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: pawtraitry
+        component: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/example/pawtraitry:latest
+          imagePullPolicy: IfNotPresent
+          command: ["npm", "run", "migrate"]
+          envFrom:
+            - secretRef:
+                name: app-database
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DATABASE_SSL_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: app-database
+                  key: DATABASE_SSL_MODE
+                  optional: true

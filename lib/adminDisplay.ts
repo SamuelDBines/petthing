@@ -15,7 +15,7 @@ export function orderPipelineStatus(order: Order, prints: PrintOrder[]) {
   if (order.status === "failed") return "Failed";
   if (order.status === "pending_payment") return order.failureReason ? "Payment failed" : "Awaiting payment";
   if (order.status === "paid") return "Paid";
-  if (order.status === "generating") return "Generating";
+  if (order.status === "generating" || order.status === "waiting_for_credit") return "Generating";
   if (order.status === "review") return "In review";
   if (order.status === "delivered") {
     const active = prints.filter((p) => p.status !== "failed");

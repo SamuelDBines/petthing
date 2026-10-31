@@ -1,23 +1,57 @@
+import { adminStoreFilter } from "@/lib/admin/storeScope";
+import { getTier } from "@/config/pricing";
+import { portraitGenerationProgress } from "@/lib/generation/progress";
+import { DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
 import { isAdmin } from "@/lib/adminAuth";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
 import { jsonError } from "@/lib/http";
 
 export async function GET() {
   if (!(await isAdmin())) return jsonError("Sign in required", 401);
   const store = getStore();
-  const [orders, settings, prints, preorders] = await Promise.all([
-    store.listOrders(),
-    store.getSettings(),
+  const storeId = await adminStoreFilter();
+  const [orders, settings, prints, preorders, shopOrders] = await Promise.all([
+    store.listOrders(storeId),
+    store.getSettings(storeId === "all" ? DEFAULT_STORE_ID : storeId),
     store.listPrints(),
-    store.listPreorders(),
+    store.listPreorders(storeId),
+    store.listShopOrders ? store.listShopOrders(storeId) : Promise.resolve([]),
   ]);
+  const enriched = await Promise.all(
+    orders.map(async (order) => {
+      const config = await loadStoreConfig(order.storeId);
+      const tier = getTier(order.tierId, config.catalog.tiers);
+      const [jobs, assets] = await Promise.all([store.listJobs(order.id), store.listAssets(order.id)]);
+      const progress = portraitGenerationProgress(tier, jobs, assets);
+      const pendingReplacements = assets
+        .filter((asset) => asset.kind === "result_replacement")
+        .map((asset) => ({
+          styleId: asset.styleId,
+          variantIndex: asset.variantIndex,
+        }));
+      return {
+        ...order,
+        uploadToken: undefined,
+        prints: prints.filter((print) => print.orderId === order.id),
+        portraitProgress: {
+          generated: progress.generated,
+          expected: progress.expected,
+          complete: progress.complete,
+        },
+        portraitJobs: jobs.map((job) => ({
+          styleId: job.styleId,
+          variantIndex: job.variantIndex,
+          status: job.status,
+        })),
+        pendingReplacements,
+      };
+    }),
+  );
   return Response.json({
     settings,
     preorders,
-    orders: orders.map((order) => ({
-      ...order,
-      uploadToken: undefined,
-      prints: prints.filter((print) => print.orderId === order.id),
-    })),
+    shopOrders,
+    orders: enriched,
   });
 }

@@ -1,42 +1,93 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { Fraunces, Outfit } from "next/font/google";
-import { APP_NAME, siteUrl, TAGLINE } from "@/config/brand";
+import { metaDomainVerification, metaPixelId } from "@/lib/meta/config";
+import { MetaAttributionCapture } from "@/components/meta-attribution";
 import { CookieBanner } from "@/components/cookie-banner";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { ShopSiteFooter, ShopSiteHeader } from "@/components/shop/store-chrome";
 import { UtmCapture } from "@/components/utm-capture";
+import { VisitorTracker } from "@/components/visitor-tracker";
+import { headers } from "next/headers";
+import { loadStoreConfig, themeCssVars } from "@/lib/tenant/context";
+import { pageRobotsNoindex } from "@/lib/seo/page-robots";
 import "./globals.css";
+
+/** Store theme is chosen per request hostname — must not be statically prerendered. */
+export const instant = false;
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces" });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl()),
-  title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
-  description: TAGLINE,
-  openGraph: {
-    type: "website",
-    locale: "en_GB",
-    siteName: APP_NAME,
-    title: APP_NAME,
-    description: TAGLINE,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: APP_NAME,
-    description: TAGLINE,
-  },
-};
+function stagingNoindex(storeId: string, host: string) {
+  return pageRobotsNoindex(storeId, host);
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await loadStoreConfig();
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const base = `https://${config.brand.siteDomain}`;
+  const noindex = stagingNoindex(config.id, host);
+  const domainVerify = metaDomainVerification(config.id, process.env, config.brand);
+  return {
+    // Resolve relative OG/Twitter URLs against the host being served, so pawtraitry.com
+    // never points social crawlers at a test domain.
+    metadataBase: new URL(/^[a-z0-9.-]+(:\d+)?$/i.test(host) && !host.includes("localhost") ? `https://${host}` : process.env.NEXT_PUBLIC_APP_URL || base),
+    title: { default: config.brand.appName, template: `%s · ${config.brand.appName}` },
+    description: config.brand.tagline,
+    robots: noindex ? { index: false, follow: false } : undefined,
+    verification: domainVerify ? { other: { "facebook-domain-verification": domainVerify } } : undefined,
+    icons: config.brand.faviconPath ? { icon: config.brand.faviconPath } : undefined,
+    openGraph: {
+      type: "website",
+      locale: "en_GB",
+      siteName: config.brand.appName,
+      title: config.brand.appName,
+      description: config.brand.tagline,
+      images: config.brand.ogImagePath ? [{ url: config.brand.ogImagePath, width: 1200, height: 630, alt: config.brand.appName }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: config.brand.appName,
+      description: config.brand.tagline,
+      images: config.brand.ogImagePath ? [config.brand.ogImagePath] : undefined,
+    },
+  };
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const config = await loadStoreConfig();
+  const h = await headers();
+  const host = h.get("x-forwarded-host") || h.get("host") || "";
+  const cssVars = themeCssVars(config.brand.colors);
+  const pixelId = metaPixelId(config.id, host, process.env, config.brand);
   return (
-    <html lang="en-GB" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
+    <html
+      lang="en-GB"
+      data-store={config.slug}
+      style={cssVars}
+      className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">
         <UtmCapture />
-        <SiteHeader />
+        {config.storeType === "portrait" ? (
+          <SiteHeader brand={config.brand} />
+        ) : (
+          <ShopSiteHeader brand={config.brand} storeId={config.id} storeType={config.storeType} />
+        )}
         <div className="flex-1">{children}</div>
-        <SiteFooter />
-        <CookieBanner />
+        {config.storeType === "portrait" ? (
+          <SiteFooter brand={config.brand} />
+        ) : (
+          <ShopSiteFooter brand={config.brand} />
+        )}
+        <Suspense fallback={null}>
+          <VisitorTracker />
+          <MetaAttributionCapture />
+        </Suspense>
+        <CookieBanner storeId={config.id} pixelId={pixelId} />
       </body>
     </html>
   );

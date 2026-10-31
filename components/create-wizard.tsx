@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DIGITAL_SUPPLY_CONSENT_LABEL, PHOTO_CONSENT_LABEL } from "@/config/brand";
 import { formatGbp, SEASON_PASS, TIERS, type TierId } from "@/config/pricing";
 import { SUBJECTS, THEMES, type StyleDefinition, type SubjectType } from "@/config/themes";
 import { track } from "@/components/cookie-banner";
 import { storedUtm } from "@/components/utm-capture";
+import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
+import { metaCheckoutAttribution, stashMetaCheckoutAttribution, trackMetaEvent } from "@/lib/meta/client";
+import { PawtraitryCreateBasketStep } from "@/components/pawtraitry-create-basket-step";
+import { pawtraitryMetaContentIds, type PawtraitryPhysicalBasketLine } from "@/lib/pawtraitry/create-basket";
 
 async function prepare(file: File) {
   let blob: Blob = file;
@@ -26,6 +31,11 @@ async function prepare(file: File) {
 }
 
 export function CreateWizard() {
+  const offer = useSearchParams().get("offer") ?? "one_off";
+  return <CreateWizardInner key={offer} />;
+}
+
+function CreateWizardInner() {
   const params = useSearchParams();
   const [step, setStep] = useState(1);
   const [subject, setSubject] = useState<SubjectType>("pet");
@@ -43,7 +53,10 @@ export function CreateWizard() {
   const [referral, setReferral] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [physicalLines, setPhysicalLines] = useState<PawtraitryPhysicalBasketLine[]>([]);
+  const previewTracked = useRef(false);
   const seasonPass = params.get("offer") === "season";
+  const totalSteps = seasonPass ? 4 : 5;
 
   useEffect(() => {
     if (!seasonPass) return;
@@ -71,7 +84,11 @@ export function CreateWizard() {
   }, []);
 
   const tier = TIERS.find((item) => item.id === tierId) ?? TIERS[1];
-  const slotCount = tier.styleCount === "all" ? themeStyles.length : tier.styleCount;
+  const slotCount = seasonPass
+    ? tier.styleCount === "all"
+      ? themeStyles.length
+      : (tier.styleCount as number)
+    : themeStyles.length;
 
   function chooseTier(next: TierId) {
     setTierId(next);
@@ -82,10 +99,11 @@ export function CreateWizard() {
   }
 
   function toggleStyle(id: string) {
-    if (tier.styleCount === "all") return;
+    if (seasonPass && tier.styleCount === "all") return;
     setStyles((current) => {
       if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= slotCount) return [...current.slice(1), id];
+      const max = seasonPass ? slotCount : themeStyles.length;
+      if (current.length >= max) return seasonPass ? [...current.slice(1), id] : [...current, id];
       return [...current, id];
     });
   }
@@ -102,6 +120,16 @@ export function CreateWizard() {
       setError("We couldn’t read one of those photos. Try a JPEG or PNG.");
     }
   }
+
+  useEffect(() => {
+    if (step !== (seasonPass ? 4 : 5) || previewTracked.current) return;
+    previewTracked.current = true;
+    trackMetaEvent("Lead");
+    void import("@/components/visitor-tracker").then(({ trackFunnelEvent }) => trackFunnelEvent("preview_generated"));
+  }, [step, seasonPass]);
+
+  const requiredStyleCount =
+    tier.styleCount === "all" ? themeStyles.length : (tier.styleCount as number);
 
   async function pay() {
     setBusy(true);
@@ -124,6 +152,7 @@ export function CreateWizard() {
           offer: seasonPass ? "season_pass" : "one_off",
           referralCode: referral || undefined,
           utm,
+          physicalLines: seasonPass ? undefined : physicalLines,
         }),
       });
       const order = await created.json();
@@ -136,15 +165,30 @@ export function CreateWizard() {
         const uploaded = await fetch("/api/uploads", { method: "POST", body });
         const uploadData = await uploaded.json();
         if (!uploaded.ok) throw new Error(uploadData.error || "Upload failed");
+        const { trackFunnelEvent } = await import("@/components/visitor-tracker");
+        trackFunnelEvent("photo_upload");
       }
-      track("InitiateCheckout", order.amountPence / 100);
+      const meta = metaCheckoutAttribution();
+      stashMetaCheckoutAttribution(
+        meta,
+        pawtraitryMetaContentIds({ tierId, styleIds: styles, physical: physicalLines }),
+      );
+      track("InitiateCheckout", order.amountPence / 100, meta.initiateCheckoutEventId);
       const checkout = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "portrait", orderId: order.orderId, uploadToken: order.uploadToken }),
+        body: JSON.stringify({
+          kind: "portrait",
+          orderId: order.orderId,
+          uploadToken: order.uploadToken,
+          analyticsSessionId: (await import("@/components/visitor-tracker")).analyticsSessionId(),
+          ...metaAttributionRequestBody(meta),
+        }),
       });
-      const session = await checkout.json();
-      if (!checkout.ok) throw new Error(session.error || "Checkout failed");
+      const { ok, body: session } = await parseCheckoutResponse(checkout);
+      if (!ok || !session.url) throw new Error(checkoutErrorMessage(session, ok));
+      const { trackFunnelEvent: trackCheckout } = await import("@/components/visitor-tracker");
+      trackCheckout("checkout_started");
       window.location.href = session.url;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Something went wrong");
@@ -154,9 +198,9 @@ export function CreateWizard() {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8" data-testid="create-wizard">
-      <p className="text-sm text-gold">Step {step} of 4</p>
+      <p className="text-sm text-gold">Step {step} of {totalSteps}</p>
       <h1 className="mt-2 text-4xl">{seasonPass ? "Start the season pass" : "Make the portraits"}</h1>
-      {seasonPass ? <p className="mt-3 text-cream/75">A family or group, once a year. This season is included. Pick {SEASON_PASS.tierId === "classic" ? "two" : "the"} styles for it.</p> : null}
+      {seasonPass ? <p className="mt-3 text-cream/75">A family or group, once a year. This season is included. Pick {SEASON_PASS.tierId === "classic" ? "two" : "the"} styles for it. <a href="/create" className="underline">Want a single portrait instead?</a></p> : null}
       {params.get("cancelled") ? <p className="mt-3 text-sm">Checkout was cancelled. Your photos were not kept if you didn’t pay.</p> : null}
       {paused ? <p className="mt-4 rounded-2xl bg-gold/10 p-4">Sales are paused. You can look around, but payment is closed.</p> : null}
       {error ? <p className="mt-4 rounded-2xl border border-danger p-4 text-sm text-danger">{error}</p> : null}
@@ -212,6 +256,9 @@ export function CreateWizard() {
       {step === 3 ? (
         <section className="mt-6 space-y-4">
           {seasonPass ? <p className="rounded-3xl border border-gold/40 p-4">{SEASON_PASS.name} · {formatGbp(SEASON_PASS.pricePence)} a year. This season uses the Classic set: two styles, six HD images.</p> : (
+          <p className="text-cream/75">Choose your styles now. On the next step you will pick your digital pack and any prints or gifts.</p>
+          )}
+          {!seasonPass ? null : (
           <div className="grid gap-2">
             {TIERS.map((item) => (
               <button key={item.id} type="button" onClick={() => chooseTier(item.id)} className={`rounded-3xl border p-4 text-left ${tierId === item.id ? "border-pumpkin" : "border-line"}`}>
@@ -221,7 +268,7 @@ export function CreateWizard() {
             ))}
           </div>
           )}
-          <p>Choose {slotCount} style{slotCount === 1 ? "" : "s"}.</p>
+          <p>Choose up to {themeStyles.length} styles for this season.</p>
           <div className="grid grid-cols-2 gap-2">
             {themeStyles.map((style) => (
               <button key={style.id} type="button" onClick={() => toggleStyle(style.id)} className={`rounded-2xl border p-3 text-left ${styles.includes(style.id) ? "border-pumpkin" : "border-line"}`}>
@@ -236,12 +283,36 @@ export function CreateWizard() {
           </div>
           <div className="flex gap-2">
             <button className="rounded-full border border-line px-5 py-3" onClick={() => setStep(2)}>Back</button>
-            <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink" disabled={styles.length !== slotCount && tier.styleCount !== "all"} onClick={() => { if (tier.styleCount === "all") setStyles(themeStyles.map((style) => style.id)); setStep(4); }}>Continue</button>
+            <button
+              className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink"
+              disabled={seasonPass ? styles.length !== slotCount && tier.styleCount !== "all" : styles.length < 1}
+              onClick={() => {
+                if (tier.styleCount === "all") setStyles(themeStyles.map((style) => style.id));
+                setStep(seasonPass ? 4 : 4);
+              }}
+            >
+              Continue
+            </button>
           </div>
         </section>
       ) : null}
 
-      {step === 4 ? (
+      {step === 4 && !seasonPass ? (
+        <PawtraitryCreateBasketStep
+          tierId={tierId}
+          onTierId={(id) => chooseTier(id)}
+          physical={physicalLines}
+          onPhysical={setPhysicalLines}
+          priority={priority}
+          onPriority={setPriority}
+          styleCount={styles.length}
+          requiredStyles={requiredStyleCount}
+          onBack={() => setStep(3)}
+          onContinue={() => setStep(5)}
+        />
+      ) : null}
+
+      {(step === 4 && seasonPass) || step === 5 ? (
         <section className="mt-6 space-y-4">
           <label className="block text-sm">Names for the card, optional
             <input className="field mt-1" value={cardNames} onChange={(event) => setCardNames(event.target.value)} placeholder="Love from the Smiths" maxLength={80} />
@@ -253,10 +324,7 @@ export function CreateWizard() {
             <input className="field mt-1" value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="PAW-••••••" />
           </label>
           {seasonPass ? null : (
-            <label className="flex gap-3 text-sm leading-6">
-              <input type="checkbox" checked={priority} onChange={(event) => setPriority(event.target.checked)} />
-              Priority delivery, under 2 hours, {formatGbp(299)}
-            </label>
+            <p className="text-xs text-muted">Priority delivery can be added on the previous step.</p>
           )}
           <label className="flex gap-3 text-sm leading-6">
             <input type="checkbox" checked={photoConsent} onChange={(event) => setPhotoConsent(event.target.checked)} />
@@ -267,7 +335,7 @@ export function CreateWizard() {
             {DIGITAL_SUPPLY_CONSENT_LABEL}
           </label>
           <div className="flex gap-2">
-            <button className="rounded-full border border-line px-5 py-3" onClick={() => setStep(3)}>Back</button>
+            <button className="rounded-full border border-line px-5 py-3" onClick={() => setStep(seasonPass ? 3 : 4)}>Back</button>
             <button className="rounded-full bg-pumpkin px-5 py-3 font-semibold text-ink disabled:opacity-50" disabled={busy || paused || !photoConsent || !digitalSupplyConsent || !email} onClick={pay} data-testid="pay-button">
               {busy ? "Sending…" : seasonPass ? `Start the pass · ${formatGbp(SEASON_PASS.pricePence)}/year` : "Pay securely"}
             </button>

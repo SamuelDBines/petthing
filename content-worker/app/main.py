@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -23,6 +24,11 @@ from app.scheduler import start_scheduler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+if os.environ.get("SENTRY_DSN"):
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=os.environ["SENTRY_DSN"], traces_sample_rate=0.05)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -70,8 +76,9 @@ def admin_ui(
 ):
     items = list_queue(db)
     return templates.TemplateResponse(
+        request,
         "admin.html",
-        {"request": request, "items": items},
+        {"items": items},
     )
 
 
@@ -96,6 +103,8 @@ def api_list_queue(
                 "media_path": i.media_path,
                 "created_at": i.created_at.isoformat() if i.created_at else None,
                 "platform_payloads": i.platform_payloads,
+                "store_id": i.store_id,
+                "metadata": i.metadata_ or {},
             }
             for i in items
         ]

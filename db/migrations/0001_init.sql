@@ -140,6 +140,11 @@ create index if not exists orders_checkout_idx on orders (stripe_checkout_sessio
 create index if not exists assets_order_idx on assets (order_id);
 create index if not exists events_type_idx on events (type, created_at);
 
-grant select, insert, update, delete on
-  orders, assets, jobs, events, prints, preorders, app_settings, rate_buckets, daily_spend
-to portrait_spell_app;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'portrait_spell_app') then
+    grant select, insert, update, delete on
+      orders, assets, jobs, events, prints, preorders, app_settings, rate_buckets, daily_spend
+    to portrait_spell_app;
+  end if;
+end $$;

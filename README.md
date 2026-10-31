@@ -15,7 +15,7 @@ npm run seed
 npm run dev
 ```
 
-Admin password: value of `ADMIN_PASSWORD` in `.env.local` (sample setups often use `portrait-dev`).
+Admin: open `/admin` on the **canonical admin URL** (`ADMIN_URL`, default `http://localhost:3000`). Production/staging uses **Sign in with Google** (see below). For local dev and Playwright, set `ADMIN_PASSWORD_LOGIN=true` and use `ADMIN_PASSWORD` (sample: `portrait-dev`).
 
 - Landing: http://localhost:3000
 - Create flow: http://localhost:3000/create
@@ -43,8 +43,8 @@ Set every variable below in Vercel (or your host) before taking real money. Do *
 | Variable | Purpose |
 | --- | --- |
 | `NEXT_PUBLIC_APP_NAME` | Customer-facing name (default Pawtraitry) |
-| `NEXT_PUBLIC_SITE_DOMAIN` | Canonical domain, e.g. `pawtraitry.co.uk` |
-| `NEXT_PUBLIC_APP_URL` | Full public URL, e.g. `https://pawtraitry.co.uk` — **required** so fal, Prodigi, and email links work |
+| `NEXT_PUBLIC_SITE_DOMAIN` | Canonical domain, e.g. `pawtraitry.com` |
+| `NEXT_PUBLIC_APP_URL` | Full public URL, e.g. `https://pawtraitry.com` — **required** so fal, Prodigi, and email links work |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | Shown on legal pages and in copy |
 | `REFERRAL_CODE_PREFIX` | Optional; default `PAW` |
 
@@ -52,8 +52,15 @@ Set every variable below in Vercel (or your host) before taking real money. Do *
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_PASSWORD` | Admin login |
-| `ADMIN_SESSION_SECRET` | Signs admin sessions |
+| `ADMIN_URL` | Canonical admin origin (staging: `https://dropship.store.bishop-co-tech.co.uk`). `/admin` on other store hosts redirects here. |
+| `AUTH_URL` | Same as `ADMIN_URL` for Auth.js (OAuth callbacks). |
+| `AUTH_SECRET` | Session encryption (`openssl rand -base64 32`) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client (Web application) |
+| `ADMIN_ALLOWED_EMAILS` | Comma-separated allowlist (default `samuelbines@gmail.com`); requires `email_verified` |
+| `ADMIN_PASSWORD_LOGIN` | `true` to enable legacy password login (local/E2E only; default `false`) |
+| `ADMIN_PASSWORD` | Password when `ADMIN_PASSWORD_LOGIN=true` |
+| `ADMIN_SESSION_SECRET` | Legacy password-session signing (local/E2E) |
+| `ADMIN_COOKIE_DOMAIN` | Optional; share admin store filter cookie across subdomains (e.g. `.bishop-co-tech.co.uk`) |
 | `CRON_SECRET` | Bearer token for `/api/cron/*` |
 | `FILE_SIGNING_SECRET` | Signs local file URLs when not on object storage |
 | `IP_HASH_SALT` | Hashes IPs for rate limits |
@@ -99,8 +106,10 @@ Reference photos must be **HTTPS URLs** your host can sign (not localhost).
 
 | Variable | Purpose |
 | --- | --- |
-| `RESEND_API_KEY` | Transactional email |
-| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.co.uk>` after domain verification |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Amazon SES (default mail provider) |
+| `AWS_SES_REGION` | SES region (default `eu-west-2`) |
+| `EMAIL_FROM` | e.g. `Pawtraitry <hello@pawtraitry.com>` after SES domain verification |
+| `RESEND_API_KEY` | Optional if `EMAIL_PROVIDER=resend` |
 
 ### Prodigi (UK print)
 
@@ -128,9 +137,21 @@ Puzzle orders need Stripe (shipping address), a public `NEXT_PUBLIC_APP_URL`, an
 | No `FAL_KEY` | Placeholder images only | Add fal key; use public site URL for uploads |
 | `NEXT_PUBLIC_APP_URL` still localhost | Prodigi/fal cannot fetch assets | Set to production HTTPS URL |
 | `PRODIGI_ENV=sandbox` | Puzzles not in real production | Set `live` with live API key after QA |
-| No `RESEND_*` | Emails only in `.data/outbox` | Verify domain, set `EMAIL_FROM` |
+| No SES / Resend keys | Emails only in `.data/outbox` | Verify SES domain, set `EMAIL_FROM` |
 | Cron not running | Slow or stuck queue | Plan that allows `vercel.json` schedule or external cron hitting `/api/cron/generate` with `CRON_SECRET` |
-| Domain not registered | DNS, email, Stripe branding | Register `pawtraitry.co.uk` / `.com` and point to host |
+| Domain not registered | DNS, email, Stripe branding | Register `pawtraitry.com` and point to host |
+
+### Google admin sign-in (OAuth)
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → **OAuth consent screen** → **External** → **Testing** (add your Google accounts as test users until published).
+2. **Credentials** → Create **OAuth client ID** → **Web application**.
+3. **Authorised redirect URIs** (exact paths):
+   - Local: `http://localhost:3000/api/auth/callback/google`
+   - Staging: `https://dropship.store.bishop-co-tech.co.uk/api/auth/callback/google`
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `ADMIN_URL`, and `AUTH_URL` to the same canonical admin origin. Set `ADMIN_ALLOWED_EMAILS` to comma-separated Google accounts.
+5. Run migration `0009_admin_login_audit.sql` so sign-ins are recorded.
+
+Visiting `/admin` on a non-canonical store hostname redirects to `ADMIN_URL/admin`. OAuth only uses the canonical redirect URI above.
 
 ## Connect each service
 

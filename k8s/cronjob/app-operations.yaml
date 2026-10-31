@@ -1,0 +1,111 @@
+# Additional HTTP cron triggers (shop ops). Core jobs (generate, cleanup, partner-fulfillment)
+# live in the main deploy overlay — do not duplicate them here.
+# Secret `app-cron` must expose CRON_SECRET (see app-cron-config.example.yaml).
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-shop-fulfillment
+  namespace: production
+spec:
+  schedule: "15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.5.0
+              envFrom:
+                - configMapRef:
+                    name: app-cron-config
+                - secretRef:
+                    name: app-cron
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/shop-fulfillment"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-order-watchdog
+  namespace: production
+spec:
+  schedule: "30 */4 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.5.0
+              envFrom:
+                - configMapRef:
+                    name: app-cron-config
+                - secretRef:
+                    name: app-cron
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/order-watchdog"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-abandoned-basket
+  namespace: production
+spec:
+  schedule: "0 */2 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.5.0
+              envFrom:
+                - configMapRef:
+                    name: app-cron-config
+                - secretRef:
+                    name: app-cron
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/abandoned-basket"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-admin-digest
+  namespace: production
+spec:
+  schedule: "0 7 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.5.0
+              envFrom:
+                - configMapRef:
+                    name: app-cron-config
+                - secretRef:
+                    name: app-cron
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "${APP_BASE_URL}/api/cron/admin-digest"

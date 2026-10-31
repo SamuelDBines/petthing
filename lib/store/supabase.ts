@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { AnalyticsEvent, Asset, Job, Order, Preorder, PrintOrder, Settings } from "@/lib/domain";
+import { jobIsClaimable } from "@/lib/queue";
 import { londonDay } from "@/lib/runtime";
 
 function client(): SupabaseClient {
@@ -16,6 +17,7 @@ function assertOk(error: { message: string } | null) {
 function orderFrom(row: Record<string, unknown>): Order {
   return {
     id: String(row.id),
+    storeId: String(row.store_id ?? "pawtraitry"),
     createdAt: String(row.created_at),
     email: String(row.email),
     themeId: String(row.theme_id),
@@ -50,6 +52,7 @@ function orderFrom(row: Record<string, unknown>): Order {
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
     subscriptionStatus: row.subscription_status === "active" || row.subscription_status === "canceled" ? row.subscription_status : null,
     payments: (row.payments as Order["payments"]) ?? [],
+    falPaidSubmits: row.fal_paid_submits == null ? 0 : Number(row.fal_paid_submits),
   };
 }
 
@@ -90,6 +93,7 @@ function orderTo(order: Order) {
     stripe_subscription_id: order.stripeSubscriptionId,
     subscription_status: order.subscriptionStatus,
     payments: order.payments,
+    fal_paid_submits: order.falPaidSubmits ?? 0,
   };
 }
 
@@ -117,6 +121,9 @@ function jobFrom(row: Record<string, unknown>): Job {
     status: row.status as Job["status"],
     attempts: Number(row.attempts),
     providerRequestId: (row.provider_request_id as string | null) ?? null,
+    providerMeta: (row.provider_meta as Job["providerMeta"]) ?? null,
+    falPaidSubmits: row.fal_paid_submits == null ? 0 : Number(row.fal_paid_submits),
+    regenCount: row.regen_count == null ? 0 : Number(row.regen_count),
     lastError: (row.last_error as string | null) ?? null,
     costGbp: Number(row.cost_gbp ?? 0),
     priority: Boolean(row.priority),
@@ -136,6 +143,9 @@ function jobTo(job: Job) {
     status: job.status,
     attempts: job.attempts,
     provider_request_id: job.providerRequestId,
+    provider_meta: job.providerMeta ?? null,
+    fal_paid_submits: job.falPaidSubmits ?? 0,
+    regen_count: job.regenCount ?? 0,
     last_error: job.lastError,
     cost_gbp: job.costGbp,
     priority: job.priority,
@@ -184,6 +194,9 @@ const patchMap: Record<string, string> = {
   contentType: "content_type",
   createdAtAsset: "created_at",
   providerRequestId: "provider_request_id",
+  providerMeta: "provider_meta",
+  falPaidSubmits: "fal_paid_submits",
+  regenCount: "regen_count",
   lastError: "last_error",
   costGbp: "cost_gbp",
   lockedUntil: "locked_until",
@@ -198,6 +211,8 @@ const patchMap: Record<string, string> = {
   queueHalted: "queue_halted",
   haltReason: "halt_reason",
   haltNotifiedOn: "halt_notified_on",
+  falCreditExhaustedSince: "fal_credit_exhausted_since",
+  falCreditAlertSentAt: "fal_credit_alert_sent_at",
 };
 
 function toSnake(patch: object) {
@@ -216,6 +231,8 @@ function settingsFrom(row: Record<string, unknown>): Settings {
     queueHalted: Boolean(row.queue_halted),
     haltReason: (row.halt_reason as string | null) ?? null,
     haltNotifiedOn: (row.halt_notified_on as string | null) ?? null,
+    falCreditExhaustedSince: (row.fal_credit_exhausted_since as string | null) ?? null,
+    falCreditAlertSentAt: (row.fal_credit_alert_sent_at as string | null) ?? null,
   };
 }
 
@@ -238,6 +255,7 @@ function printFrom(row: Record<string, unknown>): PrintOrder {
 function preorderFrom(row: Record<string, unknown>): Preorder {
   return {
     id: String(row.id),
+    storeId: String(row.store_id ?? "pawtraitry"),
     orderId: (row.order_id as string | null) ?? null,
     email: String(row.email),
     themeId: String(row.theme_id),
@@ -274,6 +292,25 @@ export const supabaseStore = {
     const { data, error } = await client().from("orders").update(toSnake(patch)).eq("id", id).select("*").single();
     assertOk(error);
     return orderFrom(data);
+  },
+  async claimPawtraitryBasketFulfilment(orderId: string) {
+    const order = await this.getOrder(orderId);
+    if (!order) return null;
+    const { basketFulfilmentClaimable } = await import("@/lib/pawtraitry/basket-fulfilment-lock");
+    if (!basketFulfilmentClaimable(order)) return null;
+    const claimedAt = new Date().toISOString();
+    const prev = order.productMeta?.basketFulfilment;
+    return this.updateOrder(orderId, {
+      productMeta: {
+        ...order.productMeta,
+        basketFulfilment: {
+          status: "running",
+          claimedAt,
+          requestedAt: prev?.requestedAt ?? claimedAt,
+          lastError: null,
+        },
+      },
+    });
   },
   async getOrder(id: string) {
     const { data, error } = await client().from("orders").select("*").eq("id", id).maybeSingle();
@@ -364,6 +401,32 @@ export const supabaseStore = {
       .single();
     assertOk(error);
     return jobFrom(data);
+  },
+  async claimJobsForOrder(orderId: string, limit: number) {
+    const { data: orderRow, error: orderError } = await client().from("orders").select("*").eq("id", orderId).maybeSingle();
+    assertOk(orderError);
+    const order = orderRow ? orderFrom(orderRow) : undefined;
+    const { data, error } = await client()
+      .from("jobs")
+      .select("*")
+      .eq("order_id", orderId)
+      .in("status", ["queued", "submitted", "running"])
+      .order("created_at", { ascending: true })
+      .limit(200);
+    assertOk(error);
+    const now = Date.now();
+    const candidates = (data ?? [])
+      .map((row) => jobFrom(row))
+      .filter((job) => jobIsClaimable(job, order, now));
+    candidates.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority ? -1 : 1;
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+    const picked = candidates.slice(0, limit);
+    for (const job of picked) {
+      await this.updateJob(job.id, { status: "running" });
+    }
+    return picked.map((job) => ({ ...job, status: "running" as const }));
   },
   async claimJobs(limit: number) {
     const { data, error } = await client()
