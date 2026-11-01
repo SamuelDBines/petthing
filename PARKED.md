@@ -40,3 +40,24 @@ Sam has parked this product. No new work, merges or deploys until he says otherw
 3. Add a payment method or move ads to the personal ad account, then turn the campaign back on.
 4. Fix node capacity or keep maxSurge 0 for rollouts.
 5. Optionally suspend crons or scale down to save cost (Sam's call).
+
+## CronJobs suspended (1 Nov 2026, approved by Sam)
+All 8 CronJobs in namespace `pawtraitry-staging` were suspended (not deleted) with
+`kubectl -n pawtraitry-staging patch cronjob <name> -p '{"spec":{"suspend":true}}'`:
+- cleanup
+- cron-abandoned-basket
+- cron-admin-digest
+- cron-order-watchdog (paid-order watchdog)
+- cron-shop-fulfillment (shop order submission to supplier)
+- fal-credit-recovery
+- generate (portrait generation for paid orders)
+- partner-fulfillment (Prodigi/partner submission)
+
+At suspension time no live Pawtraitry orders were paid and unfulfilled (orders: 8 delivered, 22 pending_payment, 17 failed, 1 refunded). The 49 `submitted_to_supplier` shop_orders are fixmonger/jinglefold test-mode orders (stripe_livemode false/null).
+
+`k8s/cronjob/app-operations.yaml` now has `suspend: true` on its 4 CronJobs so a re-apply keeps them off. cleanup, generate, fal-credit-recovery and partner-fulfillment are not in repo manifests; if they are recreated from elsewhere, add `suspend: true` there too.
+
+To resume: `kubectl -n pawtraitry-staging patch cronjob <name> -p '{"spec":{"suspend":false}}'` for each, and set `suspend: false` in the manifest.
+
+## Storefront moving to Shopify
+The Pawtraitry storefront is moving to Shopify (fjm90c-p9.myshopify.com). pawtraitry.com DNS will be pointed at Shopify once payments are set up.

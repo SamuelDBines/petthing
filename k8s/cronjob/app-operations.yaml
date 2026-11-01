@@ -9,6 +9,7 @@ metadata:
   namespace: production
 spec:
   schedule: "15 * * * *"
+  suspend: true  # parked 2026-11-01; set false to resume
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
@@ -36,6 +37,7 @@ metadata:
   namespace: production
 spec:
   schedule: "30 */4 * * *"
+  suspend: true  # parked 2026-11-01; set false to resume
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
@@ -63,6 +65,7 @@ metadata:
   namespace: production
 spec:
   schedule: "0 */2 * * *"
+  suspend: true  # parked 2026-11-01; set false to resume
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
@@ -90,6 +93,7 @@ metadata:
   namespace: production
 spec:
   schedule: "0 7 * * *"
+  suspend: true  # parked 2026-11-01; set false to resume
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
