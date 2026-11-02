@@ -4,8 +4,8 @@
 # Usage: EXPECT_SHA=<full-or-short sha> scripts/deploy-golive.sh
 #
 # - Builds the web image from the EXACT committed SHA (git archive, so no
-#   uncommitted files) with Kaniko inside the cluster (ns hosting-builds,
-#   push creds secret docr-push). No local docker needed.
+#   uncommitted files) on the box with Node 22, then crane append onto node:22-bookworm-slim.
+#   No docker needed; uses the box's existing DOCR login.
 # - Refuses to run if HEAD != EXPECT_SHA.
 # - Rolls out ONLY deployment/web in pawtraitry-staging, then verifies the
 #   running pods use the new image tag.
@@ -23,7 +23,6 @@
 # Rollback: kubectl -n pawtraitry-staging set image deploy/web web="$(cat scripts/.rollback-golive.prev)"
 set -euo pipefail
 NS=pawtraitry-staging
-BUILD_NS=hosting-builds
 REPO=registry.digitalocean.com/repkit/repkit
 cd "$(git rev-parse --show-toplevel)"
 : "${EXPECT_SHA:?set EXPECT_SHA}"
@@ -46,30 +45,20 @@ echo "prev=$PREV new=$IMAGE"
 CTX=$(mktemp -d /tmp/golive.XXXXXX)
 trap 'rm -rf -- "$CTX"' EXIT
 git archive "$SHA" | tar -x -C "$CTX"
-cat > "$CTX/Dockerfile.golive" <<'DOCK'
-FROM node:22-bookworm-slim
-WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
-COPY . .
-ARG SITE_NOINDEX
-ENV SITE_NOINDEX=$SITE_NOINDEX
-ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm run build
-ENV NODE_ENV=production PORT=3000
-ENV NODE_OPTIONS=
-EXPOSE 3000
-CMD ["npx", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
-DOCK
-POD="golive-$SHORT-$RANDOM"
-tar -C "$CTX" --exclude=node_modules --exclude=.next -czf - . | kubectl -n $BUILD_NS run "$POD" -i --rm --restart=Never \
-  --image=gcr.io/kaniko-project/executor:v1.23.2 \
-  --overrides='{"spec":{"containers":[{"name":"'"$POD"'","image":"gcr.io/kaniko-project/executor:v1.23.2","stdin":true,"stdinOnce":true,
-    "args":["--context=tar://stdin","--dockerfile=Dockerfile.golive","--destination='"$IMAGE"'","--snapshot-mode=redo","--use-new-run","--compressed-caching=false","--single-snapshot"],
-    "resources":{"requests":{"memory":"2Gi","cpu":"1"},"limits":{"memory":"2900Mi"}},
-    "volumeMounts":[{"name":"docr","mountPath":"/kaniko/.docker"}]}],
-    "volumes":[{"name":"docr","secret":{"secretName":"docr-push","items":[{"key":"config.json","path":"config.json"}]}}]}}'
+# Build on the box with Node 22 (same major/minor as the node:22-bookworm-slim
+# base) and append /app as one layer with crane. The cluster has no spare
+# capacity for an in-cluster Kaniko build (all nodes ~95% requested).
+NODE22=${NODE22:-/tmp/node22}
+[[ -x "$NODE22/bin/node" ]] || { mkdir -p "$NODE22"; curl -sL https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz | tar -xJ -C "$NODE22" --strip-components=1; }
+mkdir -p "$CTX/root/app"
+( shopt -s dotglob; for f in "$CTX"/*; do [[ "$f" == "$CTX/root" ]] || mv "$f" "$CTX/root/app/"; done )
+( cd "$CTX/root/app" && export PATH="$NODE22/bin:$PATH" NEXT_TELEMETRY_DISABLED=1 SITE_NOINDEX= &&
+  npm ci --no-audit --no-fund && NODE_ENV=production npm run build )
+tar -C "$CTX/root" --owner=0 --group=0 -cf "$CTX/layer.tar" app
+crane append -b node:22-bookworm-slim -f "$CTX/layer.tar" -t "$IMAGE.tmp"
+crane mutate "$IMAGE.tmp" -t "$IMAGE" --workdir /app \
+  --env NEXT_TELEMETRY_DISABLED=1 --env SITE_NOINDEX= --env NODE_ENV=production --env PORT=3000 \
+  --label golive.sha="$SHA" --cmd npx,next,start,-H,0.0.0.0,-p,3000 >/dev/null
 crane digest "$IMAGE" >/dev/null || { echo "image not in registry"; exit 1; }
 
 echo "$PREV" > scripts/.rollback-golive.prev
