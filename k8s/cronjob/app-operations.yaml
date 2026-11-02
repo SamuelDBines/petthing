@@ -37,7 +37,7 @@ metadata:
   namespace: production
 spec:
   schedule: "30 */4 * * *"
-  suspend: true  # parked 2026-11-01; set false to resume
+  suspend: false  # resumed 2026-11-02 for Shopify orders
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:

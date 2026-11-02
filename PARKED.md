@@ -61,3 +61,12 @@ To resume: `kubectl -n pawtraitry-staging patch cronjob <name> -p '{"spec":{"sus
 
 ## Storefront moving to Shopify
 The Pawtraitry storefront is moving to Shopify (fjm90c-p9.myshopify.com). pawtraitry.com DNS will be pointed at Shopify once payments are set up.
+
+## Shopify intake live (2 Nov 2026, approved by Sam)
+- web deployed: `registry.digitalocean.com/repkit/repkit:pawtraitry-web-b6fa16a-2611022202` (commit b6fa16a) via `scripts/deploy-golive.sh`. Rollback target: `registry.digitalocean.com/repkit/repkit:pawtraitry-web-100e00d-f1c2ea-live`.
+- api.pawtraitry.com: IONOS A record -> 159.89.249.41, ingress `api-pawtraitry-com` (k8s/deploy/ingress-api-pawtraitry.yaml, cert api-pawtraitry-com-tls). Served noindex by middleware.
+- web-config: NEXT_PUBLIC_APP_URL_PAWTRAITRY=https://api.pawtraitry.com; api.pawtraitry.com added to STORE_EXTRA_DOMAINS.pawtraitry. pawtraitry-app secret has SHOPIFY_WEBHOOK_SECRET and SHOPIFY_SHOP_DOMAIN.
+- Shopify ORDERS_PAID webhook gid://shopify/WebhookSubscription/2553554043214 -> https://api.pawtraitry.com/api/webhooks/shopify.
+- CronJobs resumed: generate, fal-credit-recovery, partner-fulfillment, cron-order-watchdog. Still suspended: cleanup, cron-abandoned-basket, cron-admin-digest, cron-shop-fulfillment.
+- Live Deployment strategy is hand-patched to maxSurge 0 / maxUnavailable 1 (manifest says 1/0): brief downtime on each rollout.
+- pawtraitry.com DNS still points at the cluster; storefront password still on.
