@@ -1,0 +1,28 @@
+# api.pawtraitry.com: backend host for Shopify webhooks, emails and Prodigi asset links
+# once pawtraitry.com points at Shopify. Not canonical, so middleware sends X-Robots-Tag noindex
+# (ingress snippets are disabled on this cluster).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-pawtraitry-com
+  namespace: pawtraitry-staging
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: api.pawtraitry.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web
+            port:
+              number: 80
+  tls:
+  - hosts: [api.pawtraitry.com]
+    secretName: api-pawtraitry-com-tls
