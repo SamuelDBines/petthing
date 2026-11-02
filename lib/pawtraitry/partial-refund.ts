@@ -21,6 +21,15 @@ export async function safeRefundPortraitLineItem(order: Order, amountPence: numb
 
 export async function refundPortraitLineItem(order: Order, amountPence: number, customerReason: string) {
   if (amountPence <= 0) return;
+  if (order.productMeta?.shopify) {
+    // Shopify takes the payment, so Stripe cannot refund it. Ask the admin to refund in Shopify.
+    await alertAdmin(
+      "Refund needed in Shopify",
+      `<p>Shopify order ${order.productMeta.shopify.orderName || order.productMeta.shopify.orderId} (${order.email}): refund ${formatGbp(amountPence)}.</p><p>${customerReason}</p>`,
+      order.storeId,
+    );
+    return;
+  }
   const stripe = getStripeForStore(order.storeId, { stripeLivemode: order.stripeLivemode });
   const intent = order.stripePaymentIntentId ?? order.payments.find((p) => p.paymentIntentId)?.paymentIntentId;
   if (stripe && intent && !intent.startsWith("demo")) {

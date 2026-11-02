@@ -61,6 +61,8 @@ export type Order = {
     /** Automated NSFW scan failed (fal outage) — manual photo review in admin. */
     photoSafetyReviewRequired?: boolean;
     checkoutBasket?: import("@/lib/pawtraitry/create-basket").PawtraitryCheckoutBasket;
+    /** Order came from the Shopify storefront (orders/paid webhook). Refunds happen in Shopify admin. */
+    shopify?: { orderId: string; orderName: string; lineItemIds: string[]; test: boolean };
     /** Pawtraitry free-preview flow: generated before payment, watermarked until paid. */
     freePreview?: {
       /** Customer text for "custom" jobs, keyed by variantIndex. */
