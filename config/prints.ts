@@ -1,17 +1,47 @@
-export type PrintProductId = "puzzle_252";
+import { PAWTRAITRY_SKU_BY_PRINT_ID, pawtraitryPrintPricePence, type PawtraitryPrintId } from "@/config/catalogue/pawtraitry-skus";
+import { CANVAS_PRINTS, canvasPrintIds } from "@/config/canvasPrints";
+import { PAWTRAITRY_PHYSICAL_PRINTS } from "@/config/pawtraitryPhysicalPrints";
 
-export type PrintSheet = "board" | "lid";
+export type PrintProductId = PawtraitryPrintId;
+
+export type PrintComposer =
+  | "puzzle_board"
+  | "puzzle_lid"
+  | "canvas_inches"
+  | "cover"
+  | "mug_wrap"
+  | "greeting_card";
+
+/** @deprecated use composer on PrintAreaSpec */
+export type PrintSheet = "board" | "lid" | "canvas";
+
+export type PrintAreaSpec = {
+  printArea: string;
+  composer: PrintComposer;
+  widthPx?: number;
+  heightPx?: number;
+  /** Legacy puzzle areas */
+  sheet?: PrintSheet;
+};
 
 export type PrintProduct = {
   id: PrintProductId;
   name: string;
   detail: string;
-  /** Customer price. Confirm it covers the Prodigi quote plus UK postage before going live. */
+  /** Customer price (UK delivery included in price for Pawtraitry prints). */
   pricePence: number;
-  skuEnv: "PRODIGI_SKU_PUZZLE";
+  skuEnv: string;
   defaultSku: string;
   copies: number;
-  areas: { printArea: "default" | "lid"; sheet: PrintSheet }[];
+  widthIn?: number;
+  heightIn?: number;
+  prodigiPrintArea?: string;
+  /** Prodigi v4 order/quote item attributes (e.g. wrap, color). */
+  prodigiAttributes?: Record<string, string>;
+  areas: PrintAreaSpec[];
+  group?: string;
+  previewImage?: string;
+  previewAlt?: string;
 };
 
 export const PUZZLE_252 = {
@@ -27,21 +57,25 @@ export function sheetPixels(sheet: PrintSheet) {
   };
 }
 
-export const PRINTS: PrintProduct[] = [
+const PUZZLE_PRINTS: PrintProduct[] = [
   {
     id: "puzzle_252",
     name: "252-piece puzzle",
-    detail: "Your portrait, kept whole, on a 375×285mm puzzle and on the tin lid. Made in the UK and posted to you.",
-    pricePence: 3499,
+    detail: "Your portrait, kept whole, on a 375×285mm puzzle and on the tin lid. UK delivery included in the price.",
+    pricePence: pawtraitryPrintPricePence("puzzle_252"),
     skuEnv: "PRODIGI_SKU_PUZZLE",
     defaultSku: "JIGSAW-PUZZLE-252",
     copies: 1,
+    group: "puzzle",
+    previewImage: "/examples/pet-after.jpg",
     areas: [
-      { printArea: "default", sheet: "board" },
-      { printArea: "lid", sheet: "lid" },
+      { printArea: "jigsaw", composer: "puzzle_board", sheet: "board" },
+      { printArea: "lid", composer: "puzzle_lid", sheet: "lid" },
     ],
   },
 ];
+
+export const PRINTS: PrintProduct[] = [...PUZZLE_PRINTS, ...CANVAS_PRINTS, ...PAWTRAITRY_PHYSICAL_PRINTS];
 
 export function getPrint(id: PrintProductId) {
   const product = PRINTS.find((item) => item.id === id);
@@ -53,6 +87,16 @@ export function printName(id: string) {
   return PRINTS.find((item) => item.id === id)?.name ?? "Print";
 }
 
+export function allPrintProductIds(): PrintProductId[] {
+  return PRINTS.map((p) => p.id);
+}
+
 export function printSku(product: PrintProduct) {
   return process.env[product.skuEnv] || product.defaultSku;
+}
+
+export const GREETING_CARD_PRINT_ID = "greeting_card_a5" as const;
+
+export function greetingCardPricePence() {
+  return pawtraitryPrintPricePence(GREETING_CARD_PRINT_ID);
 }

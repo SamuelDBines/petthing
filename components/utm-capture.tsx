@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref"];
+const KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref", "gclid", "fbclid", "ttclid"];
 
 export function UtmCapture() {
   useEffect(() => {
@@ -19,7 +19,7 @@ export function UtmCapture() {
   return null;
 }
 
-export function storedUtm() {
+export function storedUtm(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
     return JSON.parse(sessionStorage.getItem("ps_utm") || "{}") as Record<string, string>;

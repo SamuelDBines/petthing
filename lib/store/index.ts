@@ -9,8 +9,8 @@ export function usingSupabase() {
 }
 
 export function getStore(): Store {
-  if (process.env.DATABASE_URL) return postgresStore;
-  if (usingSupabase()) return supabaseStore;
+  if (process.env.DATABASE_URL) return postgresStore as Store;
+  if (usingSupabase()) return supabaseStore as Store;
   if (process.env.VERCEL) throw new Error("Set DATABASE_URL before deploying");
   return jsonStore;
 }

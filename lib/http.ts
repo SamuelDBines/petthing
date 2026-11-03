@@ -20,6 +20,9 @@ export const utmSchema = z
     utm_content: z.string().max(200).optional(),
     utm_term: z.string().max(200).optional(),
     ref: z.string().max(40).optional(),
+    gclid: z.string().max(200).optional(),
+    fbclid: z.string().max(200).optional(),
+    ttclid: z.string().max(200).optional(),
   })
   .partial();
 

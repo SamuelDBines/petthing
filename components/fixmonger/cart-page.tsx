@@ -1,0 +1,144 @@
+"use client";
+
+import { checkoutErrorMessage, parseCheckoutResponse } from "@/lib/checkout/client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { track } from "@/components/cookie-banner";
+import { storedUtm } from "@/components/utm-capture";
+import { metaAttributionRequestBody } from "@/lib/meta/api-schema";
+import { metaCheckoutAttribution, stashMetaCheckoutAttribution } from "@/lib/meta/client";
+import { formatGbp } from "@/config/pricing";
+import { fixmongerShippingPence, FIXMONGER_DELIVERY } from "@/config/catalogue/pricing-seed";
+import { jinglefoldShippingPence, JINGLEFOLD_DELIVERY } from "@/config/jinglefold";
+import type { StorefrontCatalogueProduct } from "@/lib/catalogue/types";
+import type { ShopCartLine } from "@/lib/catalogue/types";
+import { readCart, writeCart } from "@/lib/cart/storage";
+
+export function FixmongerCartPage({
+  products,
+  storeId = "fixmonger",
+}: {
+  products: StorefrontCatalogueProduct[];
+  storeId?: string;
+}) {
+  const [lines, setLines] = useState<ShopCartLine[]>([]);
+  const [email, setEmail] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLines(readCart());
+  }, []);
+
+  const rows = lines
+    .map((line) => {
+      const product = products.find((p) => p.id === line.productId);
+      if (!product) return null;
+      return { line, product, total: product.pricePence * line.quantity };
+    })
+    .filter(Boolean) as { line: ShopCartLine; product: StorefrontCatalogueProduct; total: number }[];
+
+  const subtotal = rows.reduce((sum, row) => sum + row.total, 0);
+  const shippingPence =
+    storeId === "jinglefold" ? jinglefoldShippingPence(subtotal) : fixmongerShippingPence(subtotal);
+  const freeOver =
+    storeId === "jinglefold" ? JINGLEFOLD_DELIVERY.freeDeliveryOverPence : FIXMONGER_DELIVERY.freeDeliveryOverPence;
+
+  async function checkout() {
+    setBusy(true);
+    setError("");
+    const meta = metaCheckoutAttribution();
+    const contentIds = rows.map(({ product }) => product.id);
+    stashMetaCheckoutAttribution(meta, contentIds);
+    track("InitiateCheckout", (subtotal + shippingPence) / 100, meta.initiateCheckoutEventId);
+    const response = await fetch("/api/shop/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        lines,
+        marketingConsent,
+        utm: storedUtm(),
+        ...metaAttributionRequestBody(meta),
+      }),
+    });
+    const { ok, body } = await parseCheckoutResponse(response);
+    setBusy(false);
+    if (!ok || !body.url) {
+      setError(checkoutErrorMessage(body, ok));
+      return;
+    }
+    writeCart([]);
+    window.location.href = body.url;
+  }
+
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-10" data-testid="fixmonger-cart">
+      <h1 className="font-display text-3xl">Your cart</h1>
+      {!rows.length ? (
+        <p className="mt-4 text-[var(--moss)]">
+          Nothing here yet. <Link href="/">Browse fixes</Link>
+        </p>
+      ) : (
+        <>
+          <ul className="mt-6 space-y-4">
+            {rows.map(({ line, product, total }) => (
+              <li key={product.id} className="flex justify-between border-b border-[var(--line)] pb-3">
+                <div>
+                  <p className="font-medium">{product.name}</p>
+                  <p className="text-sm text-[var(--moss)]">Qty {line.quantity}</p>
+                </div>
+                <p>{formatGbp(total)}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-right text-sm text-[var(--moss)]">
+            Subtotal {formatGbp(subtotal)}
+            <br />
+            Delivery {shippingPence === 0 ? "free" : formatGbp(shippingPence)}
+            {shippingPence > 0 ? (
+              <>
+                <br />
+                <span>Free delivery on orders of {formatGbp(freeOver)} or more</span>
+              </>
+            ) : null}
+          </p>
+          <p className="mt-1 text-right font-semibold">Total {formatGbp(subtotal + shippingPence)}</p>
+          <label className="mt-6 block text-sm">
+            Email for receipt
+            <input
+              className="field mt-1 w-full"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="fixmonger-checkout-email"
+            />
+          </label>
+          <label className="mt-4 flex items-start gap-2 text-sm text-[var(--moss)]">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={marketingConsent}
+              onChange={(e) => setMarketingConsent(e.target.checked)}
+              data-testid="shop-marketing-consent"
+            />
+            <span>
+              Email me about items left in my basket and occasional offers (optional). You can unsubscribe any time.
+            </span>
+          </label>
+          {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+          <button
+            type="button"
+            disabled={busy || !email}
+            className="mt-4 w-full rounded-full bg-[var(--pumpkin)] py-3 font-medium text-white disabled:opacity-50"
+            onClick={checkout}
+            data-testid="fixmonger-checkout"
+          >
+            {busy ? "Opening checkout…" : "Checkout"}
+          </button>
+        </>
+      )}
+    </main>
+  );
+}

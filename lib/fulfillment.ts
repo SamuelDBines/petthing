@@ -5,18 +5,27 @@ import { getPrint } from "@/config/prints";
 import { EXTRA_IMAGES_PER_STYLE } from "@/config/pricing";
 import { getTheme } from "@/config/themes";
 import { putBlob, readBlob, signedBlobUrl } from "@/lib/blobs";
-import type { Order, Shipping } from "@/lib/domain";
+import type { Order, PrintOrder, Shipping } from "@/lib/domain";
 import { alertAdmin, christmasEmail, sendEmail } from "@/lib/email";
-import { enqueueForOrder, enqueuePlan } from "@/lib/generation";
+import { orderEmailDelivery, withEmailDelivery } from "@/lib/email/delivery-context";
+import { enqueueForOrder, enqueuePlan, scheduleOrderGeneration } from "@/lib/generation";
 import { submitPrintOrder } from "@/lib/prodigi";
-import { composePrint } from "@/lib/puzzleSheet";
+import { composePrintArea } from "@/lib/print-compose";
+import { isHandPaintedTierId } from "@/config/paintings";
+import { pawtraitryBasketHasPhysical } from "@/lib/pawtraitry/create-basket";
+import { capturePortraitPaymentIntent } from "@/lib/pawtraitry/partial-refund";
+import { createHandPaintedWorkflow } from "@/lib/handPainted";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { getStore } from "@/lib/store";
-import { getStripe, paymentIntentId } from "@/lib/stripe";
+import { getStripeForStore, paymentIntentId } from "@/lib/stripe";
+import { manualReviewEnabled } from "@/lib/runtime";
+import { reviewReadyEmail } from "@/lib/email";
 
 type PaidArgs = {
   sessionId: string;
   paymentIntentId: string | null;
   amountPence: number | null;
+  stripeLivemode?: boolean | null;
 };
 
 function rememberPayment(order: Order, args: PaidArgs, kind: string): Order["payments"] {
@@ -47,11 +56,14 @@ async function rewardReferrer(order: Order) {
   if (styleId) {
     await store.updateOrder(owner.id, { styleIds: missing[0] ? [...owner.styleIds, styleId] : owner.styleIds });
     await enqueuePlan(owner.id, [{ styleId, count: 2 }], true);
-    await sendEmail({
-      to: owner.email,
-      subject: `A friend used your ${APP_NAME} code`,
-      html: "<p>They got 20% off. Your free extra style is being painted, and we’ll email you when it lands in the same gallery.</p>",
-    });
+    await sendEmail(
+      withEmailDelivery(orderEmailDelivery(owner), {
+        to: owner.email,
+        subject: `A friend used your ${APP_NAME} code`,
+        html: "<p>They got 20% off. Your free extra style is being painted, and we’ll email you when it lands in the same gallery.</p>",
+        storeId: owner.storeId,
+      }),
+    );
   }
   await store.updateOrder(order.id, { referralRewardGranted: true });
 }
@@ -70,14 +82,57 @@ export async function markPortraitPaid(orderId: string, args: PaidArgs) {
     payments,
     failureReason: null,
   });
-  const jobs = await store.listJobs(order.id);
-  if (!jobs.length) {
-    const fresh = await store.getOrder(order.id);
-    if (fresh) await enqueueForOrder(fresh);
+  const freshAfterPay = await store.getOrder(order.id);
+  if (freshAfterPay && isHandPaintedTierId(freshAfterPay.tierId)) {
+    const config = await loadStoreConfig(freshAfterPay.storeId);
+    await store.updateOrder(freshAfterPay.id, { status: "review" });
+    await createHandPaintedWorkflow(freshAfterPay, config.brand.appName);
+  } else {
+    const jobs = await store.listJobs(order.id);
+    let kickGeneration = true;
+    const previewedBeforePayment =
+      (order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised)) ||
+      (order.storeId === "pawtraitry" && Boolean(order.productMeta?.freePreview));
+    if (previewedBeforePayment && jobs.some((j) => j.status === "done")) {
+      kickGeneration = false;
+      if (order.storeId === "pawtraitry") {
+        // Free previews were already moderated and seen by the customer: auto-deliver, no admin review.
+        await store.updateOrder(order.id, { status: "generating", failureReason: null });
+        const { deliverOrder } = await import("@/lib/generation");
+        void deliverOrder(order.id).catch((error) => console.error(`[paid] preview delivery failed for ${order.id}`, error));
+      } else if (manualReviewEnabled()) {
+        await store.updateOrder(order.id, { status: "review", failureReason: null });
+        const config = await loadStoreConfig(order.storeId);
+        const { storeCanonicalOrigin } = await import("@/lib/tenant/origin");
+        const origin = storeCanonicalOrigin(order.storeId, config.brand, config.domains);
+        await alertAdmin(
+          order.storeId === "jinglefold" ? "Jinglefold personalised order ready for approval" : "Pawtraitry order ready for approval",
+          reviewReadyEmail(`${origin}/admin`, order.email),
+          order.storeId,
+        );
+      } else {
+        const { deliverOrder } = await import("@/lib/generation");
+        await deliverOrder(order.id);
+      }
+    } else if (!jobs.length) {
+      const fresh = await store.getOrder(order.id);
+      if (fresh) await enqueueForOrder(fresh);
+    }
+    if (kickGeneration) scheduleOrderGeneration(order.id);
   }
-  await store.addEvent({ id: randomUUID(), type: "paid", orderId: order.id, createdAt: new Date().toISOString() });
+  await store.addEvent({
+    id: randomUUID(),
+    storeId: order.storeId,
+    type: "paid",
+    orderId: order.id,
+    createdAt: new Date().toISOString(),
+  });
   const rewarded = await store.getOrder(order.id);
   if (rewarded) await rewardReferrer(rewarded);
+  if (order.storeId === "pawtraitry" && order.offer === "one_off") {
+    const { sendPawtraitryOrderConfirmationEmail } = await import("@/lib/pawtraitry/order-email");
+    await sendPawtraitryOrderConfirmationEmail(await store.getOrder(order.id) ?? order);
+  }
 }
 
 export async function markExtraPaid(orderId: string, styleIds: string[], args: PaidArgs) {
@@ -94,6 +149,7 @@ export async function markExtraPaid(orderId: string, styleIds: string[], args: P
     order.id,
     styleIds.map((styleId) => ({ styleId, count: EXTRA_IMAGES_PER_STYLE })),
   );
+  scheduleOrderGeneration(order.id);
 }
 
 function shippingFrom(session: Stripe.Checkout.Session): Shipping | null {
@@ -112,21 +168,40 @@ function shippingFrom(session: Stripe.Checkout.Session): Shipping | null {
 
 export async function markPrintPaid(printId: string, session: Stripe.Checkout.Session, args: PaidArgs) {
   const store = getStore();
-  const print = (await store.listPrints()).find((item) => item.id === printId);
-  if (!print || print.status === "submitted") return;
-  const order = await store.getOrder(print.orderId);
+  const printIds = [printId];
+  const addonPrintId = session.metadata?.addonPrintId?.trim();
+  if (addonPrintId && addonPrintId !== printId) printIds.push(addonPrintId);
+
   const shipping = shippingFrom(session);
+  const prints: PrintOrder[] = [];
+  for (const id of printIds) {
+    const row = (await store.listPrints()).find((item) => item.id === id);
+    if (!row || row.status === "submitted") continue;
+    prints.push(row);
+  }
+  if (!prints.length) return;
+
+  const order = await store.getOrder(prints[0]!.orderId);
   if (!shipping || shipping.countryCode !== "GB") {
-    await store.updatePrint(print.id, { status: "failed", error: "UK shipping only at launch.", shipping });
-    await alertAdmin("Print order needs a UK address", `<p>${order?.email ?? print.orderId}</p>`);
+    for (const row of prints) {
+      await store.updatePrint(row.id, { status: "failed", error: "UK shipping only at launch.", shipping });
+    }
+    await alertAdmin(
+      "Print order needs a UK address",
+      `<p>${order?.email ?? prints[0]!.orderId}</p>`,
+      order?.storeId,
+    );
     return;
   }
-  await store.updatePrint(print.id, {
-    status: "paid",
-    shipping,
-    stripePaymentIntentId: args.paymentIntentId,
-    error: null,
-  });
+
+  for (const row of prints) {
+    await store.updatePrint(row.id, {
+      status: "paid",
+      shipping,
+      stripePaymentIntentId: args.paymentIntentId,
+      error: null,
+    });
+  }
   if (order) {
     await store.updateOrder(order.id, {
       processedSessions: order.processedSessions.includes(args.sessionId)
@@ -135,37 +210,62 @@ export async function markPrintPaid(printId: string, session: Stripe.Checkout.Se
       payments: rememberPayment(order, args, "print"),
     });
   }
-  try {
-    const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
-    const portrait = asset ? await readBlob(asset.bucket, asset.storagePath) : null;
-    if (!portrait) throw new Error("The chosen portrait is missing");
-    const product = getPrint(print.productId);
-    const assets = [];
-    for (const area of product.areas) {
-      const bytes = await composePrint(portrait.bytes, area.sheet);
-      const storagePath = `prints/${print.id}/${area.sheet}.jpg`;
-      await putBlob("results", storagePath, bytes, "image/jpeg");
-      assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
+
+  let emailed = false;
+  for (const row of prints) {
+    try {
+      await fulfillPrintToProdigi(row, order, shipping);
+      if (order && !emailed) {
+        emailed = true;
+        await sendEmail(
+          withEmailDelivery(orderEmailDelivery(order), {
+            to: order.email,
+            subject: `Your ${APP_NAME} print is with the printer`,
+            html: "<p>We’ve sent your order to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
+            storeId: order.storeId,
+          }),
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Prodigi failed";
+      await store.updatePrint(row.id, { status: "failed", error: message });
+      await alertAdmin("Prodigi order failed", `<p>${message}</p>`, order?.storeId);
     }
-    const result = await submitPrintOrder({
-      product,
-      shipping,
-      assets,
-      merchantReference: print.id,
-    });
-    await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: result.prodigiOrderId, error: null });
-    if (order) {
-      await sendEmail({
-        to: order.email,
-        subject: `Your ${APP_NAME} puzzle is with the printer`,
-        html: "<p>We’ve sent your puzzle to our UK print partner. It’s made to order, then posted. That usually takes a few days plus delivery.</p>",
-      });
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Prodigi failed";
-    await store.updatePrint(print.id, { status: "failed", error: message });
-    await alertAdmin("Prodigi order failed", `<p>${message}</p>`);
   }
+}
+
+export async function fulfillPrintToProdigi(
+  print: PrintOrder,
+  order: Order | null | undefined,
+  shipping: Shipping,
+  portraitBytes?: Buffer,
+) {
+  const store = getStore();
+  const asset = order ? (await store.listAssets(order.id)).find((item) => item.id === print.assetId) : null;
+  const portrait =
+    portraitBytes != null
+      ? { bytes: portraitBytes }
+      : asset
+        ? await readBlob(asset.bucket, asset.storagePath)
+        : null;
+  if (!portrait) throw new Error("The chosen portrait is missing");
+  const product = getPrint(print.productId);
+  const assets = [];
+  for (const area of product.areas) {
+    const bytes = await composePrintArea(product, area, portrait.bytes);
+    const storagePath = `prints/${print.id}/${area.printArea}.jpg`;
+    await putBlob("results", storagePath, bytes, "image/jpeg");
+    assets.push({ printArea: area.printArea, url: await signedBlobUrl("results", storagePath, 60 * 60 * 48) });
+  }
+  const result = await submitPrintOrder({
+    storeId: order?.storeId ?? "pawtraitry",
+    stripeLivemode: order?.stripeLivemode,
+    product,
+    shipping,
+    assets,
+    merchantReference: print.id,
+  });
+  await store.updatePrint(print.id, { status: "submitted", prodigiOrderId: result.prodigiOrderId, error: null });
 }
 
 export async function markChristmasPaid(preorderId: string, args: PaidArgs) {
@@ -181,19 +281,43 @@ export async function markChristmasPaid(preorderId: string, args: PaidArgs) {
       await store.updateOrder(order.id, { photosDeleteAfter: keepUntil });
     }
   }
-  await sendEmail({ to: target.email, subject: `Christmas pre-order confirmed — ${APP_NAME}`, html: christmasEmail() });
+  await sendEmail(
+    withEmailDelivery(
+      { stripeLivemode: args.stripeLivemode ?? false, requestHost: null },
+      {
+        to: target.email,
+        subject: `Christmas pre-order confirmed: ${APP_NAME}`,
+        html: christmasEmail(),
+        storeId: target.storeId,
+      },
+    ),
+  );
 }
 
 export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
   if (session.payment_status === "unpaid") return;
+  const { persistCheckoutSessionLivemode } = await import("@/lib/stripe/livemode");
+  await persistCheckoutSessionLivemode(session);
   const kind = session.metadata?.kind;
   const args: PaidArgs = {
     sessionId: session.id,
     paymentIntentId: paymentIntentId(session),
     amountPence: session.amount_total,
+    stripeLivemode: session.livemode,
   };
   if ((kind === "portrait" || kind === "season_pass") && session.metadata?.orderId) {
-    await markPortraitPaid(session.metadata.orderId, args);
+    const orderId = session.metadata.orderId;
+    const portraitOrder = await getStore().getOrder(orderId);
+    if (portraitOrder?.storeId === "jinglefold" && portraitOrder.productMeta?.personalised) {
+      const shipping = shippingFrom(session);
+      if (shipping) await getStore().updateOrder(orderId, { shipping });
+    }
+    if (portraitOrder?.storeId === "pawtraitry" && pawtraitryBasketHasPhysical(portraitOrder.productMeta?.checkoutBasket)) {
+      const shipping = shippingFrom(session);
+      if (shipping) await getStore().updateOrder(orderId, { shipping });
+    }
+    await capturePortraitPaymentIntent(orderId, session);
+    await markPortraitPaid(orderId, args);
     if (kind === "season_pass") {
       const subscription = session.subscription;
       const stripeSubscriptionId = typeof subscription === "string" ? subscription : subscription?.id ?? null;
@@ -205,6 +329,21 @@ export async function fulfillCheckoutSession(session: Stripe.Checkout.Session) {
   }
   if (kind === "print" && session.metadata?.printId) await markPrintPaid(session.metadata.printId, session, args);
   if (kind === "christmas" && session.metadata?.preorderId) await markChristmasPaid(session.metadata.preorderId, args);
+  if (kind === "shop" && session.metadata?.shopOrderId) {
+    const { markShopOrderPaid } = await import("@/lib/shop/fulfillment");
+    await markShopOrderPaid(session.metadata.shopOrderId, session);
+  }
+  const storeId = session.metadata?.storeId;
+  if (storeId && kind) {
+    const { recordPaidAnalyticsEvent } = await import("@/lib/analytics/server-events");
+    await recordPaidAnalyticsEvent({
+      storeId,
+      kind,
+      orderId: session.metadata?.orderId ?? session.metadata?.shopOrderId,
+      visitorSessionId: session.metadata?.visitorSessionId,
+      amountPence: session.amount_total,
+    });
+  }
 }
 
 export async function noteFailedPayment(session: Stripe.Checkout.Session) {
@@ -220,12 +359,19 @@ export async function noteSeasonRenewed(subscriptionId: string) {
   const store = getStore();
   const order = await store.getOrderBySubscription(subscriptionId);
   if (!order || order.subscriptionStatus === "canceled") return;
-  await sendEmail({
-    to: order.email,
-    subject: `Your ${APP_NAME} season pass renewed`,
-    html: "<p>The next season’s family portraits will use the photos we already hold. We’ll email the gallery when that season opens.</p>",
-  });
-  await alertAdmin("Season pass renewed", `<p>${order.email} renewed ${subscriptionId}. The next season is not generated automatically.</p>`);
+  await sendEmail(
+    withEmailDelivery(orderEmailDelivery(order), {
+      to: order.email,
+      subject: `Your ${APP_NAME} season pass renewed`,
+      html: "<p>The next season’s family portraits will use the photos we already hold. We’ll email the gallery when that season opens.</p>",
+      storeId: order.storeId,
+    }),
+  );
+  await alertAdmin(
+    "Season pass renewed",
+    `<p>${order.email} renewed ${subscriptionId}. The next season is not generated automatically.</p>`,
+    order.storeId,
+  );
 }
 
 export async function noteSeasonCanceled(subscriptionId: string) {
@@ -233,14 +379,32 @@ export async function noteSeasonCanceled(subscriptionId: string) {
   const order = await store.getOrderBySubscription(subscriptionId);
   if (!order) return;
   await store.updateOrder(order.id, { subscriptionStatus: "canceled" });
-  await alertAdmin("Season pass canceled", `<p>${order.email} canceled ${subscriptionId}.</p>`);
+  await alertAdmin(
+    "Season pass canceled",
+    `<p>${order.email} canceled ${subscriptionId}.</p>`,
+    order.storeId,
+  );
+}
+
+export class OrderAlreadyRefundedError extends Error {
+  constructor(orderId: string) {
+    super(`Order ${orderId} is already refunded.`);
+    this.name = "OrderAlreadyRefundedError";
+  }
+}
+
+/** Stripe answers this when the charge behind a payment intent was already fully refunded. */
+function isAlreadyRefundedStripeError(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "charge_already_refunded";
 }
 
 export async function refundOrder(orderId: string) {
   const store = getStore();
   const order = await store.getOrder(orderId);
   if (!order) throw new Error("Order not found");
-  const stripe = getStripe();
+  if (order.status === "refunded") throw new OrderAlreadyRefundedError(orderId);
+  const stripe = getStripeForStore(order.storeId, { stripeLivemode: order.stripeLivemode });
   const prints = await store.listPrints(orderId);
   const intents = new Set<string>();
   for (const payment of order.payments) {
@@ -253,7 +417,12 @@ export async function refundOrder(orderId: string) {
   if (stripe) {
     for (const intent of intents) {
       if (intent.startsWith("demo")) continue;
-      await stripe.refunds.create({ payment_intent: intent });
+      try {
+        await stripe.refunds.create({ payment_intent: intent });
+      } catch (error) {
+        // Refunded already (e.g. from the Stripe dashboard): record it rather than failing.
+        if (!isAlreadyRefundedStripeError(error)) throw error;
+      }
     }
   }
   await store.updateOrder(orderId, { status: "refunded" });

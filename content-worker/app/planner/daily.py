@@ -24,9 +24,9 @@ async def generate_pet_of_day(db: Session, settings: Settings, *, now: datetime 
         else "Watch this photo become a painted portrait"
     )
     reveal = (
-        f"From snap to {pet.style_name} — order your Christmas gift at Pawtraitry."
+        f"From snap to {pet.style_name}: order your Christmas gift at Pawtraitry."
         if christmas
-        else f"From snap to {pet.style_name} — UK pet portrait gifts."
+        else f"From snap to {pet.style_name}. UK pet portrait gifts."
     )
 
     slug = f"pet-of-day-{now.strftime('%Y%m%d')}"
@@ -52,7 +52,7 @@ async def generate_pet_of_day(db: Session, settings: Settings, *, now: datetime 
     platform_payloads = {
         platform: {
             "text": text,
-            "title": f"{pet.label} — before & after",
+            "title": f"{pet.label}, before and after",
             "video_url": None,
         }
         for platform, text in copies.items()
@@ -61,7 +61,7 @@ async def generate_pet_of_day(db: Session, settings: Settings, *, now: datetime 
     item = create_queue_item(
         db,
         kind=ContentKind.pet_of_day,
-        title=f"Pet of the day — {pet.label}",
+        title=f"Pet of the day: {pet.label}",
         media_path=str(render.video_path),
         caption_path=str(render.caption_txt_path),
         platform_payloads=platform_payloads,

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = Field(default=True, alias="CONTENT_SCHEDULER_ENABLED")
     daily_plan_cron: str = Field(default="0 7 * * *", alias="CONTENT_DAILY_PLAN_CRON")
     poll_plan_cron: str = Field(default="0 10 * * 1", alias="CONTENT_POLL_PLAN_CRON")
+    store_promo_cron: str = Field(default="0 9 * * *", alias="CONTENT_STORE_PROMO_CRON")
     timezone: str = Field(default="Europe/London", alias="CONTENT_TIMEZONE")
 
     # Spend caps (GBP)

@@ -14,8 +14,9 @@ dev: deps
 	$(MAKE) db-setup
 	@if [ -n "$$STRIPE_SECRET_KEY" ]; then docker compose --profile stripe up -d stripe-listener; fi
 	@echo ""
-	@echo "Store:     http://localhost:3000"
-	@echo "Admin:     http://localhost:3000/admin  (password from ADMIN_PASSWORD)"
+	@echo "Pawtraitry:  http://pawtraitry.localhost:3000  (or http://localhost:3000)"
+	@echo "WildFrame:   http://wildframe.localhost:3000  (or ?store=wildframe on localhost)"
+	@echo "Admin:       http://localhost:3000/admin  (password from ADMIN_PASSWORD)"
 	@echo "Content:   http://localhost:8080/admin?token=$${CONTENT_WORKER_SECRET:-dev-change-me}"
 	@echo "Mailpit:   http://localhost:8025"
 	@echo ""

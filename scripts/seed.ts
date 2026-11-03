@@ -32,6 +32,7 @@ async function main() {
   const now = new Date().toISOString();
   const order: Order = {
     id: demoId,
+    storeId: "pawtraitry",
     createdAt: now,
     email: "demo@pawtraitry.local",
     themeId: "halloween",

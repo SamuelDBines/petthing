@@ -4,6 +4,8 @@ Python FastAPI service that plans, renders, and queues daily social content for 
 
 Patterns mirror the owner's `splash` (9:16 shorts + captions + per-platform copy) and `feedkit` (daily plans + approve-before-post queue), adapted for before/after pet portrait reveals.
 
+**Fixmonger (catalogue stores):** set `store_id=fixmonger` on queue rows and use the `fixmonger_product` template family for product demo / before-after clips (same approval flow as pet content).
+
 ## Quick start (dry-run)
 
 From the monorepo root:

@@ -25,9 +25,12 @@ async function main() {
   }
   const sql = openDatabase(url, 1);
   try {
-    const file = path.join(process.cwd(), "content-worker", "migrations", "001_content_tables.sql");
-    const body = await readFile(file, "utf8");
-    await sql.unsafe(body);
+    const dir = path.join(process.cwd(), "content-worker", "migrations");
+    const files = ["001_content_tables.sql", "002_store_id.sql"];
+    for (const name of files) {
+      const body = await readFile(path.join(dir, name), "utf8");
+      await sql.unsafe(body);
+    }
     console.log("applied content-worker migrations");
   } finally {
     await sql.end({ timeout: 5 });

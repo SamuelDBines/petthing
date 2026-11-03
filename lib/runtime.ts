@@ -1,5 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { REFERRAL_PREFIX } from "@/config/brand";
+import { resolveClientIpFromHeaders } from "@/lib/runtime/client-ip";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
+import { metaCapiToken, metaPixelId } from "@/lib/meta/config";
+import { prodigiApiKey } from "@/lib/prodigi/config";
 
 export function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -36,19 +40,36 @@ export function imageCostGbp() {
 
 export function demoCheckoutAllowed() {
   if (process.env.STRIPE_SECRET_KEY) return false;
+  if (process.env.ALLOW_DEMO_CHECKOUT === "true") return true;
   if (process.env.NODE_ENV === "production") return false;
   return process.env.ALLOW_DEMO_CHECKOUT !== "false";
 }
 
+export function metaIntegrationFlags(env: NodeJS.ProcessEnv = process.env) {
+  let metaPixel = false;
+  let metaCapi = false;
+  for (const store of BUILTIN_STORES) {
+    const host = store.brand.siteDomain.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+    if (metaPixelId(store.id, host, env, store.brand)) metaPixel = true;
+    if (metaCapiToken(store.id, host, env)) metaCapi = true;
+  }
+  return { metaPixel, metaCapi };
+}
+
 export function integrations() {
+  const meta = metaIntegrationFlags();
   return {
     postgres: Boolean(process.env.DATABASE_URL),
     supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
     fal: Boolean(process.env.FAL_KEY),
-    resend: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
-    prodigi: Boolean(process.env.PRODIGI_API_KEY),
-    metaPixel: Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID),
+    email:
+      Boolean(process.env.RELAYEMAIL_API_KEY && process.env.EMAIL_FROM) ||
+      Boolean((process.env.AWS_SES_REGION || process.env.AWS_ACCESS_KEY_ID) && process.env.EMAIL_FROM) ||
+      Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
+    prodigi: Boolean(prodigiApiKey()),
+    metaPixel: meta.metaPixel,
+    metaCapi: meta.metaCapi,
     tiktokPixel: Boolean(process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID),
     manualReview: manualReviewEnabled(),
     demoCheckout: demoCheckoutAllowed(),
@@ -65,20 +86,12 @@ export function safeEqual(a: string, b: string) {
   return timingSafeEqual(left, right);
 }
 
-export function referralCode() {
+export function referralCode(prefix = REFERRAL_PREFIX) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(6);
   let body = "";
   for (const byte of bytes) body += alphabet[byte % alphabet.length];
-  return `${REFERRAL_PREFIX}-${body}`;
-}
-
-export function integrationIdentifier(flow: string) {
-  const alphabet = "abcdefghijklmnopqrstuvwxyz";
-  const bytes = randomBytes(8);
-  let suffix = "";
-  for (const byte of bytes) suffix += alphabet[byte % alphabet.length];
-  return `pawtraitry_${flow}_${suffix}`;
+  return `${prefix}-${body}`;
 }
 
 export function signValue(value: string, secretName: string, fallback: string) {
@@ -95,8 +108,7 @@ export function londonDay(date = new Date()) {
 }
 
 export function clientIp(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "local";
+  return resolveClientIpFromHeaders(request.headers);
 }
 
 export function hashIp(ip: string) {

@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
 import type { Bucket } from "@/lib/domain";
+import { localDataPath } from "@/lib/localPaths";
 import { appUrl, safeEqual, secret } from "@/lib/runtime";
 import { usingSupabase } from "@/lib/store";
 
@@ -12,7 +13,7 @@ function localPath(bucket: Bucket, storagePath: string) {
   if (!SAFE_PATH.test(storagePath) || storagePath.includes("..")) {
     throw new Error("Invalid storage path");
   }
-  return path.join(process.cwd(), ".data", "blobs", bucket, storagePath);
+  return localDataPath("blobs", bucket, storagePath);
 }
 
 function signature(bucket: string, storagePath: string, exp: string) {

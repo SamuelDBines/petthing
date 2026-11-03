@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
+import { portraitCheckoutIdempotencyKey } from "@/lib/pawtraitry/preview-funnel";
 import { z } from "zod";
-import { APP_NAME } from "@/config/brand";
-import { getPrint, PRINTS } from "@/config/prints";
+import { allPrintProductIds, getPrint, GREETING_CARD_PRINT_ID, PRINTS, type PrintProductId } from "@/config/prints";
 import {
   CHRISTMAS_PREORDER_PENCE,
   EXTRA_STYLES_COUNT,
@@ -9,39 +9,72 @@ import {
   formatGbp,
   getTier,
   PRIORITY_PENCE,
+  REFERRAL_DISCOUNT,
+  SEASON_PASS,
 } from "@/config/pricing";
+import {
+  PAWTRAITRY_BUMP_PRICE_PENCE,
+  PAWTRAITRY_CANVAS_FREE_BAUBLE_MIN_PENCE,
+} from "@/config/pawtraitry-promos";
 import type { Preorder, PrintOrder } from "@/lib/domain";
 import { markChristmasPaid, markExtraPaid, markPortraitPaid, markPrintPaid } from "@/lib/fulfillment";
+import {
+  pawtraitryBasketHasPhysical,
+  pawtraitryMetaContentIds,
+  stripeLineItemsForPortraitCheckout,
+} from "@/lib/pawtraitry/create-basket";
+import { capturePortraitPaymentIntent } from "@/lib/pawtraitry/partial-refund";
 import { jsonError, parseBody } from "@/lib/http";
-import { appUrl, clientIp, demoCheckoutAllowed, hashIp, integrationIdentifier } from "@/lib/runtime";
-
-function requestOrigin(request: Request) {
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (!host) return appUrl();
-  const proto = request.headers.get("x-forwarded-proto") || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  return `${proto}://${host}`;
-}
+import { rateLimits } from "@/lib/rateLimits";
+import { clientIp, demoCheckoutAllowed, hashIp } from "@/lib/runtime";
+import {
+  createCheckoutSession,
+  integrationIdentifier,
+  openCheckoutSessionUrl,
+  stripeCheckoutErrorResponse,
+} from "@/lib/stripe/checkout";
+import { loadStoreConfig, requestStoreId } from "@/lib/tenant/context";
+import type { StoreBrand } from "@/lib/tenant/types";
+import { publicOriginForStore } from "@/lib/tenant/origin";
 import { getStore } from "@/lib/store";
-import { getStripe } from "@/lib/stripe";
+import { requestHostFromRequest } from "@/lib/http/request-host";
+import { getStripeForStore } from "@/lib/stripe";
 import type Stripe from "stripe";
+import { metaAttributionBodySchema, metaContextFromBody } from "@/lib/meta/api-schema";
+import { mergeCheckoutStripeMetadata } from "@/lib/meta/stripe-metadata";
+import { metaAttributionFromRequest } from "@/lib/meta/purchase-from-session";
+import { sendMetaInitiateCheckout } from "@/lib/meta/server-events";
 
 const schema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("portrait"), orderId: z.string().uuid(), uploadToken: z.string().min(10) }),
+  z
+    .object({
+      kind: z.literal("portrait"),
+      orderId: z.string().uuid(),
+      uploadToken: z.string().min(10),
+      analyticsSessionId: z.string().uuid().optional(),
+    })
+    .merge(metaAttributionBodySchema),
   z.object({
     kind: z.literal("extra_styles"),
     token: z.string().min(10),
     styleIds: z.array(z.string()).min(1).max(EXTRA_STYLES_COUNT),
+    analyticsSessionId: z.string().uuid().optional(),
   }),
   z.object({
     kind: z.literal("print"),
     token: z.string().min(10),
-    productId: z.enum(["puzzle_252"]),
+    productId: z.enum(allPrintProductIds() as [string, ...string[]]),
     assetId: z.string().uuid(),
+    addPetBaubleBump: z.boolean().optional(),
+    addGreetingCard: z.boolean().optional(),
   }),
   z.object({ kind: z.literal("christmas"), email: z.string().email(), token: z.string().optional() }),
 ]);
 
 async function openSession(args: {
+  storeId: string;
+  requestHost: string;
+  brand: StoreBrand;
   origin: string;
   kind: string;
   email: string;
@@ -50,32 +83,39 @@ async function openSession(args: {
   successPath: string;
   cancelPath: string;
   idempotencyKey: string;
+  integrationStableKey: string;
   collectShipping?: boolean;
   allowPromotionCodes?: boolean;
   mode?: "payment" | "subscription";
 }) {
-  const stripe = getStripe();
+  const stripe = getStripeForStore(args.storeId, args.requestHost);
   const success = `${args.origin}${args.successPath}`;
   if (!stripe) {
     if (!demoCheckoutAllowed()) return jsonError("Payments are not configured yet.", 503);
     return { demo: true as const, url: success.replace("{CHECKOUT_SESSION_ID}", `demo_${args.idempotencyKey}`) };
   }
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: args.mode ?? "payment",
-      customer_email: args.email,
-      line_items: args.lineItems,
-      success_url: success,
-      cancel_url: `${args.origin}${args.cancelPath}`,
-      metadata: args.metadata,
-      integration_identifier: integrationIdentifier(args.kind),
-      allow_promotion_codes: args.allowPromotionCodes ?? false,
-      ...(args.collectShipping ? { shipping_address_collection: { allowed_countries: ["GB"] } } : {}),
-    },
-    { idempotencyKey: args.idempotencyKey },
-  );
-  if (!session.url) return jsonError("Stripe did not return a checkout URL.", 502);
-  return { demo: false as const, url: session.url, sessionId: session.id };
+  try {
+    const session = await createCheckoutSession({
+      stripe,
+      brand: args.brand,
+      idempotencyKey: args.idempotencyKey,
+      logoUrl: `${args.origin}${args.brand.logoPath}`,
+      sessionParams: {
+        mode: args.mode ?? "payment",
+        customer_email: args.email,
+        line_items: args.lineItems,
+        success_url: success,
+        cancel_url: `${args.origin}${args.cancelPath}`,
+        metadata: args.metadata,
+        integration_identifier: integrationIdentifier(args.kind, args.integrationStableKey),
+        allow_promotion_codes: args.allowPromotionCodes ?? false,
+        ...(args.collectShipping ? { shipping_address_collection: { allowed_countries: ["GB"] } } : {}),
+      },
+    });
+    return { demo: false as const, url: session.url, sessionId: session.sessionId, livemode: session.livemode };
+  } catch (error) {
+    return stripeCheckoutErrorResponse(error);
+  }
 }
 
 function line(name: string, amount: number, yearly = false): Stripe.Checkout.SessionCreateParams.LineItem {
@@ -91,11 +131,20 @@ function line(name: string, amount: number, yearly = false): Stripe.Checkout.Ses
 }
 
 export async function POST(request: Request) {
-  const origin = requestOrigin(request);
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
   const store = getStore();
-  const limit = await store.hitRateLimit(`checkout:${hashIp(clientIp(request))}`, 10, 60 * 60 * 1000);
+  const storeId = await requestStoreId();
+  const requestHost = requestHostFromRequest(request);
+  const storeConfig = await loadStoreConfig(storeId);
+  const brand = storeConfig.brand;
+  const origin = publicOriginForStore(request, brand, storeId, storeConfig.domains);
+  const limits = rateLimits();
+  const limit = await store.hitRateLimit(
+    `checkout:${storeId}:${hashIp(clientIp(request))}`,
+    limits.checkoutPerHour,
+    60 * 60 * 1000,
+  );
   if (!limit.ok) return jsonError("Too many checkout attempts. Try again in an hour.", 429);
   const body = parsed.data;
 
@@ -105,33 +154,101 @@ export async function POST(request: Request) {
     const uploads = (await store.listAssets(order.id)).filter((asset) => asset.kind === "upload");
     if (!uploads.length) return jsonError("Upload at least one photo first.");
     const pass = order.offer === "season_pass";
-    const tier = getTier(order.tierId);
-    const portraitPence = order.amountPence - (order.priority ? PRIORITY_PENCE : 0);
-    const items = pass
-      ? [line(`${APP_NAME} season pass`, portraitPence, true)]
-      : [line(`${APP_NAME} · ${tier.name}`, portraitPence)];
-    if (!pass && order.priority) items.push(line("Priority delivery", PRIORITY_PENCE));
+    const tier = getTier(order.tierId, storeConfig.catalog.tiers);
+    const physical = order.productMeta?.checkoutBasket?.physical ?? [];
+    const referralDiscountPence = order.referralCodeUsed ? REFERRAL_DISCOUNT : 0;
+    const items = stripeLineItemsForPortraitCheckout({
+      brandName: brand.appName,
+      tier,
+      offer: order.offer,
+      seasonPassPence: SEASON_PASS.pricePence,
+      seasonPassName: SEASON_PASS.name,
+      priority: order.priority,
+      physical,
+      referralDiscountPence,
+    });
+    const jinglefoldPersonalised =
+      order.storeId === "jinglefold" && Boolean(order.productMeta?.personalised);
+    const stripe = getStripeForStore(order.storeId, requestHost);
+    if (stripe && order.stripeCheckoutSessionId) {
+      const existingUrl = await openCheckoutSessionUrl(stripe, order.stripeCheckoutSessionId);
+      if (existingUrl) return Response.json({ url: existingUrl });
+    }
+    const metaCtx = body.kind === "portrait" ? metaContextFromBody(body) : null;
     const opened = await openSession({
+      storeId: order.storeId,
+      requestHost,
+      brand,
       origin,
       kind: pass ? "season" : "portrait",
       email: order.email,
       lineItems: items,
-      metadata: { kind: pass ? "season_pass" : "portrait", orderId: order.id },
+      metadata: mergeCheckoutStripeMetadata(
+        {
+          kind: pass ? "season_pass" : "portrait",
+          orderId: order.id,
+          storeId: order.storeId,
+          visitorSessionId: body.analyticsSessionId ?? "",
+        },
+        metaCtx,
+      ),
       mode: pass ? "subscription" : "payment",
-      successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
-      cancelPath: "/create?cancelled=1",
-      idempotencyKey: `portrait-${order.id}-${order.amountPence}`,
+      successPath: jinglefoldPersonalised
+        ? `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`
+        : "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+      cancelPath: jinglefoldPersonalised ? `/results/${order.resultsToken}` : "/create?cancelled=1",
+      idempotencyKey: portraitCheckoutIdempotencyKey({
+        orderId: order.id,
+        amountPence: order.amountPence,
+        attemptAt: order.productMeta?.freePreview ? order.digitalSupplyConsentAt : null,
+      }),
+      integrationStableKey: order.id,
       allowPromotionCodes: !order.referralCodeUsed,
+      collectShipping:
+        jinglefoldPersonalised || (order.storeId === "pawtraitry" && pawtraitryBasketHasPhysical(order.productMeta?.checkoutBasket)),
     });
     if (opened instanceof Response) return opened;
     if (opened.demo) {
       const sessionId = `demo_${order.id}`;
       await markPortraitPaid(order.id, { sessionId, paymentIntentId: null, amountPence: order.amountPence });
-      await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+      await store.addEvent({
+        id: randomUUID(),
+        storeId: order.storeId,
+        type: "checkout",
+        orderId: order.id,
+        createdAt: new Date().toISOString(),
+      });
       return Response.json({ url: `${origin}/checkout/success?session_id=${sessionId}` });
     }
-    await store.updateOrder(order.id, { stripeCheckoutSessionId: opened.sessionId ?? null });
-    await store.addEvent({ id: randomUUID(), type: "checkout", orderId: order.id, createdAt: new Date().toISOString() });
+    await store.updateOrder(order.id, {
+      stripeCheckoutSessionId: opened.sessionId ?? null,
+      stripeLivemode: opened.livemode,
+    });
+    await store.addEvent({
+      id: randomUUID(),
+      storeId: order.storeId,
+      type: "checkout",
+      orderId: order.id,
+      createdAt: new Date().toISOString(),
+    });
+    if (metaCtx?.marketingConsent) {
+      const reqMeta = metaAttributionFromRequest(request);
+      void sendMetaInitiateCheckout({
+        storeId: order.storeId,
+        requestHost,
+        email: order.email,
+        valuePence: order.amountPence,
+        contentIds: pawtraitryMetaContentIds({
+          tierId: order.tierId,
+          styleIds: order.styleIds,
+          physical: order.productMeta?.checkoutBasket?.physical ?? [],
+        }),
+        ctx: metaCtx,
+        clientIp: reqMeta.clientIp,
+        userAgent: reqMeta.userAgent,
+        eventSourceUrl: origin + (jinglefoldPersonalised ? `/results/${order.resultsToken}` : "/create"),
+      }).catch((error) => console.error("Meta InitiateCheckout", error));
+    }
     return Response.json({ url: opened.url });
   }
 
@@ -149,14 +266,24 @@ export async function POST(request: Request) {
     }
     if (!remaining.length && chosen.length !== EXTRA_STYLES_COUNT) return jsonError("Choose 3 styles for extra images.");
     const opened = await openSession({
+      storeId: order.storeId,
+      requestHost,
+      brand,
       origin,
       kind: "extra",
       email: order.email,
-      lineItems: [line(`${APP_NAME} · 3 more styles`, EXTRA_STYLES_PENCE)],
-      metadata: { kind: "extra_styles", orderId: order.id, styleIds: chosen.join(",") },
+      lineItems: [line(`${brand.appName} · 3 more styles`, EXTRA_STYLES_PENCE)],
+      metadata: {
+        kind: "extra_styles",
+        orderId: order.id,
+        styleIds: chosen.join(","),
+        storeId: order.storeId,
+        visitorSessionId: body.analyticsSessionId ?? "",
+      },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `extra-${order.id}-${chosen.slice().sort().join("-")}`,
+      integrationStableKey: `${order.id}-${chosen.slice().sort().join("-")}`,
       allowPromotionCodes: true,
     });
     if (opened instanceof Response) return opened;
@@ -171,33 +298,99 @@ export async function POST(request: Request) {
   if (body.kind === "print") {
     const order = await store.getOrderByToken(body.token);
     if (!order || order.status !== "delivered") return jsonError("That gallery is not ready.", 404);
+    if (order.storeId !== "pawtraitry") return jsonError("Print orders are not available for this shop.", 404);
     const asset = (await store.listAssets(order.id)).find((item) => item.id === body.assetId && item.kind === "result");
     if (!asset) return jsonError("Choose one of your portraits.");
-    if (!getStripe()) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
-    const product = getPrint(body.productId);
-    const print: PrintOrder = {
-      id: randomUUID(),
-      orderId: order.id,
-      productId: product.id,
-      assetId: asset.id,
-      stripeCheckoutSessionId: null,
-      stripePaymentIntentId: null,
-      prodigiOrderId: null,
-      status: "pending_payment",
-      shipping: null,
-      error: null,
-      createdAt: new Date().toISOString(),
-    };
-    await store.addPrint(print);
+    if (!getStripeForStore(order.storeId, requestHost)) return jsonError("A puzzle order needs Stripe Checkout so we can collect a UK shipping address.", 503);
+    const product = getPrint(body.productId as PrintProductId);
+    const existingPrints = await store.listPrints(order.id);
+    let print = existingPrints.find(
+      (item) =>
+        item.assetId === asset.id &&
+        item.productId === product.id &&
+        item.status === "pending_payment",
+    );
+    if (!print) {
+      print = {
+        id: randomUUID(),
+        orderId: order.id,
+        productId: product.id,
+        assetId: asset.id,
+        stripeCheckoutSessionId: null,
+        stripePaymentIntentId: null,
+        prodigiOrderId: null,
+        status: "pending_payment",
+        shipping: null,
+        error: null,
+        createdAt: new Date().toISOString(),
+      };
+      await store.addPrint(print);
+    }
+    const stripe = getStripeForStore(order.storeId, requestHost);
+    if (stripe && print.stripeCheckoutSessionId) {
+      const existingUrl = await openCheckoutSessionUrl(stripe, print.stripeCheckoutSessionId);
+      if (existingUrl) return Response.json({ url: existingUrl });
+    }
+    const lineItems = [line(`${brand.appName} · ${product.name}`, product.pricePence)];
+    const promos = storeConfig.catalog.pawtraitryPromos;
+    const canvasProduct = product.id.startsWith("canvas_");
+    let addonPrintId = "";
+    if (body.addGreetingCard && product.id !== GREETING_CARD_PRINT_ID) {
+      const cardProduct = getPrint(GREETING_CARD_PRINT_ID);
+      let greetingPrint = existingPrints.find(
+        (item) =>
+          item.assetId === asset.id &&
+          item.productId === cardProduct.id &&
+          item.status === "pending_payment",
+      );
+      if (!greetingPrint) {
+        greetingPrint = {
+          id: randomUUID(),
+          orderId: order.id,
+          productId: cardProduct.id,
+          assetId: asset.id,
+          stripeCheckoutSessionId: null,
+          stripePaymentIntentId: null,
+          prodigiOrderId: null,
+          status: "pending_payment",
+          shipping: null,
+          error: null,
+          createdAt: new Date().toISOString(),
+        };
+        await store.addPrint(greetingPrint);
+      }
+      addonPrintId = greetingPrint.id;
+      lineItems.push(line(`${brand.appName} · ${cardProduct.name}`, cardProduct.pricePence));
+    }
+    if (body.addPetBaubleBump) {
+      lineItems.push(line("Personalised pet bauble add-on", PAWTRAITRY_BUMP_PRICE_PENCE));
+    }
+    if (
+      promos?.freeBaubleWithCanvasEnabled &&
+      canvasProduct &&
+      product.pricePence >= PAWTRAITRY_CANVAS_FREE_BAUBLE_MIN_PENCE
+    ) {
+      lineItems.push(line("Complimentary pet bauble (canvas promo)", 0));
+    }
     const opened = await openSession({
+      storeId: order.storeId,
+      requestHost,
+      brand,
       origin,
       kind: "print",
       email: order.email,
-      lineItems: [line(`${APP_NAME} · ${product.name}`, product.pricePence)],
-      metadata: { kind: "print", orderId: order.id, printId: print.id },
+      lineItems,
+      metadata: {
+        kind: "print",
+        orderId: order.id,
+        printId: print.id,
+        addonPrintId,
+        storeId: order.storeId,
+      },
       successPath: `/results/${order.resultsToken}?session_id={CHECKOUT_SESSION_ID}`,
       cancelPath: `/results/${order.resultsToken}`,
       idempotencyKey: `print-${print.id}`,
+      integrationStableKey: print.id,
       collectShipping: true,
       allowPromotionCodes: true,
     });
@@ -210,6 +403,7 @@ export async function POST(request: Request) {
   const linked = body.token ? await store.getOrderByToken(body.token) : null;
   const preorder: Preorder = {
     id: randomUUID(),
+    storeId,
     orderId: linked?.id ?? null,
     email,
     themeId: "christmas",
@@ -220,15 +414,28 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   };
   await store.addPreorder(preorder);
+  const { recordEmailSignup } = await import("@/lib/crm/record-signup");
+  await recordEmailSignup({
+    storeId,
+    email: preorder.email,
+    source: "christmas_preorder",
+    marketingConsent: false,
+    requestHost,
+    stripeLivemode: false,
+  });
   const opened = await openSession({
+    storeId,
+    requestHost,
+    brand,
     origin,
     kind: "christmas",
     email,
-    lineItems: [line(`${APP_NAME} · Christmas pre-order`, CHRISTMAS_PREORDER_PENCE)],
-    metadata: { kind: "christmas", preorderId: preorder.id },
+    lineItems: [line(`${brand.appName} · Christmas pre-order`, CHRISTMAS_PREORDER_PENCE)],
+    metadata: { kind: "christmas", preorderId: preorder.id, storeId },
     successPath: "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
     cancelPath: "/",
     idempotencyKey: `christmas-${preorder.id}`,
+    integrationStableKey: preorder.id,
     allowPromotionCodes: true,
   });
   if (opened instanceof Response) return opened;

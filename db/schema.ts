@@ -1,10 +1,21 @@
-import { boolean, integer, jsonb, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import type { Order, PrintOrder, Settings } from "@/lib/domain";
+import { boolean, date, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { DailyRollupMetrics } from "@/lib/analytics/types";
+import type { Job, Order, PrintOrder, Settings } from "@/lib/domain";
+import type { StoreConfig } from "@/lib/tenant/types";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 
+export const stores = pgTable("stores", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  domains: text("domains").array().notNull().default([]),
+  config: jsonb("config").$type<Partial<StoreConfig>>().notNull().default({}),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey(),
+  storeId: text("store_id").notNull().default("pawtraitry"),
   createdAt: ts("created_at").notNull(),
   email: text("email").notNull(),
   themeId: text("theme_id").notNull(),
@@ -15,6 +26,7 @@ export const orders = pgTable("orders", {
   status: text("status").notNull(),
   stripeCheckoutSessionId: text("stripe_checkout_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeLivemode: boolean("stripe_livemode"),
   amountPence: integer("amount_pence").notNull(),
   priority: boolean("priority").notNull().default(false),
   consentAt: ts("consent_at"),
@@ -38,7 +50,11 @@ export const orders = pgTable("orders", {
   offer: text("offer").notNull().default("one_off"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status"),
+  productMeta: jsonb("product_meta").$type<Order["productMeta"]>(),
   payments: jsonb("payments").$type<Order["payments"]>().notNull().default([]),
+  shipping: jsonb("shipping").$type<Order["shipping"]>(),
+  partnerFulfillment: jsonb("partner_fulfillment").$type<Order["partnerFulfillment"]>(),
+  falPaidSubmits: integer("fal_paid_submits").notNull().default(0),
 });
 
 export const assets = pgTable("assets", {
@@ -62,6 +78,9 @@ export const jobs = pgTable("jobs", {
   status: text("status").notNull(),
   attempts: integer("attempts").notNull().default(0),
   providerRequestId: text("provider_request_id"),
+  providerMeta: jsonb("provider_meta").$type<Job["providerMeta"]>(),
+  falPaidSubmits: integer("fal_paid_submits").notNull().default(0),
+  regenCount: integer("regen_count").notNull().default(0),
   lastError: text("last_error"),
   costGbp: numeric("cost_gbp", { precision: 12, scale: 4, mode: "number" }).notNull().default(0),
   priority: boolean("priority").notNull().default(false),
@@ -73,6 +92,7 @@ export const jobs = pgTable("jobs", {
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey(),
+  storeId: text("store_id").notNull().default("pawtraitry"),
   type: text("type").notNull(),
   orderId: uuid("order_id"),
   createdAt: ts("created_at").notNull(),
@@ -94,6 +114,7 @@ export const prints = pgTable("prints", {
 
 export const preorders = pgTable("preorders", {
   id: uuid("id").primaryKey(),
+  storeId: text("store_id").notNull().default("pawtraitry"),
   orderId: uuid("order_id"),
   email: text("email").notNull(),
   themeId: text("theme_id").notNull(),
@@ -105,13 +126,15 @@ export const preorders = pgTable("preorders", {
 });
 
 export const appSettings = pgTable("app_settings", {
-  id: integer("id").primaryKey(),
+  storeId: text("store_id").primaryKey(),
   themeMode: text("theme_mode").$type<Settings["themeMode"]>().notNull().default("auto"),
   activeThemeId: text("active_theme_id").notNull().default("halloween"),
   salesPaused: boolean("sales_paused").notNull().default(false),
   queueHalted: boolean("queue_halted").notNull().default(false),
   haltReason: text("halt_reason"),
   haltNotifiedOn: text("halt_notified_on"),
+  falCreditExhaustedSince: text("fal_credit_exhausted_since"),
+  falCreditAlertSentAt: text("fal_credit_alert_sent_at"),
 });
 
 export const rateBuckets = pgTable("rate_buckets", {
@@ -120,7 +143,67 @@ export const rateBuckets = pgTable("rate_buckets", {
   resetAt: ts("reset_at").notNull(),
 });
 
-export const dailySpend = pgTable("daily_spend", {
-  day: text("day").primaryKey(),
-  gbp: numeric("gbp", { precision: 12, scale: 4, mode: "number" }).notNull(),
+export const dailySpend = pgTable(
+  "daily_spend",
+  {
+    storeId: text("store_id").notNull().default("pawtraitry"),
+    day: text("day").notNull(),
+    gbp: numeric("gbp", { precision: 12, scale: 4, mode: "number" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.storeId, table.day] })],
+);
+
+export const visitorSessions = pgTable("visitor_sessions", {
+  id: uuid("id").primaryKey(),
+  storeId: text("store_id").notNull(),
+  visitorId: text("visitor_id").notNull(),
+  consentLevel: text("consent_level").notNull().default("aggregate"),
+  isNewVisitor: boolean("is_new_visitor").notNull().default(true),
+  referrer: text("referrer"),
+  referrerDomain: text("referrer_domain"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  gclid: text("gclid"),
+  fbclid: text("fbclid"),
+  ttclid: text("ttclid"),
+  landingPath: text("landing_path").notNull(),
+  exitPath: text("exit_path"),
+  deviceType: text("device_type"),
+  browser: text("browser"),
+  countryCode: text("country_code"),
+  startedAt: ts("started_at").notNull(),
+  endedAt: ts("ended_at"),
+  pageviewCount: integer("pageview_count").notNull().default(1),
+  bounced: boolean("bounced").notNull().default(false),
+  hadInteraction: boolean("had_interaction").notNull().default(false),
+  durationMs: integer("duration_ms").notNull().default(0),
+  maxScrollDepth: integer("max_scroll_depth").notNull().default(0),
+  rageClicks: integer("rage_clicks").notNull().default(0),
+  jsErrors: integer("js_errors").notNull().default(0),
+  slowLoads: integer("slow_loads").notNull().default(0),
+  excludedFromMetrics: boolean("excluded_from_metrics").notNull().default(false),
+  exclusionReason: text("exclusion_reason"),
+  userAgent: text("user_agent"),
 });
+
+export const visitorEvents = pgTable("visitor_events", {
+  id: uuid("id").primaryKey(),
+  storeId: text("store_id").notNull(),
+  sessionId: uuid("session_id"),
+  visitorId: text("visitor_id"),
+  eventType: text("event_type").notNull(),
+  path: text("path"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const analyticsDailyRollups = pgTable(
+  "analytics_daily_rollups",
+  {
+    storeId: text("store_id").notNull(),
+    day: date("day").notNull(),
+    metrics: jsonb("metrics").$type<DailyRollupMetrics>().notNull().default({} as DailyRollupMetrics),
+  },
+  (table) => [primaryKey({ columns: [table.storeId, table.day] })],
+);

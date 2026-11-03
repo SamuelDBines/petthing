@@ -1,4 +1,6 @@
+import { PAINTED_STYLE_IDS } from "@/config/paintings";
 import { THEMES, type SubjectType } from "@/config/themes";
+import { BUILTIN_STORES } from "@/lib/tenant/defaults";
 
 const BANNED = [
   "disney",
@@ -23,6 +25,16 @@ export type StylePrompt = {
   template: string;
   negative: string;
 };
+
+function kontextSingleSubjectLine(subject: SubjectType) {
+  if (subject === "pet") {
+    return "Exactly one animal in the frame: a single pet from the references, no duplicate animals, no side-by-side copies, no collage.";
+  }
+  if (subject === "me") {
+    return "Exactly one person in the frame: a single portrait subject, no duplicate faces, no side-by-side copies.";
+  }
+  return null;
+}
 
 const SUBJECT_LINES: Record<SubjectType, string> = {
   pet: "the same pet from the reference photos, with the same face, markings, and fur",
@@ -132,6 +144,71 @@ export const STYLE_PROMPTS: Record<string, StylePrompt> = {
       "Paint {subject} as an original fireside knit portrait. Hearth light, wool blankets used as clothing layers or a chair throw, stockings on the mantel. Faces and pet markings stay clear. Fully clothed.",
     negative: "nudity under blankets, logos, text",
   },
+  "oil-painting": {
+    template:
+      "Paint {subject} as a fine-art oil painting on canvas. Visible brushstrokes, warm varnish depth, neutral studio background, museum-quality pet portrait. Keep markings and expression faithful to the reference photos.",
+    negative: "photograph, flat digital art, watermark, text",
+  },
+  watercolour: {
+    template:
+      "Paint {subject} as a delicate watercolour on textured paper. Soft washes, subtle granulation, gentle edges, recognisable face and fur markings from the reference photos.",
+    negative: "oil paint, harsh outlines, photograph, watermark",
+  },
+  "charcoal-sketch": {
+    template:
+      "Draw {subject} as a charcoal sketch on toned paper. Strong values, smudged shadows, paper tooth, faithful likeness from the reference photos.",
+    negative: "colour, photograph, watermark, text",
+  },
+  "cosy-classic": {
+    template:
+      "Paint {subject} as a festive Christmas ornament portrait for printing on a round bauble or flat ornament. Square 1:1 composition: subject centred inside a soft circular vignette with comfortable margin at the edges so nothing important is cropped when masked to a circle. Warm candlelight, muted reds and antique gold, subtle bokeh, elegant and calm. If the subject is a person, festive knitwear and they stay fully clothed. Keep faces and pet markings faithful to the reference photos.",
+    negative: "rectangular crop cutting off ears, corner-heavy composition, logos, horror, gore",
+  },
+  "snow-globe": {
+    template:
+      "Paint {subject} inside an original snow-globe Christmas ornament scene for bauble printing. Square format, centred subject within a circular safe zone, gentle snowfall, soft greens and frosted glass glow, no branded globe base. Subject recognisable with clear eyes and markings. People wear cosy winter layers, fully clothed.",
+    negative: "subject touching frame edge, dark horror snow, logos, text",
+  },
+  renaissance: {
+    template:
+      "Paint {subject} as a Renaissance old-master portrait: dark umber background, soft window light, velvet and gold details, fine glazing and craquelure. Subject posed with dignity, fully clothed in period dress if a person. Faithful likeness and markings from the reference photos.",
+    negative: "modern clothing, photograph, cartoon, text, watermark",
+  },
+  "royal-portrait": {
+    template:
+      "Paint {subject} as a regal royal portrait: small jewelled crown, ermine-trimmed velvet cape, palace interior with drapes, classical oil technique. People stay fully clothed in royal dress. Keep the face and markings faithful to the reference photos.",
+    negative: "real royal family likeness, flags, logos, text, watermark",
+  },
+  cartoon: {
+    template:
+      "Draw {subject} as an original bright cartoon illustration: clean confident outlines, flat cheerful colours, soft cel shading, simple pastel background. Friendly and expressive, fully clothed if a person, recognisable face and markings from the reference photos. Original design, not any existing studio character.",
+    negative: "copyrighted character, logo, photograph, horror, text",
+  },
+  "pop-art": {
+    template:
+      "Render {subject} as bold pop art: saturated colour blocks, halftone dots, thick black outlines, bright contrasting background panel. Fully clothed if a person. Keep the likeness and markings from the reference photos.",
+    negative: "muted colours, photograph, text, speech bubbles, logo",
+  },
+  "line-art": {
+    template:
+      "Draw {subject} as minimal continuous line art: a single elegant dark line on a plain warm off-white background, very few strokes, lots of negative space, suitable for printing on a mug. Fully clothed if a person. Recognisable silhouette and key markings from the reference photos.",
+    negative: "shading, colour fill, busy background, text, watermark",
+  },
+  improve: {
+    template:
+      "Improve this photo of {subject} while keeping it a real photograph: better exposure and white balance, gentle sharpening, natural colour, reduced noise, tidy background blur. Do not change the face, markings, pose or identity. People stay fully clothed exactly as in the photo.",
+    negative: "painting, cartoon, changed identity, extra animals, text, watermark",
+  },
+  custom: {
+    template:
+      "Create an image of {subject} in this scene the customer asked for: {custom}. Keep it wholesome and family friendly, subjects fully clothed. Keep the face and markings faithful to the reference photos.",
+    negative: "nudity, gore, logos, text, watermark",
+  },
+  hearthside: {
+    template:
+      "Paint {subject} in a hearthside Christmas ornament portrait. Square composition with the subject centred for circular bauble printing, fireside warmth, tasteful wreath and garland in the background (not covering the face), gold and ember light. Wholesome, fully clothed if people. Faithful likeness from references.",
+    negative: "face hidden by wreath, scary fire, logos, rectangular poster crop",
+  },
 };
 
 function assertPrompts() {
@@ -144,36 +221,80 @@ function assertPrompts() {
   }
   for (const theme of THEMES) {
     for (const style of theme.styles) {
-      const prompt = STYLE_PROMPTS[style.id];
-      if (!prompt) throw new Error(`Missing prompt for ${style.id}`);
-      if (!/fully clothed|costume painted over their clothes/i.test(prompt.template)) {
-        throw new Error(`Prompt for ${style.id} must keep subjects clothed`);
+      assertStylePrompt(style.id, theme.id);
+    }
+  }
+  for (const store of BUILTIN_STORES) {
+    for (const theme of store.themes) {
+      for (const style of theme.styles) {
+        assertStylePrompt(style.id, `${store.id}/${theme.id}`);
+      }
+    }
+  }
+}
+
+function assertStylePrompt(styleId: string, context: string) {
+  const prompt = STYLE_PROMPTS[styleId];
+  if (!prompt) throw new Error(`Missing prompt for ${context} style ${styleId}`);
+  if (
+    !PAINTED_STYLE_IDS.includes(styleId as (typeof PAINTED_STYLE_IDS)[number]) &&
+    !/fully clothed|costume painted over their clothes/i.test(prompt.template)
+  ) {
+    throw new Error(`Prompt for ${styleId} must keep subjects clothed`);
+  }
+}
+
+/** Called at startup and from tests so every store theme style has a prompt. */
+export function assertAllStoreStylePrompts() {
+  for (const store of BUILTIN_STORES) {
+    for (const theme of store.themes) {
+      for (const style of theme.styles) {
+        if (!STYLE_PROMPTS[style.id]) {
+          throw new Error(`Missing STYLE_PROMPTS entry for ${store.id} style ${style.id}`);
+        }
       }
     }
   }
 }
 
 assertPrompts();
+assertAllStoreStylePrompts();
+
+/** Banned brand / character terms, reused to vet customer prompts. */
+export const BANNED_PROMPT_TERMS: readonly string[] = BANNED;
 
 export function buildPrompt(args: {
   styleId: string;
   subject: SubjectType;
   variantIndex: number;
   quality: "standard" | "hd";
+  /** fal kontext has no negative prompt — omit banned-word lists from the positive prompt. */
+  forFalKontext?: boolean;
+  /** Customer text for the "custom" style (already cleaned). */
+  customPrompt?: string | null;
 }) {
   const style = STYLE_PROMPTS[args.styleId];
   if (!style) throw new Error(`No prompt configured for ${args.styleId}`);
   const strict = args.subject === "family";
   const negative = [BASE_NEGATIVE, strict ? FAMILY_NEGATIVE : "", style.negative].filter(Boolean).join(", ");
-  const prompt = [
-    style.template.replaceAll("{subject}", SUBJECT_LINES[args.subject]),
+  const parts = [
+    style.template
+      .replaceAll("{subject}", SUBJECT_LINES[args.subject])
+      .replaceAll("{custom}", args.customPrompt?.trim() || "a beautiful portrait"),
     "Use the reference photos only to keep identity. Do not copy a copyrighted character, costume from a film, or a brand mark.",
     strict
       ? "Wholesome group portrait for a family mantel. Friendly expressions. Children stay fully clothed in costume."
-      : "Keep the result modest and family-friendly.",
+      : "Keep the result wholesome, fully clothed, and family-friendly.",
     args.quality === "hd" ? "Crisp features and fine costume detail." : "Clear, natural detail.",
     `Variation ${args.variantIndex + 1}: a slightly different pose and crop, same identity.`,
-    `Do not include: ${negative}.`,
-  ].join(" ");
+  ];
+  if (args.forFalKontext) {
+    const single = kontextSingleSubjectLine(args.subject);
+    if (single) parts.push(single);
+  }
+  if (!args.forFalKontext) {
+    parts.push(`Do not include: ${negative}.`);
+  }
+  const prompt = parts.join(" ");
   return { prompt, negative };
 }

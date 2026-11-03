@@ -1,6 +1,8 @@
 import { z } from "zod";
-import { THEMES } from "@/config/themes";
-import { requireAdmin } from "@/lib/adminAuth";
+import { adminStoreFilter } from "@/lib/admin/storeScope";
+import { requireAdmin, requireAdminPost } from "@/lib/adminAuth";
+import { DEFAULT_STORE_ID } from "@/lib/tenant/defaults";
+import { loadStoreConfig } from "@/lib/tenant/context";
 import { jsonError, parseBody } from "@/lib/http";
 import { getStore } from "@/lib/store";
 
@@ -12,14 +14,20 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const denied = await requireAdmin();
+  const denied = await requireAdminPost(request);
   if (denied) return denied;
   const parsed = parseBody(schema, await request.json().catch(() => null));
   if (!parsed.ok) return parsed.response;
-  if (!THEMES.some((theme) => theme.id === parsed.data.activeThemeId)) return jsonError("Unknown theme.");
-  const settings = await getStore().updateSettings({
-    ...parsed.data,
-    haltReason: parsed.data.queueHalted ? "Paused from admin." : null,
-  });
+  const storeId = await adminStoreFilter();
+  const scoped = storeId === "all" ? DEFAULT_STORE_ID : storeId;
+  const config = await loadStoreConfig(scoped);
+  if (!config.themes.some((theme) => theme.id === parsed.data.activeThemeId)) return jsonError("Unknown theme.");
+  const settings = await getStore().updateSettings(
+    {
+      ...parsed.data,
+      haltReason: parsed.data.queueHalted ? "Paused from admin." : null,
+    },
+    scoped,
+  );
   return Response.json({ settings });
 }

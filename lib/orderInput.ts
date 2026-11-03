@@ -5,7 +5,7 @@ import { utmSchema } from "@/lib/http";
 const orderBodySchema = z.object({
   themeId: z.string().min(1),
   subjectType: z.enum(["pet", "family", "couple", "me"]),
-  tierId: z.enum(["mini", "classic", "deluxe"]),
+  tierId: z.enum(["mini", "classic", "deluxe", "hand_painted_12x16", "hand_painted_16x20"]),
   styleIds: z.array(z.string()).min(1).max(12),
   cardNames: z.string().max(80).optional(),
   email: z.string().email("Enter a valid email"),
@@ -17,6 +17,15 @@ const orderBodySchema = z.object({
   offer: z.enum(["one_off", "season_pass"]).optional(),
   referralCode: z.string().max(40).optional(),
   utm: utmSchema.optional(),
+  physicalLines: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().min(1).max(10),
+      }),
+    )
+    .max(24)
+    .optional(),
 });
 
 export const orderInputSchema = orderBodySchema.superRefine((data, ctx) => {

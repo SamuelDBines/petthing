@@ -1,19 +1,57 @@
 import Stripe from "stripe";
+import {
+  stripeSecretKeyForStore,
+  stripeTestSecretKey,
+  stripeLiveWebhookSecret,
+  stripeTestWebhookSecret,
+} from "@/lib/go-live/live-stores";
+import { assertStripeSecretKeyAllowed } from "@/lib/stripe/live-key";
 
-let stripeClient: Stripe | null = null;
+const clientsByKey = new Map<string, Stripe>();
 
-export function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
-  if (!key) return null;
-  if (key.startsWith("sk_live_")) {
-    throw new Error("STRIPE_SECRET_KEY must be a test key (sk_test_ or rk_test_) for local and staging use.");
+export function __resetStripeClientForTests() {
+  clientsByKey.clear();
+}
+
+function clientForKey(key: string) {
+  assertStripeSecretKeyAllowed(key);
+  let client = clientsByKey.get(key);
+  if (!client) {
+    client = new Stripe(key);
+    clientsByKey.set(key, client);
   }
-  if (!stripeClient) stripeClient = new Stripe(key);
-  return stripeClient;
+  return client;
+}
+
+/** Stripe client for a store (live vs test keys from LIVE_STORES + request host). */
+export function getStripeForStore(storeId: string, hostOrOpts?: string | import("@/lib/go-live/live-stores").StoreRuntimeOpts) {
+  const key = stripeSecretKeyForStore(storeId, hostOrOpts);
+  if (!key) return null;
+  return clientForKey(key);
+}
+
+/** Legacy entry — prefer getStripeForStore(storeId). Uses test key when storeId omitted. */
+export function getStripe(storeId?: string) {
+  if (storeId) return getStripeForStore(storeId);
+  const key = stripeTestSecretKey();
+  if (!key) return null;
+  return clientForKey(key);
+}
+
+export function stripeConfiguredForStore(storeId: string, host?: string) {
+  try {
+    return Boolean(stripeSecretKeyForStore(storeId, host));
+  } catch {
+    return false;
+  }
 }
 
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim());
+  const testOk = Boolean(stripeTestSecretKey() && stripeTestWebhookSecret());
+  const liveOk = Boolean(
+    process.env.STRIPE_LIVE_SECRET_KEY?.trim() && stripeLiveWebhookSecret(),
+  );
+  return testOk || liveOk;
 }
 
 export function paymentIntentId(session: Stripe.Checkout.Session) {

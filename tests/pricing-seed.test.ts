@@ -1,0 +1,53 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { FIXMONGER_SEED_PRODUCTS } from "../config/catalogue/fixmonger-seed";
+import { fixmongerShippingPence, recommendedPence } from "../config/catalogue/pricing-seed";
+import { shopOrderLinesForProduct } from "../lib/catalogue/order-lines";
+import { toStorefrontProduct } from "../lib/catalogue/storefront";
+import { TIERS } from "../config/pricing";
+import { pawtraitryPrintPricePence } from "../config/catalogue/pawtraitry-skus";
+
+test("Fixmonger v23 seed drops off-niche SKUs and keeps door kit", () => {
+  const skus = FIXMONGER_SEED_PRODUCTS.map((p) => p.supplierSku);
+  assert.equal(skus.includes("HB-76661"), false);
+  assert.equal(skus.includes("FX-KIT-CAR"), false);
+  assert.equal(skus.includes("CAR-46787"), false);
+  assert.equal(skus.includes("FX-KIT-DOOR"), true);
+  assert.equal(skus.includes("HOM-61194"), true);
+  assert.equal(recommendedPence("Fixmonger", "FX-KIT-DOOR"), 4499);
+  const doorKit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-DOOR");
+  assert.equal(doorKit?.compareAtPricePence, null);
+});
+
+test("bundle checkout lines expand to supplier SKUs", () => {
+  const kit = FIXMONGER_SEED_PRODUCTS.find((p) => p.supplierSku === "FX-KIT-DOOR");
+  assert.ok(kit);
+  const lines = shopOrderLinesForProduct(kit!, 1);
+  assert.equal(lines.length, 2);
+  assert.deepEqual(lines.map((l) => l.supplierSku).sort(), ["HOM-61194", "HOM-76459"]);
+});
+
+test("storefront products omit cost fields", () => {
+  const product = FIXMONGER_SEED_PRODUCTS[0];
+  const storefront = toStorefrontProduct(product);
+  assert.equal("costPence" in storefront, false);
+  assert.equal("bundleComponents" in storefront, false);
+});
+
+test("Fixmonger shipping is free on all orders (v23)", () => {
+  assert.equal(fixmongerShippingPence(0), 0);
+  assert.equal(fixmongerShippingPence(1999), 0);
+});
+
+test("Pawtraitry digital tiers use recommended_price from seed", () => {
+  const mini = TIERS.find((t) => t.id === "mini");
+  const classic = TIERS.find((t) => t.id === "classic");
+  assert.equal(mini?.pricePence, 999);
+  assert.equal(classic?.pricePence, 1499);
+  assert.equal(classic?.compareAtPricePence, 2997);
+});
+
+test("Pawtraitry print prices include delivery in list price", () => {
+  assert.equal(pawtraitryPrintPricePence("puzzle_252"), 4199);
+  assert.equal(pawtraitryPrintPricePence("canvas_stretched_24x32"), 12599);
+});

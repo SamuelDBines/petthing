@@ -85,7 +85,7 @@ async def handle_inbound_email(
     item = create_queue_item(
         db,
         kind=ContentKind.cs_reply,
-        title=f"CS reply — {subject[:80]}",
+        title=f"CS reply: {subject[:80]}",
         media_path=None,
         caption_path=None,
         platform_payloads={"email": {"to": email, "subject": f"Re: {subject}", "text": draft}},
