@@ -35,6 +35,10 @@ export function middleware(request: NextRequest) {
     const fromCookie = resolveStoreIdFromHost(host, cookieStore);
     if (fromCookie) storeId = fromCookie;
   }
+  if (storeId === "pawtraitry" && (pathname === "/support" || pathname === "/support/")) {
+    return NextResponse.redirect("https://pawtraitry.com/pages/contact", 308);
+  }
+
   const shopMatch = pathname.match(/^\/shop\/([^/]+)\/?$/);
   if (shopMatch) {
     const slug = decodeURIComponent(shopMatch[1]);

@@ -31,6 +31,8 @@ export type StoreBrand = {
   tagline: string;
   siteDomain: string;
   supportEmail: string;
+  /** Absolute help/contact page URL for email footers (defaults to `${origin}/support`). */
+  supportUrl?: string;
   legalTradingName: string;
   footerTradingDisclosure: string;
   emailFromName: string;

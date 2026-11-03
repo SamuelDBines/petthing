@@ -108,6 +108,7 @@ export const BUILTIN_STORES: StoreConfig[] = [
         "Premium AI pet portraits from your photos. A thoughtful gift for cat and dog lovers, all year round.",
       siteDomain: "pawtraitry.com",
       supportEmail: "hello@pawtraitry.com",
+      supportUrl: "https://pawtraitry.com/pages/contact",
       ogImagePath: "/stores/pawtraitry/og.jpg",
       legalTradingName: "Pawtraitry",
       footerTradingDisclosure: FOOTER_TRADING_DISCLOSURE,

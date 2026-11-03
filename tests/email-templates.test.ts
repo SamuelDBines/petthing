@@ -31,9 +31,9 @@ test("each branded template renders HTML and text with company footer", async ()
       assert.equal(rendered.html.includes("Free UK delivery"), false);
       assert.equal(rendered.html.includes(">Shipping<"), false);
       const galleryHref = rendered.html.match(/href="([^"]*\/results\/sample-token)"/)?.[1];
-      const helpHref = rendered.html.match(/href="([^"]*\/support)"/)?.[1];
-      assert.ok(galleryHref && helpHref);
-      assert.equal(new URL(galleryHref!).origin, new URL(helpHref!).origin);
+      assert.ok(galleryHref);
+      assert.ok(rendered.html.includes('href="https://pawtraitry.com/pages/contact"'));
+      assert.ok(rendered.text.includes("https://pawtraitry.com/pages/contact"));
     }
     if (storeId === "fixmonger" && kind === "order_confirmation") {
       assert.ok(rendered.html.includes("FM-DEMO01"));

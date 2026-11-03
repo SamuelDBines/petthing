@@ -79,7 +79,7 @@ export function renderBrandedEmailHtml(options: EmailLayoutOptions) {
               <hr style="border:none;border-top:1px solid ${brand.colors.line};margin:32px 0 20px 0;" />
               <p class="email-muted" style="margin:0;font-size:13px;line-height:20px;color:${muted};">
                 Questions? <a href="mailto:${brand.supportEmail}" style="color:${accent};">${brand.supportEmail}</a>
-                · <a href="${origin}/support" style="color:${accent};">Help centre</a>
+                · <a href="${brand.supportUrl ?? `${origin}/support`}" style="color:${accent};">Help centre</a>
               </p>
               <p class="email-muted" style="margin:12px 0 0 0;font-size:11px;line-height:17px;color:${muted};">${BISHOP_CO_FOOTER_LINE}</p>
               ${unsub}
@@ -98,7 +98,7 @@ export function renderBrandedEmailText(options: EmailLayoutOptions) {
   const plainBody = stripTags(bodyHtml);
   const lines = [title, "", plainBody];
   if (cta) lines.push("", `${cta.label}: ${cta.href}`);
-  lines.push("", `Support: ${brand.supportEmail}`, `${origin}/support`, "", BISHOP_CO_FOOTER_LINE);
+  lines.push("", `Support: ${brand.supportEmail}`, brand.supportUrl ?? `${origin}/support`, "", BISHOP_CO_FOOTER_LINE);
   if (unsubscribeUrl) lines.push("", `Unsubscribe: ${unsubscribeUrl}`);
   return lines.join("\n");
 }
