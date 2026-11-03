@@ -153,3 +153,13 @@ test("refunds on Shopify orders alert the admin instead of Stripe or the custome
   const order = buildInternalOrder({ payload, group: groupPortraitLines(payload).groups[0]!, groupIndex: 0, referralCode: "PAW-Y" });
   await refundPortraitLineItem(order, 7999, "test");
 });
+
+test("paid Shopify orders skip the unpaid free-preview hold so they get delivered", async () => {
+  const { isFreePreviewOrder, isUnpaidFreePreview } = await import("@/lib/generation");
+  const payload = sampleOrder({ id: Date.now() + 5 });
+  const order = buildInternalOrder({ payload, group: groupPortraitLines(payload).groups[0]!, groupIndex: 0, referralCode: "PAW-Z" });
+  assert.equal(isFreePreviewOrder(order), true);
+  assert.equal(isUnpaidFreePreview(order), false);
+  const sitePreview = { ...order, stripeCheckoutSessionId: null, productMeta: { freePreview: { customPrompts: {}, chosenAssetId: null, path: null } } };
+  assert.equal(isUnpaidFreePreview(sitePreview), true);
+});

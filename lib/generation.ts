@@ -49,6 +49,7 @@ import {
 import { falPortraitSeed } from "@/lib/generation/seed";
 
 import { getStore } from "@/lib/store";
+import { isShopifyOrder } from "@/lib/shopify/orders-paid";
 import { watermark } from "@/lib/watermark";
 
 const MAX_ATTEMPTS = 3;
@@ -227,6 +228,14 @@ export function isFreePreviewOrder(order: Pick<Order, "storeId" | "productMeta">
   return order.storeId === "pawtraitry" && Boolean(order.productMeta?.freePreview);
 }
 
+/**
+ * Free preview still awaiting payment: finishing generation should stop at watermarked previews.
+ * Shopify orders arrive already paid (orders/paid webhook), so they go straight to delivery.
+ */
+export function isUnpaidFreePreview(order: Pick<Order, "storeId" | "productMeta" | "stripeCheckoutSessionId">) {
+  return isFreePreviewOrder(order) && !isShopifyOrder(order);
+}
+
 /** Low-res watermarked copies of every result that does not have one yet. */
 export async function writeWatermarkedPreviews(orderId: string) {
   const store = getStore();
@@ -267,7 +276,7 @@ async function finishIfDone(orderId: string) {
   const jobs = await store.listJobs(orderId);
   const settled = (status: Job["status"]) => status === "done" || status === "failed" || status === "dead";
   if (jobs.some((job) => !settled(job.status))) return;
-  if (isFreePreviewOrder(order) && order.status === "generating") {
+  if (isUnpaidFreePreview(order) && order.status === "generating") {
     await writeWatermarkedPreviews(orderId);
     await store.updateOrder(orderId, { status: "pending_payment", failureReason: null });
     return;
